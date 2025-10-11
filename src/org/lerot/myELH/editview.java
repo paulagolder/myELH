@@ -73,7 +73,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
 
     public void setup(elhnode anode)
     {
-        System.out.println(" in set up  " + anode.toLongString());
+      //  System.out.println(" in set up  " + anode.toLongString());
         this.activenode = myELHgui.mframe.activenode;
         this.namefield.setText(anode.getName());
         this.stylefield.setText(anode.getStylename());
@@ -187,14 +187,14 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
             elhnode targetnode = activenode.findChildnode(path);
             System.out.println(comStr + " action " + path + " " + targetnode);
             this.activenode = targetnode;
-            myELHgui.mframe.currentview.setselections(targetnode);
+            myELHgui.mframe.currenttreeview.setselections(targetnode);
             myELHgui.mframe.refresh();
         } else if (comStr.startsWith("UP:"))
         {
             System.out.println(comStr + " action");
             String path = comStr.substring(3);
             elhnode targetnode = activenode.findChildnode(path);
-            myELHgui.mframe.currentview.actions("LEFT", targetnode);
+            myELHgui.mframe.currenttreeview.actions("LEFT", targetnode);
         } else if (comStr.startsWith("DELETE:"))
         {
             System.out.println(comStr + " action");
@@ -207,7 +207,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
             System.out.println(comStr + " action");
             String path = comStr.substring(5);
             elhnode targetnode = activenode.findChildnode(path);
-            myELHgui.mframe.currentview.actions("RIGHT", targetnode);
+            myELHgui.mframe.currenttreeview.actions("RIGHT", targetnode);
         } else if (comStr.startsWith("NEWCHILD"))
         {
             this.popup = makePopup(this.activenode);
@@ -223,7 +223,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
             activenode.addChild("entity");
         } else
         {
-            myELHgui.mframe.currentview.actions(comStr, activenode);
+            myELHgui.mframe.currenttreeview.actions(comStr, activenode);
         }
     }
 

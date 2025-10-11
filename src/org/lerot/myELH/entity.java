@@ -3,22 +3,20 @@
 
   public class entity  extends elhnode
   {
-      protected static String[] childgroupingtypes = {"sequence", "option", "repetition", "rolegroup"};
-      static String[]   childtypes = { "event", "role" };
+
 
     public entity(String aname, elhnode aparent)
     {
       super(aname, aparent);
+      this.childgrouptype = "sequence";
     }
 
 
-
-    
     public void insert(String string)
     {
-      System.out.println(" inserting event ");
-      event newevent = new event("newevent", this);
-      addChild(newevent);
+      System.out.println(" inserting entity ");
+      entity newelhnode = new entity("newentity", this);
+      addChild(newelhnode);
     }
 
 

@@ -3,8 +3,7 @@
 
   public class event  extends elhnode
   {
-      static String[]   childtypes = { "event", "role" };
-    static String[]  childgroupingtypes = { "sequence", "option", "repetition", "rolegroup" };;
+
 
     public event(String aname, elhnode aparent) {
       super(aname, aparent);
@@ -15,8 +14,8 @@
     public void insert(String string)
     {
       System.out.println(" inserting Event");
-      event newevent = new event("newevent", this);
-      addChild(newevent);
+      event newelhnode  = new event("newevent", this);
+      addChild(newelhnode);
     }
 
 

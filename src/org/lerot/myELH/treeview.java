@@ -210,12 +210,12 @@ public class treeview extends JPanel implements ActionListener, MouseListener
         if (comStr.startsWith("VIEW PARENT"))
         {
             myELHgui.mframe.activenode = selectednode.getParent();
-            myELHgui.mframe.currentview.setselections(myELHgui.mframe.activenode);
+            myELHgui.mframe.currenttreeview.setselections(myELHgui.mframe.activenode);
             myELHgui.mframe.refresh();
         } else if (comStr.startsWith("VIEW"))
         {
             myELHgui.mframe.activenode = selectednode.getParent();
-            myELHgui.mframe.currentview.setselections(myELHgui.mframe.activenode);
+            myELHgui.mframe.currenttreeview.setselections(myELHgui.mframe.activenode);
             myELHgui.mframe.refresh();
         } else if (comStr.startsWith("UP"))
         {
@@ -302,7 +302,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
             {
                 myELHgui.mframe.activenode = myELHgui.mframe.currentelh.findActiveEvent(treepath);
             }
-            myELHgui.mframe.updateview();
+            myELHgui.mframe.updateview( myELHgui.mframe.currentelh);
         }
     }
 }

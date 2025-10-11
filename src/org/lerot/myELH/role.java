@@ -1,36 +1,19 @@
-  package org.lerot.myELH;
-  
-  import java.util.List;
-  import org.jdom.Element;
-  
+package org.lerot.myELH;
 
-  public class role     extends entity
-  {
-      static String[]   childtypes = { "event", "role" };
-      static String[]  childgroupingtypes = { "sequence", "option", "repetition", "rolegroup" };;
-
-
-      public role(String aname, elhnode aparent)
-      {
-      super(aname, aparent);
-      this.childgrouptype = "sequence";
-
+public class role extends entity
+{
+    public role(String aname, elhnode aparent)
+    {
+        super(aname, aparent);
+        this.childgrouptype = "sequence";
     }
 
-  
-
-    
-    public void insert(String string) {
-      System.out.println(" inserting event ");
-      event newevent = new event("newevent", this);
-      addChild(newevent);
+    public void insert(String string)
+    {
+        System.out.println(" inserting Role");
+        role newelhnode = new role("newrole", this);
+        addChild(newelhnode);
     }
-  
-    
-
-  
-    
-
-  }
+}
 
 

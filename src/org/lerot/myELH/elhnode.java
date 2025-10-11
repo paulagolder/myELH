@@ -8,6 +8,8 @@ import org.jdom.Element;
 
 public abstract class elhnode
 {
+   // static String[]   childtypes = { "event", "role" };
+   // static String[]  childgroupingtypes = { "sequence", "option", "repetition", "rolegroup" };;
     protected static String[] childtypes = {"entity", "event", "role"};
     protected static String[] childgroupingtypes = {"sequence", "option", "repetition", "rolegroup"};
     protected String childgrouptype;
@@ -15,6 +17,7 @@ public abstract class elhnode
     private String name;
     private elhnode parent;
     private String stylename;
+    private int id=0;
 
     public elhnode()
     {
@@ -50,7 +53,7 @@ public abstract class elhnode
 
     public void insertabovechildren()
     {
-        myELHgui.mframe.currentview.suspendtreeview();
+        myELHgui.mframe.currenttreeview.suspendtreeview();
         event newevent = new event("newevent", this);
         Vector<elhnode> oldchildren = getChildren();
         this.children = null;
@@ -240,6 +243,9 @@ public abstract class elhnode
                 break;
             case "rolegroup":
                 newnode = new rolegroup("new rolegroup", parent);
+                break;
+            case "entitygroup":
+                newnode = new entitygroup("new entitygroup", parent);
                 break;
             default:
                 System.out.println(" Unknown type " + typename);

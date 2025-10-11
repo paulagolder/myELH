@@ -2,21 +2,18 @@ package org.lerot.myELH;
 
 import com.jgoodies.looks.plastic.Plastic3DLookAndFeel;
 import com.jgoodies.looks.plastic.PlasticLookAndFeel;
-import com.jgoodies.looks.plastic.PlasticTheme;
 import com.jgoodies.looks.plastic.theme.DesertBluer;
+import org.lerot.mywidgets.jswStyle;
+import org.lerot.mywidgets.jswStyles;
+import org.lerot.mywidgets.jswVerticalPanel;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Image;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import javax.swing.*;
+import javax.swing.border.LineBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreePath;
+import java.awt.*;
+import java.awt.event.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -24,27 +21,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.InvalidPropertiesFormatException;
 import java.util.Properties;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.ImageIcon;
-import javax.swing.JFileChooser;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JMenu;
-import javax.swing.JMenuBar;
-import javax.swing.JMenuItem;
-import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.LookAndFeel;
-import javax.swing.UIManager;
-import javax.swing.border.LineBorder;
-import javax.swing.filechooser.FileNameExtensionFilter;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.TreePath;
-
-import org.lerot.mywidgets.jswStyle;
-import org.lerot.mywidgets.jswStyles;
-import org.lerot.mywidgets.jswVerticalPanel;
+//import static org.lerot.myELH.svgview.stylemaps;
 
 public class myELHgui extends JFrame implements ActionListener, ComponentListener
 {
@@ -65,36 +42,37 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
     private final String propsfile;
     private final Object props;
     private final String elhfolder;
-    public stylemaps mystylemaps;
+    // public stylemaps mystylemaps;
     public DefaultMutableTreeNode activetreenode;
     public elhnode activenode;
     public Font promptfont;
-    treeview currentview;
+    treeview currenttreeview;
     elh currentelh;
     jswVerticalPanel editpanel;
-    boolean jacksonstyle;
     JPopupMenu popup;
     private ImageIcon jstatIcon;
     private File currentfile;
     private File svgfile;
-    private elhdrawnode topdrawnode;
+    private elhDrawNode topdrawnode;
     private Dimension closeButtonSize;
     private String view;
     private editview evpanel;
     private editview evpanel2;
     private editview evpanel3;
+    private final styleMaps stylemaps = new styleMaps();
+    private svgdoc currentsvgdoc;
+    private String layoutstyle = "default";
 
     public myELHgui(int w, int h)
     {
-        super("ELH 0.2");
-        // jswStyles.initiateStyles();
-        this.jacksonstyle = false;
+        super("ELH " + version);
+        stylemaps.makeNodeStyles();
         this.userdir = System.getProperty("user.dir");
         this.userhome = System.getProperty("user.home");
         this.user = System.getProperty("user.name");
         this.osversion = System.getProperty("os.version");
         this.os = System.getProperty("os.name");
-        this.mystylemaps = new stylemaps();
+        //  this.mystylemaps = new stylemaps();
         System.out.println("user :" + this.user);
         System.out.println("user directory :" + this.userdir);
         System.out.println("operating system :" + this.os + "(" + this.osversion + ")");
@@ -189,17 +167,18 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         statusbar.add(new JLabel("ACTIVE ENTITY:"));
         statusbar.add(activepath = new JLabel());
         add(statusbar);
-        this.currentview = new treeview();
+        this.currenttreeview = new treeview();
         this.editpanel = new jswVerticalPanel("editpanel", false, false);
         this.editpanel.setBorder(new LineBorder(Color.PINK, 2));
         this.editpanel.setLayout(new BorderLayout());
         showEditView(this.editpanel, this.activenode);
-        (this.svgpanel = new JPanel()).setBorder(new LineBorder(Color.BLUE, 2));
+        this.svgpanel = new JPanel();
+        this.svgpanel.setBorder(new LineBorder(Color.BLUE, 2));
         this.svgpanel.setLayout(new BorderLayout());
         this.svgpanel.addComponentListener(this);
         JPanel mainpanels = new JPanel();
         mainpanels.setLayout(new BoxLayout(mainpanels, 0));
-        mainpanels.add(this.currentview);
+        mainpanels.add(this.currenttreeview);
         mainpanels.add(this.editpanel);
         mainpanels.add(this.svgpanel);
         this.editpanel.setVisible(false);
@@ -208,6 +187,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         repaint();
         getContentPane().validate();
         setDefaultCloseOperation(3);
+        stylemaps.put("default", styleMap.getdefault());
         this.propsfile = this.dotelh + "properties.xml";
         this.props = readProperties(this.propsfile);
         this.view = "EDIT";
@@ -301,14 +281,18 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         String comStr = ae.getActionCommand();
         if (comStr.equalsIgnoreCase("Jackson Style"))
         {
-            this.jacksonstyle = true;
+            this.layoutstyle = "jackson";
+            elhDrawNode.layoutstyle = layoutstyle;
             this.stylej.setEnabled(false);
             this.styled.setEnabled(true);
+            myELHgui.mframe.refresh();
         } else if (comStr.equalsIgnoreCase("Default Style"))
         {
-            this.jacksonstyle = false;
+            this.layoutstyle = "default";
+            elhDrawNode.layoutstyle = layoutstyle;
             this.stylej.setEnabled(true);
             this.styled.setEnabled(false);
+            myELHgui.mframe.refresh();
         } else if (comStr.equalsIgnoreCase("svg"))
         {
             svgexport(true);
@@ -345,7 +329,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             {
                 this.activenode.insertabovechildren();
             }
-            this.currentview.maketree(this.currentelh);
+            this.currenttreeview.maketree(this.currentelh);
             showEditView();
             repaint();
             getContentPane().validate();
@@ -365,7 +349,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             {
                 ((elh) this.activenode).insert("newevent");
             }
-            this.currentview.maketree(this.currentelh);
+            this.currenttreeview.maketree(this.currentelh);
             showEditView();
             repaint();
             getContentPane().validate();
@@ -375,7 +359,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             {
                 ((event) this.activenode).insert("newevent");
             }
-            this.currentview.maketree(this.currentelh);
+            this.currenttreeview.maketree(this.currentelh);
         } else if (comStr.equalsIgnoreCase("open"))
         {
             JFileChooser fc = new JFileChooser();
@@ -391,9 +375,22 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
                 this.sourcefile.setText(this.currentfile.getName());
                 this.currentelh = new elh(this.currentfile.getName());
                 this.currentelh.importELH(this.currentfile.getAbsolutePath());
-                this.currentview.maketree(this.currentelh);
+                if (currentelh.countChildren() == 1)
+                {
+                    if (currentelh.getChildren().get(0).getType().equalsIgnoreCase("elh"))
+                    {
+                        currentelh = (elh) currentelh.getChildren().get(0);
+                        currentelh.setParent(null);
+                    }
+                }
+                this.currenttreeview.maketree(this.currentelh);
                 this.activenode = null;
-                this.currentview.repaint();
+                this.currenttreeview.repaint();
+                currentsvgdoc = new svgdoc();
+                Rectangle cas = this.svgpanel.getBounds();
+                this.topdrawnode = new elhDrawNode(stylemaps.get("default"),currentsvgdoc,layoutstyle);
+                topdrawnode.makeDrawNodeTree(this.currentelh,1,5);
+                currentsvgdoc.setup(this.topdrawnode, cas.width, cas.height);
                 getContentPane().validate();
             } else
             {
@@ -416,7 +413,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             }
             this.currentelh = new elh(this.currentfile.getName());
             this.currentelh.makeElh(this.currentfile.getAbsolutePath());
-            this.currentview.maketree(this.currentelh);
+            this.currenttreeview.maketree(this.currentelh);
         } else if (comStr.equalsIgnoreCase("save as"))
         {
             JFileChooser fc = new JFileChooser();
@@ -466,22 +463,22 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
 
     public void refresh()
     {
-        System.out.println(" in refresh " + this.activetreenode);
+        //  System.out.println(" in refresh " + this.activetreenode);
         if (this.activetreenode != null)
         {
             TreePath treepath = new TreePath(mframe.activetreenode.getPath());
-            mframe.currentview.thistree.setSelectionPath(treepath);
-            mframe.currentview.thistree.scrollPathToVisible(treepath);
+            mframe.currenttreeview.thistree.setSelectionPath(treepath);
+            mframe.currenttreeview.thistree.scrollPathToVisible(treepath);
         }
         mframe.showEditView();
-        // mframe.showSVGView();
+        mframe.showSVGView(this.svgpanel, this.topdrawnode);
         mframe.repaint();
         getContentPane().validate();
         if (this.activetreenode != null)
         {
             TreePath treepath = new TreePath(mframe.activetreenode.getPath());
-            mframe.currentview.thistree.setSelectionPath(treepath);
-            mframe.currentview.thistree.scrollPathToVisible(treepath);
+            mframe.currenttreeview.thistree.setSelectionPath(treepath);
+            mframe.currenttreeview.thistree.scrollPathToVisible(treepath);
         }
     }
 
@@ -527,12 +524,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         getContentPane().validate();
     }
 
-    public void showSVGView()
-    {
-        showSVGView(this.svgpanel, this.topdrawnode);
-    }
-
-    private void showSVGView(JPanel apanel, elhdrawnode activenode)
+    private void showSVGView(JPanel apanel, elhDrawNode activenode)
     {
         apanel.removeAll();
         apanel.setBackground(Color.pink);
@@ -541,50 +533,15 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         {
             return;
         }
-        if (activenode.elhtype.equalsIgnoreCase("event"))
-        {
-            svgdoc adoc = new svgdoc();
-            adoc.setup(this.topdrawnode, cas.width, cas.height);
-            svgview svgpanel = new svgview();
-            svgpanel.setLayout(new BorderLayout());
-            svgpanel.setBackground(Color.cyan);
-            svgpanel.showview(adoc);
-            apanel.add(svgpanel, "Center");
-            apanel.repaint();
-        } else if (activenode.elhtype.equalsIgnoreCase("entity"))
-        {
-            svgdoc adoc = new svgdoc();
-            adoc.setup(this.topdrawnode, cas.width, cas.height);
-            svgview svgpanel = new svgview();
-            svgpanel.setLayout(new BorderLayout());
-            svgpanel.setBackground(Color.green);
-            svgpanel.showview(adoc);
-            apanel.add(svgpanel, "Center");
-            apanel.repaint();
-        } else if (activenode.elhtype.equalsIgnoreCase("rolegroup"))
-        {
-            svgdoc adoc = new svgdoc();
-            adoc.setup(this.topdrawnode, cas.width, cas.height);
-            svgview svgpanel = new svgview();
-            svgpanel.setLayout(new BorderLayout());
-            svgpanel.setBackground(Color.green);
-            svgpanel.showview(adoc);
-            apanel.add(svgpanel, "Center");
-            apanel.repaint();
-        } else if (activenode.elhtype.equalsIgnoreCase("role"))
-        {
-            svgdoc adoc = new svgdoc();
-            adoc.setup(this.topdrawnode, cas.width, cas.height);
-            svgview svgpanel = new svgview();
-            svgpanel.setLayout(new BorderLayout());
-            svgpanel.setBackground(Color.green);
-            svgpanel.showview(adoc);
-            apanel.add(svgpanel, "Center");
-            apanel.repaint();
-        } else
-        {
-            activenode.elhtype.equalsIgnoreCase("elh");
-        }
+        currentsvgdoc = new svgdoc();
+        currentsvgdoc.setup(this.topdrawnode, cas.width, cas.height);
+        svgview svgpanel = new svgview(stylemaps.get("default"));
+        svgpanel.setLayout(new BorderLayout());
+        svgpanel.setBackground(Color.green);
+        svgpanel.setNodeStyle(stylemaps.get("default"));
+        svgpanel.showview(currentsvgdoc);
+        apanel.add(svgpanel, "Center");
+        apanel.repaint();
         repaint();
         getContentPane().validate();
     }
@@ -621,45 +578,32 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             dimensionp dim = adoc.getExportSize(this.topdrawnode);
             adoc.setup(this.topdrawnode, dim.width, dim.height);
             adoc.output(this.svgfile);
-        }
-    }
-
-    public void updateview(String treepath)
-    {
-        activepath.setText(treepath);
-        if (mframe.currentelh != null)
+        } else if (this.topdrawnode.elhtype.equalsIgnoreCase("elh"))
         {
-            this.activenode = mframe.currentelh.findActiveEvent(treepath);
-            this.activetreenode = mframe.currentview.thistree.findActiveTreenode(treepath);
-            this.topdrawnode = new elhdrawnode(this.activenode, 0, 5);
-            mframe.currentview.expandPath(this.activetreenode);
-            mframe.showEditView();
-            //mframe.showSVGView();
+            this.topdrawnode.updatetree();
+            svgdoc adoc = new svgdoc();
+            dimensionp dim = adoc.getExportSize(this.topdrawnode);
+            adoc.setup(this.topdrawnode, dim.width, dim.height);
+            adoc.output(this.svgfile);
         }
-        mframe.repaint();
-        getContentPane().validate();
     }
 
     public void updateview(elhnode activenode)
     {
         String treepath = elhnode.makepath(activenode);
-        activepath.setText(treepath);
+        //activepath.setText(treepath);
         if (mframe.currentelh != null)
         {
             activenode = mframe.currentelh.findActiveEvent(treepath);
-            this.activetreenode = mframe.currentview.thistree.findActiveTreenode(treepath);
-            this.topdrawnode = new elhdrawnode(activenode, 0, 5);
-            mframe.currentview.expandPath(this.activetreenode);
+            this.activetreenode = mframe.currenttreeview.thistree.findActiveTreenode(treepath);
+            this.topdrawnode = new elhDrawNode(stylemaps.get("default"),currentsvgdoc,layoutstyle);
+            topdrawnode.makeDrawNodeTree(activenode, 0, 5);
+            mframe.currenttreeview.expandPath(this.activetreenode);
             mframe.showEditView();
-            //mframe.showSVGView();
+            mframe.showSVGView(this.svgpanel, this.topdrawnode);
         }
         mframe.repaint();
         getContentPane().validate();
-    }
-
-    public void updateview()
-    {
-        updateview(this.activenode);
     }
 
     public Properties readProperties(String propsfile)
@@ -682,7 +626,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
 
     public void maketree()
     {
-        this.currentview.maketree(this.currentelh);
+        this.currenttreeview.maketree(this.currentelh);
     }
 }
 
