@@ -3,7 +3,6 @@ package org.lerot.myELH;
 import java.awt.*;
 import java.awt.geom.Rectangle2D;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Vector;
 
 public class elhDrawNode
@@ -347,6 +346,7 @@ public class elhDrawNode
     {
         elhDrawNode adnode = this;
         adnode.DrawShape((Graphics2D) g2d);
+        adnode.drawSymbols(g2d);
         if (adnode.hasParent())
         {
             drawUpLine(g2d);
@@ -354,12 +354,13 @@ public class elhDrawNode
         if (layoutstyle.equalsIgnoreCase("jackson")) drawJacksonSymbols(g2d);
         if (adnode.hasChildren())
         {
-            if (!layoutstyle.equalsIgnoreCase("simple")) drawTypeSymbols(g2d);
+            if (!layoutstyle.equalsIgnoreCase("simple")) drawTriangle(g2d);
             if (layoutstyle.equalsIgnoreCase("jackson")||layoutstyle.equalsIgnoreCase("simple")) drawDownLine(g2d);
             else drawSymbols(g2d);
             drawHorizontalLine(g2d);
             for (elhDrawNode adrawnode : adnode.children)
             {
+
                 adrawnode.drawNode(g2d);
             }
         }
@@ -394,6 +395,22 @@ public class elhDrawNode
         double y =  this.bounds.y + this.bounds.height+view.vs/2.0D;
         g2d.setColor(nodestylemap.getColor("lineColor"));
         g2d.drawLine((int) x, (int) y, (int) x2, (int) y);
+    }
+
+    private void drawParallellLines(Graphics g2d)
+    {
+        double lw = nodestylemap.getDouble("lineWidth");
+        int dy = 6;
+        ((Graphics2D) g2d).setStroke(new BasicStroke((float) lw));
+        Vector<elhDrawNode> kids = this.getChildren();
+        elhDrawNode firstchild = kids.getFirst();
+        elhDrawNode lastchild = kids.getLast();
+        double x = firstchild.bounds.x + firstchild.bounds.width/2.0D;
+        double x2 = lastchild.bounds.x + lastchild.bounds.width/2.0D;
+        double y =  this.bounds.y + this.bounds.height+view.vs/2.0D;
+        g2d.setColor(nodestylemap.getColor("lineColor"));
+        g2d.drawLine((int) x, (int) y, (int) x2, (int) y);
+        g2d.drawLine((int) x, (int) (y+dy), (int) x2, (int) (y+dy));
     }
 
     private void drawJacksonLine(Graphics g2d)
@@ -463,7 +480,7 @@ public class elhDrawNode
                 drawSymbolCircle(g2d);
                 break;
             case "rolegroup":
-                drawSymbolParallel(g2d);
+                drawParallellLines(g2d);
                 break;
             case "sequence":
                 break;
@@ -502,18 +519,6 @@ public class elhDrawNode
         g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
     }
 
-    private void drawSymbolParallel(Graphics g2d)
-    {
-        double x1 = bounds.x ;
-        double y1 = bounds.y- 1.0D;
-        double x2 = x1 + 40;
-        double y2 = y1;
-        g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
-
-        y1 =  bounds.y+ 1.0D;
-
-        g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
-    }
 
     private void drawString(String[] label, Graphics g2d, Font afont, double x, double y)
     {
@@ -554,7 +559,7 @@ public class elhDrawNode
         g2d.drawOval((int) x1, (int) y1, (int) r, (int) r);
     }
 
-    private void drawTypeSymbols(Graphics g2d)
+    private void drawTriangle(Graphics g2d)
     {
         elhDrawNode adnode = this;
         String stylename = getStylename();
@@ -563,9 +568,8 @@ public class elhDrawNode
         double lw = nodestylemap.getDouble("lineWidth");
         ((Graphics2D) g2d).setStroke(new BasicStroke((float) lw));
         double x = bounds.x + bounds.width/2;
-        double y = bounds.y;
-        if (adnode.countChildren() > 1)
-        {
+        double y = bounds.y+bounds.height;
+
             double x2 = x;
             double y2 = y + view.vs / 2.0D;
             double dx = view.vs / 3.464D;
@@ -578,16 +582,7 @@ public class elhDrawNode
             xPoints[2] = (int) x2;
             yPoints[2] = (int) y2;
             g2d.drawPolygon(xPoints, yPoints, 3);
-            double xmid = x;
-            double r = view.vs / 4.0D * Math.sqrt(3.0D);
-            double ymid = y + r;
-            drawSymbols(g2d);
-        } else
-        {
-            double x2 = x;
-            double y2 = y + view.vs / 2.0D;
-            g2d.drawLine((int) x, (int) y, (int) x2, (int) y2);
-        }
+
     }
 
     private void drawUpLine(Graphics g2d)

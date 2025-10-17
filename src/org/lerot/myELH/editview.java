@@ -73,7 +73,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
 
     public void setup(elhnode anode)
     {
-      //  System.out.println(" in set up  " + anode.toLongString());
+        //  System.out.println(" in set up  " + anode.toLongString());
         this.activenode = myELHgui.mframe.activenode;
         this.namefield.setText(anode.getName());
         this.stylefield.setText(anode.getStylename());
@@ -161,7 +161,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         System.out.println(comStr + " action in edit view");
         if (comStr.equalsIgnoreCase("save edits"))
         {
-            if (!(this.typefield.getSelectedValue().equalsIgnoreCase(activenode.getType())))
+           /* if (!(this.typefield.getSelectedValue().equalsIgnoreCase(activenode.getType())))
             {
                 elhnode newnode = elhnode.makeNode(this.typefield.getSelectedValue(), activenode.getParent());
                 newnode.moveChildrenFrom(activenode);
@@ -170,15 +170,20 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
                 newnode.setStylename(this.stylefield.getText().trim());
                 activenode.getParent().addChild(newnode);
                 System.out.println(" edited +" + newnode.toLongString());
-            }else
-            {
-                elhnode selectedelhnode = (elhnode) myELHgui.mframe.activetreenode.getUserObject();
-                selectedelhnode.setName(this.namefield.getText().trim());
-                selectedelhnode.setChildgrouptype(this.grouptypefield.getSelectedValue());
-                selectedelhnode.setStylename(this.stylefield.getText().trim());
-                System.out.println(" edited -" + activenode.toLongString());
-            }
+            }else*/
+            String path = activenode.getPath();
+            elhnode selectedelhnode = myELHgui.mframe.currentelh.findActiveEvent(path);
+            //elhnode selectedelhnode = (elhnode) myELHgui.mframe.activetreenode.getUserObject();
+            selectedelhnode.setName(this.namefield.getText().trim());
+            selectedelhnode.setChildgrouptype(this.grouptypefield.getSelectedValue());
+            selectedelhnode.setStylename(this.stylefield.getText().trim());
+            activenode.setName(this.namefield.getText().trim());
+            activenode.setChildgrouptype(this.grouptypefield.getSelectedValue());
+            activenode.setStylename(this.stylefield.getText().trim());
+            System.out.println(" edited -" + activenode.toLongString());
+            myELHgui.mframe.currenttreeview.setselections(selectedelhnode);
             myELHgui.mframe.maketree();
+            myELHgui.mframe.currenttreeview.setselections(selectedelhnode);
             myELHgui.mframe.refresh();
         } else if (comStr.startsWith("VIEW:"))
         {
