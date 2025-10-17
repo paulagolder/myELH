@@ -1,6 +1,6 @@
 package org.lerot.myELH;
 
-public class role extends entity
+public class role extends elhnode
 {
     public role(String aname, elhnode aparent)
     {

@@ -11,73 +11,126 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.lerot.myELH.styleMaps.makeStyles;
-//import static org.lerot.myELH.elhdrawnode.formatLabel;
+import java.util.Vector;
 
 public class svgdoc //extends JPanel
 {
     private static final long serialVersionUID = 1L;
-    private static styleMaps docstylemaps;
-    static nodeStyle currentnodestyle;
-    private static Map<Integer, Double> columns;
-    private static Map<Integer, Double> rows;
+    //   private  nodeStyle backgroundstyle;
     public SVGGraphics2D svggraphic;
     public Document document;
-    public Graphics2D g;
+    //  private final nodeStyle docstylemap;
+    public Color backgroundcolor;
+    Map<Integer, Double> columns;
+    Map<Integer, Double> rows;
+    //public Graphics2D svggraphic;
+    styleMap docstylemap;
     elhDrawNode topdrawnode;
     String docstyle;
     int width;
     int height;
-    double columnoffset;
+    //double columnoffset;
     int originx;
     Font docfont;
-    int[] rowtopy;
+    //int[] rowtopy;
     double vs;
     double hs;
     private double rowmaxy;
 
-    public svgdoc()
+    public svgdoc(String stylename)
     {
-        docstylemaps = new styleMaps();
-        docstylemaps.put("default", makeStyles());
-        this.docstyle = "default";
+        this.docstyle = stylename;
         this.originx = 0;
         this.width = 0;
         this.height = 0;
-        currentnodestyle = docstylemaps.get("default").get("default");
-        //setBackground(Color.magenta);
+        docstylemap = myELHgui.mframe.stylemaps.getStyleMap(stylename);
+        nodeStyle backgroundstyle = docstylemap.getNodeStyle("document");
+        backgroundcolor = backgroundstyle.getColor("fillcolor");
+        int fs = backgroundstyle.getInteger("textFontSize");
+        docfont = new Font("SansSerif", Font.PLAIN, fs);
+        this.vs = backgroundstyle.getDouble("vspace");
+        this.hs = backgroundstyle.getDouble("hspace");
         DOMImplementation domImpl = GenericDOMImplementation.getDOMImplementation();
         String svgNS = "http://www.w3.org/2000/svg";
         this.document = domImpl.createDocument(svgNS, "svg", null);
         this.svggraphic = new SVGGraphics2D(this.document);
+        svggraphic.setColor(backgroundcolor);
+    }
+
+    public dimensionp xgetExportSize()
+    {
+        //updateRowsandColumns();
+        return createLayout(this.topdrawnode, 0);
     }
 
 
 
-
-
-    public dimensionp getExportSize()
+    public dimensionp createLayout(elhDrawNode adnode, double xanchor)
     {
-        updateRowsandColumns();
-        return getExportSize(this.topdrawnode);
-    }
+        HashMap<String, Double> d0 = adnode.getNodeSize(svggraphic);
+        adnode.bounds.setDimension(d0.get("width"), d0.get("height"));
+        dimensionp rectsize= getSize(adnode,0);
+        double width = 0.0;
+        double height = 0.0;
+        double cumx = 0.0;
+        double topy = 0.0D;
+        if (adnode.hasParent())
+        {
+            elhDrawNode parent = adnode.getparent();
+            topy = parent.bounds.y + parent.bounds.height + vs;
+        }
 
-    public dimensionp getExportSize(elhDrawNode adnode)
-    {
-        double cols = adnode.getmaxchildcol();
-        int rows = adnode.getmaxchildRow();
-        String stylename = adnode.getStylename();
-        double rw = currentnodestyle.getDouble("rwidth");
-        double ch = currentnodestyle.getDouble( "rheight");
-        double width = (cols + 1.0D) * (rw + this.hs);
-        double height = this.rowmaxy;
+        adnode.bounds.x = xanchor+rectsize.width/2-hs;
+        adnode.bounds.y = topy;
+        width = adnode.bounds.width;
+        height = adnode.bounds.height;
+        if (adnode.hasChildren())
+        {
+            double anchor = xanchor;
+            width= -hs/2;
+            Vector<elhDrawNode> children = adnode.children;
+            for (elhDrawNode adrawnode : children)
+            {
+                dimensionp d = createLayout(adrawnode, anchor);
+                anchor += d.width+hs;
+                width +=  d.width+hs;
+                if ( adrawnode.bounds.height + 2*vs > height) height = adrawnode.bounds.height + 2*vs;
+            }
+
+
+        }
         return new dimensionp(width, height);
+    }
+    public dimensionp getSize(elhDrawNode adnode, int row)
+    {
+
+        double width = 0.0;
+        double height = 0.0;
+        double cumheight;
+        adnode.getNodeSize(svggraphic);
+        width = adnode.bounds.width;
+        cumheight = adnode.bounds.height;
+
+        if (adnode.hasChildren())
+        {
+            width= -hs;
+            height = 0.0;
+            Vector<elhDrawNode> children = adnode.children;
+            for (elhDrawNode adrawnode : children)
+            {
+                dimensionp d = getSize(adrawnode, row + 1);
+                width = width + d.width + this.hs;
+                if ( adrawnode.bounds.height + vs > height) height = adrawnode.bounds.height + vs;
+            }
+           cumheight += height;
+
+        }
+        return new dimensionp(width, cumheight);
     }
 
     public void output(File outfile)
     {
-        dimensionp dim = getExportSize();
+        dimensionp dim = createLayout(this.topdrawnode, 0);
         boolean useCSS = true;
         try
         {
@@ -102,90 +155,49 @@ public class svgdoc //extends JPanel
         }
     }
 
-    public void paint(Graphics2D g2d)
+   /* public void drawTree(Graphics2D g2d)
     {
-        this.g = g2d;
+       this.svggraphic = g2d;
         this.originx = this.width / 2;
         this.columnoffset = this.topdrawnode.col;
-        g2d.setColor(currentnodestyle.getColor( "fillColor"));
-        int fs = currentnodestyle.getInteger("textFontSize").intValue();
-        g2d.setFont(this.docfont = new Font("SansSerif", 0, fs));
-        g2d.setColor(currentnodestyle.getColor( "borderColor"));
-        this.vs = currentnodestyle.getDouble( "vspace");
-        this.hs = currentnodestyle.getDouble( "hspace");
+        nodeStyle backgroundstyle = docstylemap.getNodeStyle("document");
+        g2d.setColor(backgroundstyle.getColor("fillColor"));
+        int fs = backgroundstyle.getInteger("textFontSize");
+        docfont = new Font("SansSerif", 0, fs);
+        this.vs = backgroundstyle.getDouble("vspace");
+        this.hs = backgroundstyle.getDouble("hspace");
+        this.topdrawnode.drawNode(g2d);
+    }*/
 
-            this.topdrawnode.drawNode(g2d);
-
-    }
-
-    public void setup(elhDrawNode topdrawnode2)
-    {
-        dimensionp d = getExportSize(this.topdrawnode);
-        setup(this.topdrawnode, d.width, d.height);
-    }
-
-    public void setup(elhDrawNode adrawnode, double aw, double ah)
+    public void drawtree(elhDrawNode adrawnode, double aw, double ah)
     {
         this.topdrawnode = adrawnode;
-        adrawnode.updatetree();
-        this.rowtopy = new int[20];
-        updateRowsandColumns();
+        //   adrawnode.updatetree();
+        //  this.rowtopy = new int[20];
+        // updateRowsandColumns();
         this.width = (int) aw;
         this.height = (int) ah;
-       // setSize(this.width, this.height);
-        paint(this.svggraphic);
+        this.originx = this.width / 2;
+        //  this.columnoffset = this.topdrawnode.col;
+        this.topdrawnode.drawNode(svggraphic);
     }
 
-    public void updateRowsandColumns()
+    public void drawtree2(elhDrawNode adrawnode)
     {
-        columns = new HashMap<>();
-        rows = new HashMap<>();
-        String stylename = this.topdrawnode.getStylename();
-        double w = currentnodestyle.getDouble( "rwidth");
-        double h = currentnodestyle.getDouble( "rheight");
-        this.vs = currentnodestyle.getDouble( "vspace");
-        this.hs = currentnodestyle.getDouble("hspace");
-        int c = (int) this.topdrawnode.col * 10;
-        int r = this.topdrawnode.row;
-        columns.put(Integer.valueOf(c), Double.valueOf(w));
-        rows.put(Integer.valueOf(r), Double.valueOf(h));
-        updateRowsandColumns(this.topdrawnode);
-        int ty = (int) (this.vs / 2.0D);
-        for (int i = 0; i < this.topdrawnode.getmaxchildRow() + 1; i++)
-        {
-            this.rowtopy[i] = ty;
-            ty += (int) (rows.get(Integer.valueOf(i)).doubleValue() + this.vs);
-        }
-        this.rowmaxy = ty;
+        this.topdrawnode.drawNode(svggraphic);
     }
 
-    public void updateRowsandColumns(elhDrawNode adnode)
+    public void inittree(elhDrawNode adrawnode, double aw, double ah)
     {
-        String stylename = adnode.getStylename();
-        double w = currentnodestyle.getDouble( "rwidth");
-        double h = currentnodestyle.getDouble( "rheight");
-        int c = (int) adnode.col * 10;
-        int r = adnode.row;
-        double maxw = 0.0D;
-        if (columns.containsKey(Integer.valueOf(c)))
-        {
-            maxw = columns.get(Integer.valueOf(c)).doubleValue();
-        }
-        if (w > maxw)
-        {
-            columns.put(Integer.valueOf(c), Double.valueOf(w));
-        }
-        double maxr = 0.0D;
-        if (rows.containsKey(Integer.valueOf(r)))
-        {
-            maxr = rows.get(Integer.valueOf(r)).doubleValue();
-        }
-        if (h > maxr)
-        {
-            rows.put(Integer.valueOf(r), Double.valueOf(h));
-        }
-        for (elhDrawNode cadnode : adnode.children)
-            updateRowsandColumns(cadnode);
+        this.topdrawnode = adrawnode;
+        this.width = (int) aw;
+        this.height = (int) ah;
+        this.originx = this.width / 2;
     }
+
+
+
+
+
 }
 

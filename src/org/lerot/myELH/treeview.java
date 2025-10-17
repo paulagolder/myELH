@@ -186,6 +186,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
         if (me.isPopupTrigger())
         {
             TreePath path = this.thistree.getSelectionPath();
+            if(path == null) return;
             this.popup = makeTreePopup(path.toString());
             this.popup.show((JComponent) me.getSource(), me.getX(), me.getY());
         }
@@ -255,7 +256,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
                 if(selectednode.getChildren().size()==1)
                 {
                     myELHgui.mframe.activenode = selectednode.getChildren().get(0);
-                    myELHgui.mframe.currentelh = (elh)myELHgui.mframe.activenode;
+                    myELHgui.mframe.currentelh = (elh) myELHgui.mframe.activenode;
                 }
             }else
             {

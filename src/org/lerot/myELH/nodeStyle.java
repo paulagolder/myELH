@@ -7,7 +7,7 @@ public class nodeStyle extends HashMap<String, Object>
 {
     private static final long serialVersionUID = 1L;
 
-    public static nodeStyle getdefault()
+    public static nodeStyle makeDefaultNodeStyle()
     {
         nodeStyle anodestyle = new nodeStyle();
         anodestyle.put("rwidth", 80.0D);
@@ -19,8 +19,8 @@ public class nodeStyle extends HashMap<String, Object>
         anodestyle.put("symbolColor", Color.blue);
         anodestyle.put("lineColor", Color.red);
         anodestyle.put("lineWidth", 1.0D);
-        anodestyle.put("fillColor", Color.white);
-        anodestyle.put("fill", Boolean.FALSE);
+        anodestyle.put("fillColor",  Color.decode("#b09f9f"));
+        anodestyle.put("fill", Boolean.TRUE);
         anodestyle.put("borderWidth", 2.0D);
         anodestyle.put("hspace", 20.0D);
         anodestyle.put("vspace", 30.0D);

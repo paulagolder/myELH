@@ -16,19 +16,23 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.Serial;
 import java.net.URL;
 import java.util.InvalidPropertiesFormatException;
 import java.util.Properties;
-//import static org.lerot.myELH.svgview.stylemaps;
+
+import static org.lerot.myELH.styleMaps.getPrintStyles;
+import static org.lerot.myELH.styleMaps.getScreenStyles;
 
 public class myELHgui extends JFrame implements ActionListener, ComponentListener
 {
+    @Serial
     private static final long serialVersionUID = 1L;
     private static final String version = "2.0";
     public static myELHgui mframe;
     static JLabel activepath;
+    final styleMaps stylemaps = new styleMaps();
     private final String userdir;
     private final String user;
     private final String osversion;
@@ -42,6 +46,8 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
     private final String propsfile;
     private final Object props;
     private final String elhfolder;
+    private final JMenuItem styles;
+    // final styleMaps docstylemaps;
     // public stylemaps mystylemaps;
     public DefaultMutableTreeNode activetreenode;
     public elhnode activenode;
@@ -49,24 +55,24 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
     treeview currenttreeview;
     elh currentelh;
     jswVerticalPanel editpanel;
-    JPopupMenu popup;
+    //JPopupMenu popup;
     private ImageIcon jstatIcon;
     private File currentfile;
     private File svgfile;
     private elhDrawNode topdrawnode;
-    private Dimension closeButtonSize;
+    //private Dimension closeButtonSize;
     private String view;
     private editview evpanel;
     private editview evpanel2;
     private editview evpanel3;
-    private final styleMaps stylemaps = new styleMaps();
     private svgdoc currentsvgdoc;
     private String layoutstyle = "default";
 
     public myELHgui(int w, int h)
     {
         super("ELH " + version);
-        stylemaps.makeNodeStyles();
+        stylemaps.put("screen", getScreenStyles());
+        stylemaps.put("print", getPrintStyles());
         this.userdir = System.getProperty("user.dir");
         this.userhome = System.getProperty("user.home");
         this.user = System.getProperty("user.name");
@@ -91,7 +97,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             this.jstatIcon = new ImageIcon(jstatIconURL);
             Image jstatIconImage = this.jstatIcon.getImage();
             setIconImage(jstatIconImage);
-            this.closeButtonSize = new Dimension(this.jstatIcon.getIconWidth() + 2, this.jstatIcon.getIconHeight() + 2);
+            // this.closeButtonSize = new Dimension(this.jstatIcon.getIconWidth() + 2, this.jstatIcon.getIconHeight() + 2);
         } else
         {
             System.out.println("no icon");
@@ -126,7 +132,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         jmView.add(svgdraw);
         jmb.add(jmView);
         JMenu jmExport = new JMenu("Export");
-        JMenuItem svgn = new JMenuItem("SVG New");
+        JMenuItem svgn = new JMenuItem("Print SVG");
         JMenuItem svg = new JMenuItem("SVG test");
         JMenuItem odf = new JMenuItem("ODF");
         jmExport.add(svgn);
@@ -135,8 +141,10 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         jmb.add(jmExport);
         JMenu jmOptions = new JMenu("Options");
         this.stylej = new JMenuItem("Jackson Style");
+        this.styles = new JMenuItem("Plain Style");
         this.styled = new JMenuItem("Default Style");
         jmOptions.add(this.stylej);
+        jmOptions.add(this.styles);
         jmOptions.add(this.styled);
         jmb.add(jmOptions);
         JMenu jmHelp = new JMenu("Help");
@@ -154,6 +162,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         svgn.addActionListener(this);
         this.stylej.addActionListener(this);
         this.styled.addActionListener(this);
+        this.styles.addActionListener(this);
         jmiAbout.addActionListener(this);
         setJMenuBar(jmb);
         setVisible(true);
@@ -187,7 +196,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         repaint();
         getContentPane().validate();
         setDefaultCloseOperation(3);
-        stylemaps.put("default", styleMap.getdefault());
+        stylemaps.put("default", styleMap.makedefault());
         this.propsfile = this.dotelh + "properties.xml";
         this.props = readProperties(this.propsfile);
         this.view = "EDIT";
@@ -201,7 +210,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         {
             PlasticLookAndFeel.setPlasticTheme(new DesertBluer());
             UIManager.setLookAndFeel((LookAndFeel) new Plastic3DLookAndFeel());
-        } catch (Exception exception)
+        } catch (Exception ignored)
         {
         }
         UIManager.put("FileChooser.readOnly", Boolean.TRUE);
@@ -257,8 +266,6 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         jswStyle rowstyle0 = tablestyles.makeStyle("row_0");
         rowstyle0.putAttribute("backgroundcolor", "gray");
         rowstyle0.putAttribute("fontsize", 16);
-        // rowstyle0.putAttribute("fontStyle", Font.BOLD + Font.ITALIC);
-        //  rowstyle0.putAttribute("foregroundColor", "#0e56f2");
         jswStyle colstyle0 = tablestyles.makeStyle("col_0");
         colstyle0.putAttribute("backgroundcolor", "blue");
         colstyle0.putAttribute("horizontalAlignment", "RIGHT");
@@ -284,19 +291,29 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             this.layoutstyle = "jackson";
             elhDrawNode.layoutstyle = layoutstyle;
             this.stylej.setEnabled(false);
+            this.styles.setEnabled(true);
             this.styled.setEnabled(true);
             myELHgui.mframe.refresh();
-        } else if (comStr.equalsIgnoreCase("Default Style"))
+        }  else if (comStr.equalsIgnoreCase("Plain Style"))
+        {
+            this.layoutstyle = "simple";
+            elhDrawNode.layoutstyle = layoutstyle;
+            this.stylej.setEnabled(true);
+            this.styles.setEnabled(false);
+            this.styled.setEnabled(true);
+            myELHgui.mframe.refresh();
+        }else if (comStr.equalsIgnoreCase("Default Style"))
         {
             this.layoutstyle = "default";
             elhDrawNode.layoutstyle = layoutstyle;
             this.stylej.setEnabled(true);
+            this.styles.setEnabled(true);
             this.styled.setEnabled(false);
             myELHgui.mframe.refresh();
         } else if (comStr.equalsIgnoreCase("svg"))
         {
             svgexport(true);
-        } else if (comStr.equalsIgnoreCase("svg new"))
+        } else if (comStr.equalsIgnoreCase("Print SVG"))
         {
             svgexport(true);
         } else if (comStr.equalsIgnoreCase("VIEW SVG"))
@@ -348,6 +365,9 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             } else if (this.activenode instanceof elh)
             {
                 ((elh) this.activenode).insert("newevent");
+            } else if (this.activenode instanceof role)
+            {
+                ((role) this.activenode).insert("newevent");
             }
             this.currenttreeview.maketree(this.currentelh);
             showEditView();
@@ -370,27 +390,28 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             int returnVal = fc.showOpenDialog(this);
             if (returnVal == 0)
             {
-                File fileToLoad = fc.getSelectedFile();
-                this.currentfile = fileToLoad;
+                this.currentfile = fc.getSelectedFile();
                 this.sourcefile.setText(this.currentfile.getName());
                 this.currentelh = new elh(this.currentfile.getName());
                 this.currentelh.importELH(this.currentfile.getAbsolutePath());
                 if (currentelh.countChildren() == 1)
                 {
-                    if (currentelh.getChildren().get(0).getType().equalsIgnoreCase("elh"))
+                    if (currentelh.getChildren().getFirst().getType().equalsIgnoreCase("elh"))
                     {
-                        currentelh = (elh) currentelh.getChildren().get(0);
+                        currentelh = (elh) currentelh.getChildren().getFirst();
                         currentelh.setParent(null);
                     }
                 }
                 this.currenttreeview.maketree(this.currentelh);
                 this.activenode = null;
                 this.currenttreeview.repaint();
-                currentsvgdoc = new svgdoc();
+                // currentsvgdoc = new svgdoc("screen");
+                currentsvgdoc = new svgdoc("screen");
                 Rectangle cas = this.svgpanel.getBounds();
-                this.topdrawnode = new elhDrawNode(stylemaps.get("default"),currentsvgdoc,layoutstyle);
-                topdrawnode.makeDrawNodeTree(this.currentelh,1,5);
-                currentsvgdoc.setup(this.topdrawnode, cas.width, cas.height);
+                this.topdrawnode = new elhDrawNode(currentsvgdoc, layoutstyle);
+               // this.nodestack = new elhnodestack(this.currentelh, currentsvgdoc,layoutstyle);
+                topdrawnode.makeDrawNodeTree(this.currentelh, 1, 5);
+                currentsvgdoc.drawtree(this.topdrawnode, cas.width, cas.height);
                 getContentPane().validate();
             } else
             {
@@ -418,15 +439,13 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         {
             JFileChooser fc = new JFileChooser();
             fc.setCurrentDirectory(new File(this.elhfolder));
-            int returnVal = fc.showOpenDialog(this);
             fc.setDialogTitle("Save to new ELH file");
             FileNameExtensionFilter filter = new FileNameExtensionFilter("ELH", "xml", "elh");
             fc.setFileFilter(filter);
-            returnVal = fc.showSaveDialog(this);
+            int returnVal = fc.showSaveDialog(this);
             if (returnVal == 0)
             {
-                File fileToSave = fc.getSelectedFile();
-                this.currentfile = fileToSave;
+                this.currentfile = fc.getSelectedFile();
             } else
             {
                 System.out.println("Open command cancelled by user.");
@@ -533,8 +552,13 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         {
             return;
         }
-        currentsvgdoc = new svgdoc();
-        currentsvgdoc.setup(this.topdrawnode, cas.width, cas.height);
+        //currentsvgdoc = new svgdoc("screen");
+        currentsvgdoc = new svgdoc("screen");
+        currentsvgdoc.topdrawnode = this.topdrawnode;
+        currentsvgdoc.inittree(this.topdrawnode, cas.width, cas.height);;
+        currentsvgdoc.createLayout(this.topdrawnode, 0);
+        currentsvgdoc.drawtree2(this.topdrawnode);
+    //    this.topdrawnode.drawNode(currentsvgdoc);
         svgview svgpanel = new svgview(stylemaps.get("default"));
         svgpanel.setLayout(new BorderLayout());
         svgpanel.setBackground(Color.green);
@@ -550,6 +574,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
     {
         JFileChooser fc = new JFileChooser();
         fc.setDialogTitle("Save SVG file");
+        fc.setCurrentDirectory(new File(this.elhfolder));
         FileNameExtensionFilter filter = new FileNameExtensionFilter("svg", "svg");
         fc.setFileFilter(filter);
         int returnVal = fc.showSaveDialog(this);
@@ -558,34 +583,16 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             System.out.println("Open command cancelled by user.");
             return;
         }
-        File fileToSave = fc.getSelectedFile();
-        this.svgfile = fileToSave;
+        this.svgfile = fc.getSelectedFile();
         if (this.topdrawnode == null)
         {
             return;
         }
-        if (this.topdrawnode.elhtype.equalsIgnoreCase("event"))
-        {
-            this.topdrawnode.updatetree();
-            svgdoc adoc = new svgdoc();
-            dimensionp dim = adoc.getExportSize(this.topdrawnode);
-            adoc.setup(this.topdrawnode, dim.width, dim.height);
-            adoc.output(this.svgfile);
-        } else if (this.topdrawnode.elhtype.equalsIgnoreCase("entity"))
-        {
-            this.topdrawnode.updatetree();
-            svgdoc adoc = new svgdoc();
-            dimensionp dim = adoc.getExportSize(this.topdrawnode);
-            adoc.setup(this.topdrawnode, dim.width, dim.height);
-            adoc.output(this.svgfile);
-        } else if (this.topdrawnode.elhtype.equalsIgnoreCase("elh"))
-        {
-            this.topdrawnode.updatetree();
-            svgdoc adoc = new svgdoc();
-            dimensionp dim = adoc.getExportSize(this.topdrawnode);
-            adoc.setup(this.topdrawnode, dim.width, dim.height);
-            adoc.output(this.svgfile);
-        }
+      //  this.topdrawnode.updatetree();
+        svgdoc adoc = new svgdoc("print");
+        dimensionp dim = adoc.getSize(this.topdrawnode,0);
+        adoc.drawtree(this.topdrawnode, dim.width, dim.height);
+        adoc.output(this.svgfile);
     }
 
     public void updateview(elhnode activenode)
@@ -596,7 +603,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         {
             activenode = mframe.currentelh.findActiveEvent(treepath);
             this.activetreenode = mframe.currenttreeview.thistree.findActiveTreenode(treepath);
-            this.topdrawnode = new elhDrawNode(stylemaps.get("default"),currentsvgdoc,layoutstyle);
+            this.topdrawnode = new elhDrawNode(currentsvgdoc, layoutstyle);
             topdrawnode.makeDrawNodeTree(activenode, 0, 5);
             mframe.currenttreeview.expandPath(this.activetreenode);
             mframe.showEditView();
@@ -616,9 +623,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         } catch (InvalidPropertiesFormatException e)
         {
             e.printStackTrace();
-        } catch (FileNotFoundException fileNotFoundException)
-        {
-        } catch (IOException iOException)
+        } catch (IOException ignored)
         {
         }
         return null;
