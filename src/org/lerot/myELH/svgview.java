@@ -29,7 +29,8 @@ public class svgview extends JPanel
         Element root = asvgdoc.document.getDocumentElement();
         asvgdoc.svggraphic.getRoot(root);
         this.topdrawnode = asvgdoc.topdrawnode;
-        dimensionp d = asvgdoc.createLayout(this.topdrawnode, 0);
+        dimensionp d = asvgdoc.createLayout(this.topdrawnode, asvgdoc.hs);
+        System.out.println("========================================");
         this.canvas = new JSVGCanvas();
         this.canvas.setDocumentState(1);
         this.canvas.addMouseMotionListener(new MyMouseListener());
@@ -60,8 +61,6 @@ public class svgview extends JPanel
             if (svgview.this.clickednode != null)
             {
                 ShapeI si = svgview.this.clickednode.bounds.getShapeI();
-               // int w = (int)svgview.this.clickednode.boundsi().width;
-               // int h = (svgview.this.clickednode.getDimension()).height;
                 Graphics graphics = svgview.this.getGraphics();
                 graphics.setXORMode(svgview.this.getBackground());
                 graphics.drawRect(x, y, si.width, si.height);

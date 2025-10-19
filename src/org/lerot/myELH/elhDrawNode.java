@@ -9,10 +9,11 @@ public class elhDrawNode
 {
     static svgdoc view;
     static String layoutstyle;
-    private static int columncounter;
-    public double anchor;
-    int row;
-    double col;
+ //   private static int columncounter;
+  //  public double anchor;
+ //   int row;
+ //   double col;
+    double bottom=0.0;
     String text = "deftext";
     String elhtype;
     Vector<elhDrawNode> children;
@@ -36,8 +37,6 @@ public class elhDrawNode
         bounds = new ShapeD();
         this.parent = null;
         this.children = new Vector<>();
-        this.row = r;
-        this.col = 1.0D;
         this.text = anode.getName();
         this.childgrouptype = anode.getChildgrouptype();
         this.elhtype = anode.getClass().getSimpleName();
@@ -108,8 +107,6 @@ public class elhDrawNode
     {
         this.parent = null;
         this.children = new Vector<>();
-        this.row = r;
-        this.col = 1.0D;
         this.text = anode.getName();
         this.childgrouptype = anode.getChildgrouptype();
         this.elhtype = anode.getClass().getSimpleName();
@@ -203,7 +200,7 @@ public class elhDrawNode
 
     public String toString()
     {
-        return this.text + " row =" + this.row + " col=" + this.col;
+        return this.text ;
     }
 
     boolean containsPoint(double px, double py)
@@ -360,7 +357,6 @@ public class elhDrawNode
             drawHorizontalLine(g2d);
             for (elhDrawNode adrawnode : adnode.children)
             {
-
                 adrawnode.drawNode(g2d);
             }
         }

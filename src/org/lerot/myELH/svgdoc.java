@@ -2,7 +2,6 @@ package org.lerot.myELH;
 
 import org.apache.batik.dom.GenericDOMImplementation;
 import org.apache.batik.svggen.SVGGraphics2D;
-import org.apache.batik.svggen.SVGGraphics2DIOException;
 import org.w3c.dom.DOMImplementation;
 import org.w3c.dom.Document;
 
@@ -16,30 +15,28 @@ import java.util.Vector;
 public class svgdoc //extends JPanel
 {
     private static final long serialVersionUID = 1L;
-    //   private  nodeStyle backgroundstyle;
     public SVGGraphics2D svggraphic;
     public Document document;
-    //  private final nodeStyle docstylemap;
     public Color backgroundcolor;
     Map<Integer, Double> columns;
     Map<Integer, Double> rows;
-    //public Graphics2D svggraphic;
     styleMap docstylemap;
     elhDrawNode topdrawnode;
     String docstyle;
     int width;
     int height;
-    //double columnoffset;
     int originx;
     Font docfont;
-    //int[] rowtopy;
     double vs;
     double hs;
-    private double rowmaxy;
+    double maxheight;
+    double maxwidth;
 
     public svgdoc(String stylename)
     {
         this.docstyle = stylename;
+        maxheight = 0.0;
+        maxwidth = 0.0;
         this.originx = 0;
         this.width = 0;
         this.height = 0;
@@ -57,134 +54,65 @@ public class svgdoc //extends JPanel
         svggraphic.setColor(backgroundcolor);
     }
 
-    public dimensionp xgetExportSize()
-    {
-        //updateRowsandColumns();
-        return createLayout(this.topdrawnode, 0);
-    }
-
-
-
     public dimensionp createLayout(elhDrawNode adnode, double xanchor)
     {
         HashMap<String, Double> d0 = adnode.getNodeSize(svggraphic);
         adnode.bounds.setDimension(d0.get("width"), d0.get("height"));
-        dimensionp rectsize= getSize(adnode,0);
         double width = 0.0;
         double height = 0.0;
-        double cumx = 0.0;
         double topy = 0.0D;
         if (adnode.hasParent())
         {
             elhDrawNode parent = adnode.getparent();
             topy = parent.bounds.y + parent.bounds.height + vs;
-        }
-
-        adnode.bounds.x = xanchor+rectsize.width/2-hs;
+        } else topy = vs;
+        adnode.bounds.x = xanchor;
         adnode.bounds.y = topy;
+        if (adnode.bounds.y + adnode.bounds.height + vs > maxheight)
+            maxheight = adnode.bounds.y + adnode.bounds.height + vs;
         width = adnode.bounds.width;
         height = adnode.bounds.height;
         if (adnode.hasChildren())
         {
-            double anchor = xanchor;
-            width= -hs/2;
-            Vector<elhDrawNode> children = adnode.children;
-            for (elhDrawNode adrawnode : children)
+            if (adnode.getChildren().size() > 1)
             {
-                dimensionp d = createLayout(adrawnode, anchor);
-                anchor += d.width+hs;
-                width +=  d.width+hs;
-                if ( adrawnode.bounds.height + 2*vs > height) height = adrawnode.bounds.height + 2*vs;
+                width = -hs;
+                Vector<elhDrawNode> children = adnode.children;
+                for (elhDrawNode adrawnode : children)
+                {
+                    dimensionp d = createLayout(adrawnode, xanchor);
+                    xanchor += d.width + hs;
+                    width += d.width + hs;
+                }
+                adnode.bounds.x = (adnode.children.getFirst().bounds.x +adnode.children.getLast().bounds.x+adnode.children.getLast().bounds.width)/2-adnode.bounds.width/2;
+            } else
+            {
+                dimensionp d = createLayout(adnode.children.getFirst(), xanchor);
+                adnode.bounds.x = adnode.children.getFirst().bounds.x + adnode.children.getFirst().bounds.width / 2 - adnode.bounds.width / 2;
+                width = d.width ;
             }
-
-
         }
+        if (adnode.bounds.x + adnode.bounds.width + hs > maxwidth)  maxwidth = adnode.bounds.x + adnode.bounds.width + hs;
         return new dimensionp(width, height);
     }
-    public dimensionp getSize(elhDrawNode adnode, int row)
+
+    public void printsvg(File outfile)
     {
-
-        double width = 0.0;
-        double height = 0.0;
-        double cumheight;
-        adnode.getNodeSize(svggraphic);
-        width = adnode.bounds.width;
-        cumheight = adnode.bounds.height;
-
-        if (adnode.hasChildren())
-        {
-            width= -hs;
-            height = 0.0;
-            Vector<elhDrawNode> children = adnode.children;
-            for (elhDrawNode adrawnode : children)
-            {
-                dimensionp d = getSize(adrawnode, row + 1);
-                width = width + d.width + this.hs;
-                if ( adrawnode.bounds.height + vs > height) height = adrawnode.bounds.height + vs;
-            }
-           cumheight += height;
-
-        }
-        return new dimensionp(width, cumheight);
-    }
-
-    public void output(File outfile)
-    {
-        dimensionp dim = createLayout(this.topdrawnode, 0);
+        createLayout(this.topdrawnode, vs);
+        dimensionp dim = new dimensionp(maxwidth, maxheight);
         boolean useCSS = true;
         try
         {
             OutputStream outputStream = new FileOutputStream(outfile);
             Writer out = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);
-            this.svggraphic.setSVGCanvasSize(new Dimension((int) dim.width, (int) dim.height));
+            this.svggraphic.setSVGCanvasSize(new Dimension((int) dim.width, (int) maxheight));
             this.svggraphic.stream(out, true);
             outputStream.flush();
             outputStream.close();
-        } catch (UnsupportedEncodingException e)
-        {
-            e.printStackTrace();
-        } catch (SVGGraphics2DIOException e2)
-        {
-            e2.printStackTrace();
-        } catch (FileNotFoundException e3)
-        {
-            e3.printStackTrace();
         } catch (IOException e4)
         {
             e4.printStackTrace();
         }
-    }
-
-   /* public void drawTree(Graphics2D g2d)
-    {
-       this.svggraphic = g2d;
-        this.originx = this.width / 2;
-        this.columnoffset = this.topdrawnode.col;
-        nodeStyle backgroundstyle = docstylemap.getNodeStyle("document");
-        g2d.setColor(backgroundstyle.getColor("fillColor"));
-        int fs = backgroundstyle.getInteger("textFontSize");
-        docfont = new Font("SansSerif", 0, fs);
-        this.vs = backgroundstyle.getDouble("vspace");
-        this.hs = backgroundstyle.getDouble("hspace");
-        this.topdrawnode.drawNode(g2d);
-    }*/
-
-    public void drawtree(elhDrawNode adrawnode, double aw, double ah)
-    {
-        this.topdrawnode = adrawnode;
-        //   adrawnode.updatetree();
-        //  this.rowtopy = new int[20];
-        // updateRowsandColumns();
-        this.width = (int) aw;
-        this.height = (int) ah;
-        this.originx = this.width / 2;
-        //  this.columnoffset = this.topdrawnode.col;
-        this.topdrawnode.drawNode(svggraphic);
-    }
-
-    public void drawtree2(elhDrawNode adrawnode)
-    {
-        this.topdrawnode.drawNode(svggraphic);
     }
 
     public void inittree(elhDrawNode adrawnode, double aw, double ah)
@@ -193,11 +121,20 @@ public class svgdoc //extends JPanel
         this.width = (int) aw;
         this.height = (int) ah;
         this.originx = this.width / 2;
+        // this.topdrawnode.drawNode(svggraphic);
     }
 
+    public void drawtree(elhDrawNode adrawnode)
+    {
+        adrawnode.drawNode(svggraphic);
+    }
 
-
-
-
+    public void xinittree(elhDrawNode adrawnode, double aw, double ah)
+    {
+        this.topdrawnode = adrawnode;
+        this.width = (int) aw;
+        this.height = (int) ah;
+        this.originx = this.width / 2;
+    }
 }
 
