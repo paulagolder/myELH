@@ -21,7 +21,7 @@ public class svgview extends JPanel
     {
         this.stylemap = astylemap;
         setVisible(true);
-        setBackground(Color.lightGray);
+        setBackground(Color.decode(org.lerot.mywidgets.jswTheme.DETAILAREA));
     }
 
     public void showview(svgdoc asvgdoc)

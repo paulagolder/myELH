@@ -31,7 +31,8 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
     {
         super("editview", true, true);
         // setInsets(10, 10, 10, 10);
-        setBorder(new LineBorder(Color.GREEN, 2));
+        setBorder(jswStyle.makeLineBorder());
+        jswTheme.tint(this, jswTheme.EDITAREA);
         jswHorizontalPanel namebar = new jswHorizontalPanel();
         this.namepanel = new jswTable(this, "namepanel", myELHgui.tablestyles());
         this.namefield = new jswTextBox(this, "namefield", 200, "namefield");
@@ -64,7 +65,6 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         add(namebar);
         jswHorizontalPanel childbar = new jswHorizontalPanel();
         this.childpanel = new jswTable(this, "childtable", myELHgui.tablestyles2());
-        this.childpanel.setBackground(Color.green);
         childbar.add(" MIDDLE ", this.childpanel);
         add(childbar);
         this.bottompanel = new jswHorizontalPanel();

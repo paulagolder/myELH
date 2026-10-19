@@ -13,7 +13,7 @@
       <element id="extracted-dir" path="$PROJECT_DIR$/lib/batik-all-1.19.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$PROJECT_DIR$/lib/batik-dom-1.19.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$PROJECT_DIR$/lib/itextpdf-5.5.3.jar" path-in-jar="/" />
-      <element id="extracted-dir" path="$PROJECT_DIR$/lib/looks-2.1-pre2.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/lib/flatlaf-3.7.2.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$PROJECT_DIR$/lib/batik-i18n-1.19.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$PROJECT_DIR$/lib/batik-util-1.19.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$PROJECT_DIR$/lib/ez-vcard-0.10.2.jar" path-in-jar="/" />

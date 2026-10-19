@@ -1,10 +1,8 @@
 package org.lerot.myELH;
 
-import com.jgoodies.looks.plastic.Plastic3DLookAndFeel;
-import com.jgoodies.looks.plastic.PlasticLookAndFeel;
-import com.jgoodies.looks.plastic.theme.DesertBluer;
 import org.lerot.mywidgets.jswStyle;
 import org.lerot.mywidgets.jswStyles;
+import org.lerot.mywidgets.jswTheme;
 import org.lerot.mywidgets.jswVerticalPanel;
 
 import javax.swing.*;
@@ -167,14 +165,15 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         statusbar.add(Box.createHorizontalGlue());
         statusbar.add(new JLabel("ACTIVE ENTITY:"));
         statusbar.add(activepath = new JLabel());
+        statusbar.setBackground(Color.decode(jswTheme.NAVAREA));
         add(statusbar);
         this.currenttreeview = new treeview();
         this.editpanel = new jswVerticalPanel("editpanel", false, false);
-        this.editpanel.setBorder(new LineBorder(Color.PINK, 2));
+        this.editpanel.setBorder(jswStyle.makeLineBorder());
         this.editpanel.setLayout(new BorderLayout());
         showEditView(this.editpanel, this.activenode);
         this.svgpanel = new JPanel();
-        this.svgpanel.setBorder(new LineBorder(Color.BLUE, 2));
+        this.svgpanel.setBorder(jswStyle.makeLineBorder());
         this.svgpanel.setLayout(new BorderLayout());
         this.svgpanel.addComponentListener(this);
         JPanel mainpanels = new JPanel();
@@ -198,13 +197,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
 
     public static void main(String[] args)
     {
-        try
-        {
-            PlasticLookAndFeel.setPlasticTheme(new DesertBluer());
-            UIManager.setLookAndFeel((LookAndFeel) new Plastic3DLookAndFeel());
-        } catch (Exception ignored)
-        {
-        }
+        jswTheme.install();
         UIManager.put("FileChooser.readOnly", Boolean.TRUE);
         (mframe = new myELHgui(800, 400)).addWindowListener(new WindowAdapter()
         {
@@ -225,17 +218,15 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         tablestyles.name = "defaulttable";
         jswStyle tablestyle = tablestyles.makeStyle("table");
         tablestyle.putAttribute("borderwidth", 1);
-        tablestyle.putAttribute("bordercolor", "gray");
+        tablestyle.putAttribute("bordercolor", jswTheme.BORDER);
         jswStyle rowstyle0 = tablestyles.makeStyle("row_0");
-        rowstyle0.putAttribute("backgroundcolor", "gray");
-        rowstyle0.putAttribute("fontsize", 16);
+        rowstyle0.putAttribute("fontsize", jswTheme.HEADING);
         rowstyle0.putAttribute("fontStyle", Font.BOLD + Font.ITALIC);
         rowstyle0.putAttribute("foregroundColor", "#0e56f2");
         jswStyle colstyle0 = tablestyles.makeStyle("col_0");
-        colstyle0.putAttribute("backgroundcolor", "blue");
         colstyle0.putAttribute("horizontalAlignment", "RIGHT");
         colstyle0.putAttribute("minwidth", 30);
-        colstyle0.putAttribute("fontsize", "16");
+        colstyle0.putAttribute("fontsize", jswTheme.HEADING);
         colstyle0.putAttribute("foregroundcolor", "gray");
         jswStyle colstyle = tablestyles.makeStyle("col");
         colstyle.putAttribute("horizontalAlignment", "RIGHT");
@@ -243,8 +234,8 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         jswStyle cellstyle = tablestyles.makeStyle("cell");
         cellstyle.putAttribute("foregroundcolor", "black");
         cellstyle.putAttribute("borderWidth", "1");
-        cellstyle.putAttribute("borderColor", "black");
-        cellstyle.putAttribute("fontsize", 16);
+        cellstyle.putAttribute("borderColor", jswTheme.CELLBORDER);
+        cellstyle.putAttribute("fontsize", jswTheme.HEADING);
         return tablestyles;
     }
 
@@ -254,15 +245,13 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         tablestyles.name = "defaulttable";
         jswStyle tablestyle = tablestyles.makeStyle("table");
         tablestyle.putAttribute("borderwidth", 1);
-        tablestyle.putAttribute("bordercolor", "gray");
+        tablestyle.putAttribute("bordercolor", jswTheme.BORDER);
         jswStyle rowstyle0 = tablestyles.makeStyle("row_0");
-        rowstyle0.putAttribute("backgroundcolor", "gray");
-        rowstyle0.putAttribute("fontsize", 16);
+        rowstyle0.putAttribute("fontsize", jswTheme.HEADING);
         jswStyle colstyle0 = tablestyles.makeStyle("col_0");
-        colstyle0.putAttribute("backgroundcolor", "blue");
         colstyle0.putAttribute("horizontalAlignment", "RIGHT");
         colstyle0.putAttribute("minwidth", 30);
-        colstyle0.putAttribute("fontsize", "16");
+        colstyle0.putAttribute("fontsize", jswTheme.HEADING);
         colstyle0.putAttribute("foregroundcolor", "gray");
         jswStyle colstyle = tablestyles.makeStyle("col");
         colstyle.putAttribute("horizontalAlignment", "RIGHT");
@@ -270,8 +259,8 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         jswStyle cellstyle = tablestyles.makeStyle("cell");
         cellstyle.putAttribute("foregroundcolor", "black");
         cellstyle.putAttribute("borderWidth", "1");
-        cellstyle.putAttribute("borderColor", "black");
-        cellstyle.putAttribute("fontsize", 16);
+        cellstyle.putAttribute("borderColor", jswTheme.CELLBORDER);
+        cellstyle.putAttribute("fontsize", jswTheme.HEADING);
         return tablestyles;
     }
 
@@ -538,7 +527,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
     private void showSVGView(JPanel apanel, elhDrawNode activenode)
     {
         apanel.removeAll();
-        apanel.setBackground(Color.pink);
+        apanel.setBackground(Color.decode(jswTheme.DETAILAREA));
         Dimension cas = apanel.getSize();
         if (activenode == null)
         {
@@ -555,7 +544,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
          this.topdrawnode.drawNode(currentsvgdoc.svggraphic);
         svgview svgpanel = new svgview(stylemaps.get("default"));
         svgpanel.setLayout(new BorderLayout());
-        svgpanel.setBackground(Color.green);
+        svgpanel.setBackground(Color.decode(jswTheme.DETAILAREA));
         svgpanel.setNodeStyle(stylemaps.get("default"));
         svgpanel.showview(currentsvgdoc);
         apanel.add(svgpanel, "Center");

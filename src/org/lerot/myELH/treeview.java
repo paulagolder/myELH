@@ -12,6 +12,9 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JTree;
 import javax.swing.border.LineBorder;
+
+import org.lerot.mywidgets.jswStyle;
+import org.lerot.mywidgets.jswTheme;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -22,13 +25,16 @@ import javax.swing.tree.TreePath;
 public class treeview extends JPanel implements ActionListener, MouseListener
 {
     private static final long serialVersionUID = 1L;
+    // selection highlights: branches blue-grey, leaves rose
+    static final Color BRANCHSELECTED = Color.decode("#BFC9D4");
+    static final Color LEAFSELECTED = Color.decode("#E3CBC6");
     myTree thistree;
     Color bg;
     private JPopupMenu popup;
 
     public treeview()
     {
-        this.bg = Color.lightGray;
+        this.bg = Color.decode(jswTheme.SELECTAREA);
         this.thistree = new myTree(new DefaultMutableTreeNode("No ELH OPEN"), false);
         this.thistree.removeAll();
         this.thistree.addTreeSelectionListener(new mytreelistener());
@@ -37,7 +43,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
         this.thistree.setBackground(this.bg);
         setCellRenderer(this.thistree);
         setSize(200, 200);
-        setBorder(new LineBorder(Color.RED, 2));
+        setBorder(jswStyle.makeLineBorder());
         setVisible(true);
     }
 
@@ -80,13 +86,13 @@ public class treeview extends JPanel implements ActionListener, MouseListener
                 setBackgroundNonSelectionColor(treeview.this.bg);
                 if (node.isRoot())
                 {
-                    setBackgroundSelectionColor(Color.darkGray);
+                    setBackgroundSelectionColor(BRANCHSELECTED);
                 } else if (node.getChildCount() > 0)
                 {
-                    setBackgroundSelectionColor(Color.darkGray);
+                    setBackgroundSelectionColor(BRANCHSELECTED);
                 } else if (pIsLeaf)
                 {
-                    setBackgroundSelectionColor(Color.pink);
+                    setBackgroundSelectionColor(LEAFSELECTED);
                 }
                 return this;
             }
