@@ -49,8 +49,8 @@ dependencies {
     implementation("org.lerot:mywidgets")
 
     implementation("org.jdom:jdom2:2.0.6.1")                      // reading and writing .elh files
-    implementation("org.apache.xmlgraphics:batik-svggen:1.19")    // drawing the diagram as SVG
-    implementation("org.apache.xmlgraphics:batik-swing:1.19")     // showing the SVG on screen
+    implementation("org.apache.xmlgraphics:batik-svggen:1.19")    // Export > Print SVG
+    implementation("org.apache.xmlgraphics:batik-dom:1.19")       // the SVG document it writes
 
     // JUnit, for the tests only; it is not put in myELH.jar
     testImplementation(platform("org.junit:junit-bom:6.1.3"))

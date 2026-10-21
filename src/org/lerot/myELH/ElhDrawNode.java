@@ -2,57 +2,41 @@ package org.lerot.myELH;
 
 import java.awt.*;
 import java.awt.geom.Rectangle2D;
-import java.util.HashMap;
-import java.util.Vector;
+import java.util.ArrayList;
+import java.util.List;
 
+// One box of an ElhDiagram, with the boxes for its children below it
 public class ElhDrawNode
 {
-    static SvgDoc view;
-    static LayoutStyle layoutstyle;
- //   private static int columncounter;
-  //  public double anchor;
- //   int row;
- //   double col;
-    double bottom=0.0;
-    String text = "deftext";
+    final ElhDiagram diagram;
+    // the tree node this box shows
+    final ElhNode source;
+    String text;
     String elhtype;
-    Vector<ElhDrawNode> children;
+    List<ElhDrawNode> children = new ArrayList<>();
     NodeStyle nodestylemap;
-    ShapeD bounds;
-    private ChildGrouping childgrouptype;
-    private ElhDrawNode parent;
-    private String stylename;
-    private double symbolshift=10;
+    ShapeD bounds = new ShapeD();
+    private final ChildGrouping childgrouptype;
+    private final ElhDrawNode parent;
+    private final String stylename;
+    private final double symbolshift = 10;
 
-    public ElhDrawNode(SvgDoc asvgdoc, LayoutStyle layout)
+    ElhDrawNode(ElhDiagram diagram, ElhNode anode, ElhDrawNode parent, int depth)
     {
-        // stylemap = astylemap;
-        view = asvgdoc;
-        layoutstyle = layout;
-        bounds = new ShapeD();
-    }
-
-    public ElhDrawNode(ElhNode anode, int r, int maxrow)
-    {
-        bounds = new ShapeD();
-        this.parent = null;
-        this.children = new Vector<>();
+        this.diagram = diagram;
+        this.source = anode;
+        this.parent = parent;
         this.text = anode.getName();
         this.childgrouptype = anode.getChildgrouptype();
         this.elhtype = anode.getType();
         this.stylename = anode.getStylename();
-        nodestylemap = view.docstylemap.getNodeStyle(elhtype);
-        int count = anode.countChildren();
-        if (r <= maxrow && count > 0)
+        // the top box is styled by its style name, the others by their type
+        nodestylemap = diagram.stylemap.getNodeStyle(parent == null ? stylename : elhtype);
+        if (depth < ElhDiagram.MAXDEPTH)
         {
             for (ElhNode acnode : anode.getChildren())
             {
-                if (acnode != null)
-                {
-                    ElhDrawNode newdnode = new ElhDrawNode(acnode, r + 1, maxrow);
-                    newdnode.setParent(this);
-                    this.children.add(newdnode);
-                }
+                this.children.add(new ElhDrawNode(diagram, acnode, this, depth + 1));
             }
         }
     }
@@ -103,52 +87,15 @@ public class ElhDrawNode
         return textarray3;
     }
 
-    public void makeDrawNodeTree(ElhNode anode, int r, int maxrow)
-    {
-        this.parent = null;
-        this.children = new Vector<>();
-        this.text = anode.getName();
-        this.childgrouptype = anode.getChildgrouptype();
-        this.elhtype = anode.getType();
-        this.stylename = anode.getStylename();
-        this.nodestylemap = view.docstylemap.getNodeStyle(stylename);
-        int count = anode.countChildren();
-        if (r <= maxrow && count > 0)
-        {
-            for (ElhNode acnode : anode.getChildren())
-            {
-                if (acnode != null)
-                {
-                    ElhDrawNode newdnode = new ElhDrawNode(acnode, r + 1, maxrow);
-                    newdnode.setParent(this);
-                    this.children.add(newdnode);
-                }
-            }
-        }
-    }
-
-    private void setParent(ElhDrawNode adnode)
-    {
-        this.parent = adnode;
-    }
-
-
-
-
     public boolean hasChildren()
     {
         return !this.children.isEmpty();
     }
 
-    public Vector<ElhDrawNode> getChildren()
+    public List<ElhDrawNode> getChildren()
     {
         return this.children;
     }
-
-
-
-
-
 
     ChildGrouping getChildgrouptype()
     {
@@ -157,11 +104,6 @@ public class ElhDrawNode
             return ChildGrouping.SEQUENCE;
         }
         return this.childgrouptype;
-    }
-
-    void setChildgrouptype(ChildGrouping childgrouptype)
-    {
-        this.childgrouptype = childgrouptype;
     }
 
     public ElhDrawNode getparent()
@@ -188,11 +130,6 @@ public class ElhDrawNode
         return this.elhtype;
     }
 
-    public void setStylename(String stylename)
-    {
-        this.stylename = stylename;
-    }
-
     public boolean hasParent()
     {
         return (this.parent != null);
@@ -208,6 +145,18 @@ public class ElhDrawNode
         return bounds.containsPoint(px, py);
     }
 
+    // the box for source, here or below
+    ElhDrawNode find(ElhNode source)
+    {
+        if (this.source == source) return this;
+        for (ElhDrawNode adnode : this.children)
+        {
+            ElhDrawNode fnode = adnode.find(source);
+            if (fnode != null) return fnode;
+        }
+        return null;
+    }
+
     ElhDrawNode getTarget(double px, double py)
     {
         if (hasChildren())
@@ -220,11 +169,6 @@ public class ElhDrawNode
         }
         if (containsPoint(px, py)) return this;
         return null;
-    }
-
-    public HashMap<String, Double> getDimension()
-    {
-        return bounds.getDimension();
     }
 
     public void drawborder(Graphics2D g2d, Color acolor, int width)
@@ -242,24 +186,14 @@ public class ElhDrawNode
         drawborder(g2d, acolor, bw);
     }
 
-    public void drawbackgroundborder(Graphics2D g2d, int bw)
-    {
-        Color acolor = view.backgroundcolor;
-        if (nodestylemap.getBoolean("fill"))
-        {
-            acolor = nodestylemap.getColor("fillColor");
-        }
-        drawborder(g2d, acolor, bw);
-    }
-
     ShapeD DrawShape(Graphics2D g2d)
     {
         double w = bounds.width;
         double h = bounds.height;
-        g2d.setFont(view.docfont);
+        g2d.setFont(diagram.docfont);
         String[] ftext = formatLabel(text, g2d, w);
         FontMetrics fm = g2d.getFontMetrics();
-        Dimension r = sizeString(ftext, g2d, view.docfont);
+        Dimension r = sizeString(ftext, g2d, diagram.docfont);
         double x = bounds.x;
         double y = bounds.y;
         double anchorx = x + w / 2.0D;
@@ -274,7 +208,7 @@ public class ElhDrawNode
             bounds.fillRect(g2d);
         }
         g2d.setColor(nodestylemap.getColor("textColor"));
-        drawString(ftext, g2d, view.docfont, anchorx, anchory);
+        drawString(ftext, g2d, diagram.docfont, anchorx, anchory);
         g2d.setColor(nodestylemap.getColor("borderColor"));
         drawnodeborder(g2d);
         if (nodestylemap.getBoolean("underlinetitle"))
@@ -284,59 +218,20 @@ public class ElhDrawNode
         return bounds;
     }
 
-   /* ShapeD xDrawShape(Graphics2D g2d)
+    // sets the box's size from its style and the width of its text
+    void measure(Graphics2D g2d)
     {
         double w = nodestylemap.getDouble("rwidth");
         double h = nodestylemap.getDouble("rheight");
-        g2d.setFont(view.docfont);
+        g2d.setFont(diagram.docfont);
         String[] ftext = formatLabel(text, g2d, w);
         FontMetrics fm = g2d.getFontMetrics();
-        Dimension r = sizeString(ftext, g2d, view.docfont);
-        if (nodestylemap.getBoolean("canexpand") && r.getWidth() > w)
-        {
-            w = r.getWidth() + 8.0D;
-        }
-     //   double x = view.originx + ((col - view.columnoffset) * (w + view.hs) - w) / 2.0D;
-   //     double y = view.rowtopy[row];
-        double anchorx = x + w / 2.0D;
-        double anchory = y;
-        if (!nodestylemap.getBoolean("textattop"))
-        {
-            anchory = y + h / 2.0D - fm.getAscent();
-        }
-        bounds.setShape(x, y, w, h);
-        ShapeI shapei = bounds.getShapeI();
-        if (nodestylemap.getBoolean("fill"))
-        {
-            g2d.setColor(nodestylemap.getColor("fillColor"));
-            bounds.fillRect(g2d);
-        }
-        g2d.setColor(nodestylemap.getColor("textColor"));
-        drawString(ftext, g2d, view.docfont, anchorx, anchory);
-        g2d.setColor(nodestylemap.getColor("borderColor"));
-        drawnodeborder(g2d);
-        if (nodestylemap.getBoolean("underlinetitle"))
-        {
-            g2d.drawLine((int) x, (int) (y + r.height), (int) (x + w), (int) (y + r.height));
-        }
-        return bounds;
-    }*/
-
-
-    HashMap<String, Double> getNodeSize(Graphics2D g2d)
-    {
-        double w = nodestylemap.getDouble("rwidth");
-        double h = nodestylemap.getDouble("rheight");
-        g2d.setFont(view.docfont);
-        String[] ftext = formatLabel(text, g2d, w);
-        FontMetrics fm = g2d.getFontMetrics();
-        Dimension d = sizeString(ftext, g2d, view.docfont);
+        Dimension d = sizeString(ftext, g2d, diagram.docfont);
         if (nodestylemap.getBoolean("canexpand") && d.getWidth() > w)
         {
             w = d.getWidth() + 8.0D;
         }
         bounds.setDimension(w, h);
-        return bounds.getDimension();
     }
 
     void drawNode(Graphics g2d)
@@ -348,11 +243,11 @@ public class ElhDrawNode
         {
             drawUpLine(g2d);
         }
-        if (layoutstyle == LayoutStyle.JACKSON) drawJacksonSymbols(g2d);
+        if (diagram.layoutstyle == LayoutStyle.JACKSON) drawJacksonSymbols(g2d);
         if (adnode.hasChildren())
         {
-            if (layoutstyle != LayoutStyle.SIMPLE) drawTriangle(g2d);
-            if (layoutstyle == LayoutStyle.JACKSON || layoutstyle == LayoutStyle.SIMPLE) drawDownLine(g2d);
+            if (diagram.layoutstyle != LayoutStyle.SIMPLE) drawTriangle(g2d);
+            if (diagram.layoutstyle == LayoutStyle.JACKSON || diagram.layoutstyle == LayoutStyle.SIMPLE) drawDownLine(g2d);
             else drawSymbols(g2d);
             drawHorizontalLine(g2d);
             for (ElhDrawNode adrawnode : adnode.children)
@@ -362,14 +257,12 @@ public class ElhDrawNode
         }
     }
 
-
-
     private void drawDownLine(Graphics g2d)
     {
 
         double h = bounds.height;
         double  w= bounds.width;
-        double vs =  view.vs;
+        double vs =  diagram.vs;
         double lw = nodestylemap.getDouble("lineWidth");
         ((Graphics2D) g2d).setStroke(new BasicStroke((float) lw));
         double x2 = bounds.x+w/2.0D;
@@ -383,12 +276,12 @@ public class ElhDrawNode
     {
         double lw = nodestylemap.getDouble("lineWidth");
         ((Graphics2D) g2d).setStroke(new BasicStroke((float) lw));
-        Vector<ElhDrawNode> kids = this.getChildren();
+        List<ElhDrawNode> kids = this.getChildren();
         ElhDrawNode firstchild = kids.getFirst();
         ElhDrawNode lastchild = kids.getLast();
         double x = firstchild.bounds.x + firstchild.bounds.width/2.0D;
         double x2 = lastchild.bounds.x + lastchild.bounds.width/2.0D;
-        double y =  this.bounds.y + this.bounds.height+view.vs/2.0D;
+        double y =  this.bounds.y + this.bounds.height+diagram.vs/2.0D;
         g2d.setColor(nodestylemap.getColor("lineColor"));
         g2d.drawLine((int) x, (int) y, (int) x2, (int) y);
     }
@@ -398,12 +291,12 @@ public class ElhDrawNode
         double lw = nodestylemap.getDouble("lineWidth");
         int dy = 6;
         ((Graphics2D) g2d).setStroke(new BasicStroke((float) lw));
-        Vector<ElhDrawNode> kids = this.getChildren();
+        List<ElhDrawNode> kids = this.getChildren();
         ElhDrawNode firstchild = kids.getFirst();
         ElhDrawNode lastchild = kids.getLast();
         double x = firstchild.bounds.x + firstchild.bounds.width/2.0D;
         double x2 = lastchild.bounds.x + lastchild.bounds.width/2.0D;
-        double y =  this.bounds.y + this.bounds.height+view.vs/2.0D;
+        double y =  this.bounds.y + this.bounds.height+diagram.vs/2.0D;
         g2d.setColor(nodestylemap.getColor("lineColor"));
         g2d.drawLine((int) x, (int) y, (int) x2, (int) y);
         g2d.drawLine((int) x, (int) (y+dy), (int) x2, (int) (y+dy));
@@ -489,7 +382,6 @@ public class ElhDrawNode
         g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
     }
 
-
     private void drawString(String[] label, Graphics g2d, Font afont, double x, double y)
     {
         g2d.setFont(afont);
@@ -509,16 +401,6 @@ public class ElhDrawNode
         }
     }
 
-    private void drawSymbolString(String text, Graphics g2d, Font afont, double x, double y)
-    {
-        g2d.setFont(afont);
-        FontMetrics fm = g2d.getFontMetrics();
-        Rectangle2D r = fm.getStringBounds(text, g2d);
-        double sx = x - r.getWidth() / 2.0D;
-        double sy = y - r.getHeight() / 2.0D;
-        g2d.drawString(text, (int) sx, (int) sy);
-    }
-
     private void drawSymbolCircle(Graphics g2d)
     {
         double r=5;
@@ -533,7 +415,7 @@ public class ElhDrawNode
     {
         ElhDrawNode adnode = this;
         String stylename = getStylename();
-        NodeStyle nodestylemap = view.docstylemap.getNodeStyle(stylename);
+        NodeStyle nodestylemap = diagram.stylemap.getNodeStyle(stylename);
         g2d.setColor(nodestylemap.getColor("lineColor"));
         double lw = nodestylemap.getDouble("lineWidth");
         ((Graphics2D) g2d).setStroke(new BasicStroke((float) lw));
@@ -541,8 +423,8 @@ public class ElhDrawNode
         double y = bounds.y+bounds.height;
 
             double x2 = x;
-            double y2 = y + view.vs / 2.0D;
-            double dx = view.vs / 3.464D;
+            double y2 = y + diagram.vs / 2.0D;
+            double dx = diagram.vs / 3.464D;
             int[] xPoints = new int[3];
             int[] yPoints = new int[3];
             xPoints[0] = (int) (x - dx);
@@ -561,12 +443,11 @@ public class ElhDrawNode
         double x = this.bounds.x+w/2.0D;
         double y = this.bounds.y;
         double x2 = x;
-        double y2 =   this.parent.bounds.y+this.parent.bounds.height+view.vs/2.0D;
+        double y2 =   this.parent.bounds.y+this.parent.bounds.height+diagram.vs/2.0D;
         g2d.setColor(nodestylemap.getColor("lineColor"));
         double lw = nodestylemap.getDouble("lineWidth");
         ((Graphics2D) g2d).setStroke(new BasicStroke((float) lw));
         g2d.drawLine((int) x, (int) y, (int) x2, (int) y2);
     }
 }
-
 

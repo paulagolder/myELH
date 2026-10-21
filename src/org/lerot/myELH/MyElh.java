@@ -10,8 +10,8 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
 import java.awt.*;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -38,8 +38,7 @@ public class MyElh extends JFrame
     Elh currentelh;
     jswVerticalPanel editpanel;
     private File currentfile;
-    private ElhDrawNode topdrawnode;
-    private SvgDoc currentsvgdoc;
+    private final DiagramPanel diagrampanel;
     private LayoutStyle layoutstyle = LayoutStyle.DEFAULT;
 
     public MyElh(int w, int h)
@@ -47,7 +46,6 @@ public class MyElh extends JFrame
         super("ELH " + version);
         stylemaps.put("screen", getScreenStyles());
         stylemaps.put("print", getPrintStyles());
-        stylemaps.put("default", StyleMap.makedefault());
         URL iconURL = MyElh.class.getResource("/elh.png");
         if (iconURL != null)
         {
@@ -73,13 +71,11 @@ public class MyElh extends JFrame
         this.svgpanel = new JPanel();
         this.svgpanel.setBorder(jswStyle.makeLineBorder());
         this.svgpanel.setLayout(new BorderLayout());
-        this.svgpanel.addComponentListener(new ComponentAdapter()
-        {
-            public void componentResized(ComponentEvent e)
-            {
-                refresh();
-            }
-        });
+        this.diagrampanel = new DiagramPanel(this::selectNode);
+        JScrollPane diagramscroll = new JScrollPane(this.diagrampanel);
+        // small, so the diagram scrolls rather than squeezing the tree
+        diagramscroll.setPreferredSize(new Dimension(200, 200));
+        this.svgpanel.add(diagramscroll, BorderLayout.CENTER);
         JPanel mainpanels = new JPanel();
         mainpanels.setLayout(new BoxLayout(mainpanels, BoxLayout.X_AXIS));
         mainpanels.add(this.currenttreeview);
@@ -118,6 +114,10 @@ public class MyElh extends JFrame
         JMenu jmView = new JMenu("View");
         addMenuItem(jmView, "View EDIT", this::showEdit);
         addMenuItem(jmView, "View SVG", this::showSvg);
+        jmView.addSeparator();
+        addMenuItem(jmView, "Zoom In", KeyEvent.VK_EQUALS, () -> diagrampanel.setZoom(diagrampanel.getZoom() * 1.25));
+        addMenuItem(jmView, "Zoom Out", KeyEvent.VK_MINUS, () -> diagrampanel.setZoom(diagrampanel.getZoom() / 1.25));
+        addMenuItem(jmView, "Actual Size", KeyEvent.VK_0, () -> diagrampanel.setZoom(1.0));
         jmb.add(jmView);
         JMenu jmExport = new JMenu("Export");
         addMenuItem(jmExport, "Print SVG", this::svgexport);
@@ -143,6 +143,15 @@ public class MyElh extends JFrame
     private static void addMenuItem(JMenu menu, String label, Runnable action)
     {
         JMenuItem item = new JMenuItem(label);
+        item.addActionListener(e -> action.run());
+        menu.add(item);
+    }
+
+    // a menu item that can also be chosen with Ctrl + key
+    private static void addMenuItem(JMenu menu, String label, int key, Runnable action)
+    {
+        JMenuItem item = new JMenuItem(label);
+        item.setAccelerator(KeyStroke.getKeyStroke(key, InputEvent.CTRL_DOWN_MASK));
         item.addActionListener(e -> action.run());
         menu.add(item);
     }
@@ -233,11 +242,7 @@ public class MyElh extends JFrame
         this.activenode = null;
         this.activetreenode = null;
         this.currenttreeview.repaint();
-        this.currentsvgdoc = new SvgDoc(stylemaps.getStyleMap("screen"));
-        Rectangle cas = this.svgpanel.getBounds();
-        this.topdrawnode = new ElhDrawNode(currentsvgdoc, layoutstyle);
-        topdrawnode.makeDrawNodeTree(this.currentelh, 1, 5);
-        currentsvgdoc.inittree(this.topdrawnode, cas.width, cas.height);
+        showDiagram();
         getContentPane().validate();
     }
 
@@ -303,7 +308,6 @@ public class MyElh extends JFrame
         this.currentfile = null;
         this.activenode = null;
         this.activetreenode = null;
-        this.topdrawnode = null;
         this.sourcefile.setText("");
         this.activepath.setText("");
         this.currenttreeview.cleartree();
@@ -325,7 +329,6 @@ public class MyElh extends JFrame
     private void setLayoutStyle(LayoutStyle style)
     {
         this.layoutstyle = style;
-        ElhDrawNode.layoutstyle = style;
         refresh();
     }
 
@@ -333,7 +336,7 @@ public class MyElh extends JFrame
     {
         selectActiveTreenode();
         showEditView();
-        showSVGView(this.svgpanel, this.topdrawnode);
+        showDiagram();
         repaint();
         getContentPane().validate();
         selectActiveTreenode();
@@ -386,38 +389,23 @@ public class MyElh extends JFrame
         return panel;
     }
 
-    private void showSVGView(JPanel apanel, ElhDrawNode activenode)
+    // redraws the diagram of the whole ELH, outlining the active node
+    private void showDiagram()
     {
-        apanel.removeAll();
-        apanel.setBackground(Color.decode(jswTheme.DETAILAREA));
-        Dimension cas = apanel.getSize();
-        if (activenode == null)
-        {
-            return;
-        }
-        currentsvgdoc = new SvgDoc(stylemaps.getStyleMap("screen"));
-        currentsvgdoc.topdrawnode = this.topdrawnode;
-        currentsvgdoc.inittree(this.topdrawnode, cas.width, cas.height);
-        currentsvgdoc.createLayout(this.topdrawnode, currentsvgdoc.hs);
-        currentsvgdoc.drawtree(this.topdrawnode);
-        currentsvgdoc.svggraphic.setStroke(new BasicStroke(4));
-        currentsvgdoc.svggraphic.setColor(Color.blue);
-        currentsvgdoc.svggraphic.drawRect(0,0,(int)currentsvgdoc.maxwidth,(int)currentsvgdoc.maxheight);
-        this.topdrawnode.drawNode(currentsvgdoc.svggraphic);
-        SvgView svgpanel = new SvgView(stylemaps.get("default"));
-        svgpanel.setLayout(new BorderLayout());
-        svgpanel.setBackground(Color.decode(jswTheme.DETAILAREA));
-        svgpanel.setNodeStyle(stylemaps.get("default"));
-        svgpanel.showview(currentsvgdoc);
-        apanel.add(svgpanel, "Center");
-        apanel.repaint();
-        repaint();
-        getContentPane().validate();
+        ElhDiagram diagram = this.currentelh == null ? null
+                : new ElhDiagram(this.currentelh, stylemaps.getStyleMap("screen"), layoutstyle);
+        this.diagrampanel.setDiagram(diagram, this.activenode);
+    }
+
+    // a box clicked in the diagram: select its node in the tree
+    private void selectNode(ElhNode anode)
+    {
+        this.currenttreeview.setselections(anode);
     }
 
     private void svgexport()
     {
-        if (this.topdrawnode == null)
+        if (this.currentelh == null)
         {
             return;
         }
@@ -429,30 +417,26 @@ public class MyElh extends JFrame
         {
             return;
         }
-        SvgDoc adoc = new SvgDoc(stylemaps.getStyleMap("print"));
-        adoc.createLayout(this.topdrawnode,adoc.hs);
-        adoc.drawtree(this.topdrawnode);
-        adoc.svggraphic.setStroke(new BasicStroke(4));
-        adoc.svggraphic.setColor(Color.blue);
-        adoc.svggraphic.drawRect(0,0,(int)adoc.maxwidth,(int)adoc.maxheight);
-        adoc.inittree(this.topdrawnode,(int)adoc.maxwidth,(int)adoc.maxheight);
-        adoc.printsvg(fc.getSelectedFile());
+        try
+        {
+            // exported with the screen styles, as it always has been; the
+            // "print" style map is kept but not used
+            SvgExport.write(this.currentelh, stylemaps.getStyleMap("screen"), layoutstyle, fc.getSelectedFile().toPath());
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not save " + fc.getSelectedFile() + "\n" + e.getMessage(),
+                    "Export failed", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
-    // redraws the diagram of the whole ELH after the tree selection changes
+    // after the tree selection changes
     public void updateview()
     {
         if (this.currentelh != null)
         {
-            if (this.currentsvgdoc == null)
-            {
-                this.currentsvgdoc = new SvgDoc(stylemaps.getStyleMap("screen"));
-            }
-            this.topdrawnode = new ElhDrawNode(currentsvgdoc, layoutstyle);
-            topdrawnode.makeDrawNodeTree(this.currentelh, 0, 5);
             this.currenttreeview.expandPath(this.activetreenode);
             showEditView();
-            showSVGView(this.svgpanel, this.topdrawnode);
+            showDiagram();
         }
         repaint();
         getContentPane().validate();
