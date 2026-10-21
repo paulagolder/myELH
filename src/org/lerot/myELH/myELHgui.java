@@ -104,13 +104,13 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         JMenuItem jmiOpen = new JMenuItem("Open");
         JMenuItem jmiNew = new JMenuItem("New");
         JMenuItem jmiClose = new JMenuItem("Close");
-        JMenuItem jmiSave = new JMenuItem("Save As");
-        JMenuItem jmiSaveAs = new JMenuItem("Save");
+        JMenuItem jmiSaveAs = new JMenuItem("Save As");
+        JMenuItem jmiSave = new JMenuItem("Save");
         JMenuItem jmiExit = new JMenuItem("Exit");
         jmFile.add(jmiOpen);
         jmFile.add(jmiNew);
-        jmFile.add(jmiSaveAs);
         jmFile.add(jmiSave);
+        jmFile.add(jmiSaveAs);
         jmFile.add(jmiClose);
         jmFile.addSeparator();
         jmFile.add(jmiExit);
@@ -123,11 +123,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         jmb.add(jmView);
         JMenu jmExport = new JMenu("Export");
         JMenuItem svgn = new JMenuItem("Print SVG");
-        JMenuItem svg = new JMenuItem("SVG test");
-        JMenuItem odf = new JMenuItem("ODF");
         jmExport.add(svgn);
-        jmExport.add(svg);
-        jmExport.add(odf);
         jmb.add(jmExport);
         JMenu jmOptions = new JMenu("Options");
         this.stylej = new JMenuItem("Jackson Style");
@@ -291,9 +287,6 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             this.styles.setEnabled(true);
             this.styled.setEnabled(false);
             myELHgui.mframe.refresh();
-        } else if (comStr.equalsIgnoreCase("svg"))
-        {
-            svgexport(true);
         } else if (comStr.equalsIgnoreCase("Print SVG"))
         {
             svgexport(true);
@@ -375,14 +368,6 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
                 this.sourcefile.setText(this.currentfile.getName());
                 this.currentelh = new elh(this.currentfile.getName());
                 this.currentelh.importELH(this.currentfile.getAbsolutePath());
-                if (currentelh.countChildren() == 1)
-                {
-                    if (currentelh.getChildren().getFirst().getType().equalsIgnoreCase("elh"))
-                    {
-                        currentelh = (elh) currentelh.getChildren().getFirst();
-                        currentelh.setParent(null);
-                    }
-                }
                 this.currenttreeview.maketree(this.currentelh);
                 this.activenode = null;
                 this.currenttreeview.repaint();
@@ -405,39 +390,68 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             FileNameExtensionFilter filter = new FileNameExtensionFilter("ELH", "xml", "elh");
             fc.setFileFilter(filter);
             int returnVal = fc.showSaveDialog(this);
-            if (returnVal == 0)
+            if (returnVal != 0)
             {
-                File fileToSave = fc.getSelectedFile();
-                this.currentfile = fileToSave;
-            } else
-            {
-                System.out.println("Open command cancelled by user.");
+                System.out.println("New command cancelled by user.");
+                return;
             }
+            this.currentfile = fc.getSelectedFile();
             this.currentelh = new elh(this.currentfile.getName());
-            this.currentelh.makeElh(this.currentfile.getAbsolutePath());
+            saveElh();
             this.currenttreeview.maketree(this.currentelh);
         } else if (comStr.equalsIgnoreCase("save as"))
         {
-            JFileChooser fc = new JFileChooser();
-            fc.setCurrentDirectory(new File(this.elhfolder));
-            fc.setDialogTitle("Save to new ELH file");
-            FileNameExtensionFilter filter = new FileNameExtensionFilter("ELH", "xml", "elh");
-            fc.setFileFilter(filter);
-            int returnVal = fc.showSaveDialog(this);
-            if (returnVal == 0)
-            {
-                this.currentfile = fc.getSelectedFile();
-            } else
-            {
-                System.out.println("Open command cancelled by user.");
-            }
-            this.currentelh.makeElh(this.currentfile.getAbsolutePath());
+            saveElhAs();
         } else if (comStr.equalsIgnoreCase("save"))
         {
-            this.currentelh.makeElh(this.currentfile.getAbsolutePath());
+            if (this.currentfile == null)
+            {
+                saveElhAs();
+            } else
+            {
+                saveElh();
+            }
         } else
         {
             System.out.println("command " + comStr + " unrecognised ");
+        }
+    }
+
+    private void saveElhAs()
+    {
+        if (this.currentelh == null)
+        {
+            return;
+        }
+        JFileChooser fc = new JFileChooser();
+        fc.setCurrentDirectory(new File(this.elhfolder));
+        fc.setDialogTitle("Save to new ELH file");
+        FileNameExtensionFilter filter = new FileNameExtensionFilter("ELH", "xml", "elh");
+        fc.setFileFilter(filter);
+        int returnVal = fc.showSaveDialog(this);
+        if (returnVal != 0)
+        {
+            System.out.println("Save As command cancelled by user.");
+            return;
+        }
+        this.currentfile = fc.getSelectedFile();
+        saveElh();
+    }
+
+    private void saveElh()
+    {
+        if (this.currentelh == null)
+        {
+            return;
+        }
+        try
+        {
+            this.currentelh.makeElh(this.currentfile.getAbsolutePath());
+            this.sourcefile.setText(this.currentfile.getName());
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not save " + this.currentfile + "\n" + e.getMessage(),
+                    "Save failed", JOptionPane.ERROR_MESSAGE);
         }
     }
 

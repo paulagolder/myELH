@@ -1,6 +1,7 @@
 // Build description for myELH.
 //
 // Everyday commands (run from the project folder):
+//   ./gradlew test      run the automated tests (test/java)
 //   ./gradlew run       compile and start the app
 //   ./gradlew build     compile and build the single runnable jar
 //   ./gradlew deploy    build it and copy it to ~/applications/myELH.jar
@@ -33,6 +34,11 @@ sourceSets {
         // the window icon, put in the jar alongside the classes
         resources.setSrcDirs(listOf("resources"))
     }
+    // automated tests (./gradlew test)
+    test {
+        java.setSrcDirs(listOf("test/java"))
+        resources.setSrcDirs(emptyList<String>())
+    }
 }
 
 // Each line is "group:name:version", as listed on https://central.sonatype.com
@@ -45,6 +51,20 @@ dependencies {
     implementation("org.jdom:jdom:1.1.3")                         // reading .elh files
     implementation("org.apache.xmlgraphics:batik-svggen:1.19")    // drawing the diagram as SVG
     implementation("org.apache.xmlgraphics:batik-swing:1.19")     // showing the SVG on screen
+
+    // JUnit, for the tests only; it is not put in myELH.jar
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
+    // show each test's result, and the output of failing tests
+    testLogging {
+        events("passed", "skipped", "failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }
 
 tasks.withType<JavaCompile>().configureEach {

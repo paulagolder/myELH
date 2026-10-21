@@ -92,9 +92,9 @@ public class svgview extends JPanel
             int x = evt.getX();
             int y = evt.getY();
             System.out.println("clicked " + x + ":" + y);
-            elhDrawNode oldactivenode = clickednode;
-            elhDrawNode clickednode = svgview.this.topdrawnode.getTarget(x, y);
-            if (clickednode == null) return;
+            elhDrawNode oldactivenode = svgview.this.clickednode;
+            elhDrawNode newclickednode = svgview.this.topdrawnode.getTarget(x, y);
+            if (newclickednode == null) return;
             int selectednodewidth = 4;
             Color selectednodecolor = Color.red;
             Graphics graphics = svgview.this.canvas.getGraphics();
@@ -104,8 +104,8 @@ public class svgview extends JPanel
                 oldactivenode.drawbackgroundborder(g2d, selectednodewidth);
                 oldactivenode.drawnodeborder(g2d);
             }
-            svgview.this.clickednode = clickednode;
-            clickednode.drawborder(g2d, selectednodecolor, selectednodewidth);
+            svgview.this.clickednode = newclickednode;
+            newclickednode.drawborder(g2d, selectednodecolor, selectednodewidth);
         }
     }
 

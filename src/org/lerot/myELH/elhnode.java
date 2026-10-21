@@ -125,6 +125,7 @@ public abstract class elhnode
     {
         elhnode event = this;
         elhnode parent = event.getParent();
+        if (parent == null || parent.getParent() == null) return;
         elhnode grandparent = parent.getParent();
         Vector<elhnode> oldsiblings = parent.getChildren();
         Vector<elhnode> newsiblings = grandparent.getChildren();
@@ -155,7 +156,7 @@ public abstract class elhnode
         elhnode parent = event.getParent();
         Vector<elhnode> siblings = parent.getChildren();
         int index = siblings.indexOf(event);
-        if (index == siblings.size()) return;
+        if (index == siblings.size() - 1) return;
         Vector<elhnode> newsiblings = new Vector<>(siblings);
         elhnode next = siblings.get(index + 1);
         newsiblings.set(index, next);
@@ -174,7 +175,7 @@ public abstract class elhnode
                 anentity = null;
             }
         }
-        setChildren(null);
+        setChildren(new Vector<>());
         System.out.println("deleted children " + this);
     }
 
@@ -262,7 +263,8 @@ public abstract class elhnode
     public void addSibling()
     {
         elhnode parent = getParent();
-        elhnode newnode = new event("newnode", this);
+        if (parent == null) return;
+        elhnode newnode = new event("newnode", parent);
         Vector<elhnode> siblings = parent.getChildren();
         siblings.add(newnode);
         parent.setChildren(siblings);
@@ -271,12 +273,12 @@ public abstract class elhnode
     public String xmlout() {
         StringBuilder out = new StringBuilder();
         String nodeclass= getType();
-        out.append("<").append(nodeclass).append(" name=\"").append(getName()).append("\"");
+        out.append("<").append(nodeclass).append(" name=\"").append(xmlescape(getName())).append("\"");
         if (getChildgrouptype() != null) {
-            out.append(" childgrouptype=\"").append(getChildgrouptype()).append("\"");
+            out.append(" childgrouptype=\"").append(xmlescape(getChildgrouptype())).append("\"");
         }
         if (getStylename() != null) {
-            out.append(" stylename=\"").append(getStylename()).append("\"");
+            out.append(" stylename=\"").append(xmlescape(getStylename())).append("\"");
         }
         if(!getChildren().isEmpty())
         {
@@ -292,6 +294,13 @@ public abstract class elhnode
         }
 
         return out.toString();
+    }
+
+    // makes a name safe to write inside a quoted XML attribute
+    static String xmlescape(String text)
+    {
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;");
     }
 
     public String getType()
@@ -359,7 +368,7 @@ public abstract class elhnode
         }
         if (selnode != null)
         {
-            elhnode newnode = selnode.copy();
+            elhnode newnode = selnode.copy(this);
             newnode.setName("Copyof:" + newnode.getName());
             if (this instanceof event)
             {
@@ -375,23 +384,17 @@ public abstract class elhnode
         }
     }
 
-    private elhnode copy()
+    elhnode copy(elhnode newparent)
     {
-        elhnode newnode = null;
-        if (this instanceof event)
-        {
-            newnode = new event(getName(), this.parent);
-        } else if (this instanceof entity)
-        {
-            newnode = new entity(getName(), this.parent);
-        } else if (newnode instanceof elh)
-        {
-            return null;
-        }
+        elhnode newnode = makeNode(getType(), newparent);
+        if (newnode == null) return null;
+        newnode.setName(getName());
+        newnode.setChildgrouptype(getChildgrouptype());
+        newnode.setStylename(getStylename());
         for (elhnode child : this.children)
         {
-            elhnode childcopy = child.copy();
-            newnode.addChild(childcopy);
+            elhnode childcopy = child.copy(newnode);
+            if (childcopy != null) newnode.addChild(childcopy);
         }
         return newnode;
     }
@@ -448,6 +451,11 @@ public abstract class elhnode
                         arolegroup.loadXML(at);
                         addChild(arolegroup);
                         break;
+                    case "entitygroup":
+                        entitygroup anentitygroup = new entitygroup("entitygroup " + i, this);
+                        anentitygroup.loadXML(at);
+                        addChild(anentitygroup);
+                        break;
                     default:
                         System.out.println(" unknown nodename =" + nodetype);
                         break;
@@ -459,7 +467,7 @@ public abstract class elhnode
     public void loadXML(Element ct)
     {
         String nodetype = ct.getName();
-        setName(ct.getAttribute("name").getValue());
+        setName(ct.getAttributeValue("name", getName()));
         if (ct.getAttribute("stylename") != null)
         {
             setStylename(ct.getAttribute("stylename").getValue());
@@ -503,9 +511,10 @@ public abstract class elhnode
     {
         for(elhnode acnode : anode.getChildren())
         {
+            acnode.setParent(this);
             this.addChild(acnode);
         }
-        anode.children=null;
+        anode.children = new Vector<>();
     }
 
     public static String makepath(elhnode node)

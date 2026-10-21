@@ -3,6 +3,7 @@ package org.lerot.myELH;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 
 import org.jdom.Document;
 import org.jdom.Element;
@@ -24,20 +25,27 @@ public class elh extends elhnode
         super(aname, null);
     }
 
-    public void makeElh(String filename)
+    // Files saved before this wrapped the whole tree in an extra
+    // <elh name="new elh"> with no other attributes; real elh nodes are
+    // always saved with childgrouptype and stylename.
+    static boolean isOldWrapper(Element root)
     {
-        try
+        return root.getName().equals("elh")
+                && "new elh".equals(root.getAttributeValue("name"))
+                && root.getAttribute("childgrouptype") == null
+                && root.getAttribute("stylename") == null
+                && root.getChildren().size() == 1
+                && ((Element) root.getChildren().getFirst()).getName().equals("elh");
+    }
+
+    public void makeElh(String filename) throws IOException
+    {
+        try (PrintWriter printWriter = new PrintWriter(filename, StandardCharsets.UTF_8))
         {
-            PrintWriter printWriter = new PrintWriter(filename);
             printWriter.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
             printWriter.println("<?xml-stylesheet type='text/xsl' href='./Stylesheets/elh.xsl' ?>");
-            printWriter.println("<elh name=\"new elh\" >\n");
             printWriter.print(xmlout());
-            printWriter.println("</elh>");
-            printWriter.close();
-        } catch (Exception e)
-        {
-            e.printStackTrace();
+            if (printWriter.checkError()) throw new IOException("Could not write " + filename);
         }
     }
 
@@ -49,6 +57,10 @@ public class elh extends elhnode
         {
             Document doc = builder.build(xmlFile);
             Element rootNode = doc.getRootElement();
+            if (isOldWrapper(rootNode))
+            {
+                rootNode = (Element) rootNode.getChildren().getFirst();
+            }
             loadXML(rootNode);
         } catch (IOException ioe)
         {
