@@ -10,7 +10,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 
-public abstract class editview extends jswVerticalPanel implements ActionListener, MouseListener
+public abstract class EditView extends jswVerticalPanel implements ActionListener, MouseListener
 {
     private static final long serialVersionUID = 1L;
     private final jswTable namepanel;
@@ -21,14 +21,14 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
     protected jswButton viewbutton;
     protected jswDropDownBox grouptypefield;
     protected JPanel bottompanel;
-    elhnode activenode;
+    ElhNode activenode;
     private jswButton insertbutton;
     private jswButton editbutton;
     private jswButton insertabovebutton;
     private JPopupMenu popup;
-    protected final myELHgui app;
+    protected final MyElh app;
 
-    public editview(myELHgui app)
+    public EditView(MyElh app)
     {
         super("editview", true, true);
         this.app = app;
@@ -36,7 +36,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         setBorder(jswStyle.makeLineBorder());
         jswTheme.tint(this, jswTheme.EDITAREA);
         jswHorizontalPanel namebar = new jswHorizontalPanel();
-        this.namepanel = new jswTable(this, "namepanel", myELHgui.tablestyles());
+        this.namepanel = new jswTable(this, "namepanel", MyElh.tablestyles());
         this.namefield = new jswTextBox(this, "namefield", 200, "namefield");
         jswLabel namelabel = new jswLabel("NAME:");
         this.namepanel.addCell(namelabel, 0, 0);
@@ -66,14 +66,14 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         namebar.add(" MIDDLE", this.namepanel);
         add(namebar);
         jswHorizontalPanel childbar = new jswHorizontalPanel();
-        this.childpanel = new jswTable(this, "childtable", myELHgui.tablestyles2());
+        this.childpanel = new jswTable(this, "childtable", MyElh.tablestyles2());
         childbar.add(" MIDDLE ", this.childpanel);
         add(childbar);
         this.bottompanel = new jswHorizontalPanel();
         add(" BOTTOM ", this.bottompanel);
     }
 
-    public void setup(elhnode anode)
+    public void setup(ElhNode anode)
     {
         //  System.out.println(" in set up  " + anode.toLongString());
         this.activenode = app.activenode;
@@ -104,7 +104,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
             this.viewbutton.setEnabled(false);
         }
         // a new event can only be put above the children of an event or entity
-        if (!(this.activenode instanceof event || this.activenode instanceof entity))
+        if (!(this.activenode instanceof Event || this.activenode instanceof Entity))
         {
             this.insertabovebutton.setEnabled(false);
         }
@@ -123,7 +123,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         int count = activenode.countChildren();
         if (count < 1) return;
         int n = 0;
-        for (elhnode asubevent : activenode.getChildren())
+        for (ElhNode asubevent : activenode.getChildren())
         {
             addChildrow(asubevent, n, count);
             n++;
@@ -131,7 +131,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         this.childpanel.setVisible(true);
     }
 
-    public void addChildrow(elhnode child, int n, int count)
+    public void addChildrow(ElhNode child, int n, int count)
     {
         String childname = child.getName();
         jswLabel sname = new jswLabel(childname);
@@ -163,7 +163,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         this.childpanel.addCell((jswPanel) delete, n, 7);
     }
 
-    public void actions(String comStr, elhnode activenode)
+    public void actions(String comStr, ElhNode activenode)
     {
         if (comStr.equalsIgnoreCase("save edits"))
         {
@@ -177,7 +177,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
                 activenode.getParent().addChild(newnode);
             }else*/
             String path = activenode.getPath();
-            elhnode selectedelhnode = app.currentelh.findActiveEvent(path);
+            ElhNode selectedelhnode = app.currentelh.findActiveEvent(path);
             selectedelhnode.setName(this.namefield.getText().trim());
             selectedelhnode.setChildgrouptype(ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()));
             selectedelhnode.setStylename(this.stylefield.getText().trim());
@@ -191,14 +191,14 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         } else if (comStr.startsWith("VIEW:"))
         {
             String path = comStr.substring(5);
-            elhnode targetnode = activenode.findChildnode(path);
+            ElhNode targetnode = activenode.findChildnode(path);
             this.activenode = targetnode;
             app.currenttreeview.setselections(targetnode);
             app.refresh();
         } else if (comStr.startsWith("UP:"))
         {
             String path = comStr.substring(3);
-            elhnode targetnode = activenode.findChildnode(path);
+            ElhNode targetnode = activenode.findChildnode(path);
             app.currenttreeview.actions("LEFT", targetnode);
         } else if (comStr.startsWith("DELETE:"))
         {
@@ -209,7 +209,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         } else if (comStr.startsWith("DOWN:"))
         {
             String path = comStr.substring(5);
-            elhnode targetnode = activenode.findChildnode(path);
+            ElhNode targetnode = activenode.findChildnode(path);
             app.currenttreeview.actions("RIGHT", targetnode);
         } else if (comStr.startsWith("NEWCHILD"))
         {
@@ -270,7 +270,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         }
     }
 
-    JPopupMenu makePopup(elhnode currentnode)
+    JPopupMenu makePopup(ElhNode currentnode)
     {
         JPopupMenu popup = new JPopupMenu();
         jswLabel ml = new jswLabel("Create new node");

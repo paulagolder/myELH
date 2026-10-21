@@ -1,8 +1,8 @@
 package org.lerot.myELH;
 
-public final class entity extends elhnode
+public final class Entity extends ElhNode
 {
-    public entity(String aname, elhnode aparent)
+    public Entity(String aname, ElhNode aparent)
     {
         super(aname, aparent);
         this.childgrouptype = ChildGrouping.SEQUENCE;

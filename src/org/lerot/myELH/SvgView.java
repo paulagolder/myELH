@@ -8,27 +8,27 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
-public class svgview extends JPanel
+public class SvgView extends JPanel
 {
     private static final long serialVersionUID = 1L;
-    elhDrawNode topdrawnode;
+    ElhDrawNode topdrawnode;
     JSVGCanvas canvas;
-    private styleMap stylemap;
-    private elhDrawNode clickednode = null;
+    private StyleMap stylemap;
+    private ElhDrawNode clickednode = null;
 
-    public svgview(styleMap astylemap)
+    public SvgView(StyleMap astylemap)
     {
         this.stylemap = astylemap;
         setVisible(true);
         setBackground(Color.decode(org.lerot.mywidgets.jswTheme.DETAILAREA));
     }
 
-    public void showview(svgdoc asvgdoc)
+    public void showview(SvgDoc asvgdoc)
     {
         Element root = asvgdoc.document.getDocumentElement();
         asvgdoc.svggraphic.getRoot(root);
         this.topdrawnode = asvgdoc.topdrawnode;
-        dimensionp d = asvgdoc.createLayout(this.topdrawnode, asvgdoc.hs);
+        DimensionP d = asvgdoc.createLayout(this.topdrawnode, asvgdoc.hs);
         this.canvas = new JSVGCanvas();
         this.canvas.setDocumentState(1);
         this.canvas.addMouseMotionListener(new MyMouseListener());
@@ -41,7 +41,7 @@ public class svgview extends JPanel
         setVisible(true);
     }
 
-    public void setNodeStyle(styleMap aDefault)
+    public void setNodeStyle(StyleMap aDefault)
     {
         stylemap = aDefault;
     }
@@ -55,11 +55,11 @@ public class svgview extends JPanel
         {
             int x = event.getX();
             int y = event.getY();
-            if (svgview.this.clickednode != null)
+            if (SvgView.this.clickednode != null)
             {
-                ShapeI si = svgview.this.clickednode.bounds.getShapeI();
-                Graphics graphics = svgview.this.getGraphics();
-                graphics.setXORMode(svgview.this.getBackground());
+                ShapeI si = SvgView.this.clickednode.bounds.getShapeI();
+                Graphics graphics = SvgView.this.getGraphics();
+                graphics.setXORMode(SvgView.this.getBackground());
                 graphics.drawRect(x, y, si.width, si.height);
                 graphics.dispose();
             }
@@ -69,12 +69,12 @@ public class svgview extends JPanel
         {
             int x = event.getX();
             int y = event.getY();
-            if (svgview.this.topdrawnode.getTarget(x, y) != null)
+            if (SvgView.this.topdrawnode.getTarget(x, y) != null)
             {
-                svgview.this.setCursor(Cursor.getPredefinedCursor(1));
+                SvgView.this.setCursor(Cursor.getPredefinedCursor(1));
             } else
             {
-                svgview.this.setCursor(Cursor.getDefaultCursor());
+                SvgView.this.setCursor(Cursor.getDefaultCursor());
             }
         }
 
@@ -87,19 +87,19 @@ public class svgview extends JPanel
         {
             int x = evt.getX();
             int y = evt.getY();
-            elhDrawNode oldactivenode = svgview.this.clickednode;
-            elhDrawNode newclickednode = svgview.this.topdrawnode.getTarget(x, y);
+            ElhDrawNode oldactivenode = SvgView.this.clickednode;
+            ElhDrawNode newclickednode = SvgView.this.topdrawnode.getTarget(x, y);
             if (newclickednode == null) return;
             int selectednodewidth = 4;
             Color selectednodecolor = Color.red;
-            Graphics graphics = svgview.this.canvas.getGraphics();
+            Graphics graphics = SvgView.this.canvas.getGraphics();
             Graphics2D g2d = (Graphics2D) graphics;
             if (oldactivenode != null)
             {
                 oldactivenode.drawbackgroundborder(g2d, selectednodewidth);
                 oldactivenode.drawnodeborder(g2d);
             }
-            svgview.this.clickednode = newclickednode;
+            SvgView.this.clickednode = newclickednode;
             newclickednode.drawborder(g2d, selectednodecolor, selectednodewidth);
         }
     }

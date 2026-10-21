@@ -74,7 +74,7 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 application {
-    mainClass = "org.lerot.myELH.myELHgui"
+    mainClass = "org.lerot.myELH.MyElh"
 }
 
 // Build one self-contained jar (the app plus every library unpacked into

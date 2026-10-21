@@ -3,13 +3,13 @@ package org.lerot.myELH;
 import java.awt.*;
 import java.util.HashMap;
 
-public class nodeStyle extends HashMap<String, Object>
+public class NodeStyle extends HashMap<String, Object>
 {
     private static final long serialVersionUID = 1L;
 
-    public static nodeStyle makeDefaultNodeStyle()
+    public static NodeStyle makeDefaultNodeStyle()
     {
-        nodeStyle anodestyle = new nodeStyle();
+        NodeStyle anodestyle = new NodeStyle();
         anodestyle.put("rwidth", 80.0D);
         anodestyle.put("rheight", 60.0D);
         anodestyle.put("borderColor", Color.gray);
@@ -50,7 +50,7 @@ public class nodeStyle extends HashMap<String, Object>
         return (Integer) get(key);
     }
 
-    public void include(nodeStyle anodestyle)
+    public void include(NodeStyle anodestyle)
     {
         if (anodestyle == null || anodestyle.isEmpty()) return;
         for (Entry<String, Object> amap : anodestyle.entrySet())

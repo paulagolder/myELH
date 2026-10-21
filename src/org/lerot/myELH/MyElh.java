@@ -17,38 +17,38 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Path;
 
-import static org.lerot.myELH.styleMaps.getPrintStyles;
-import static org.lerot.myELH.styleMaps.getScreenStyles;
+import static org.lerot.myELH.StyleMaps.getPrintStyles;
+import static org.lerot.myELH.StyleMaps.getScreenStyles;
 
 // The main window: the tree of the open ELH on the left, and either the
 // edit panel for the selected node or the diagram on the right.
-public class myELHgui extends JFrame
+public class MyElh extends JFrame
 {
     private static final long serialVersionUID = 1L;
     private static final String version = "2.0";
-    final styleMaps stylemaps = new styleMaps();
+    final StyleMaps stylemaps = new StyleMaps();
     // where the file choosers start
     private final File elhfolder = Path.of(System.getProperty("user.home"), "Documents", "elh").toFile();
     private final JLabel sourcefile = new JLabel();
     private final JLabel activepath = new JLabel();
     private final JPanel svgpanel;
     public DefaultMutableTreeNode activetreenode;
-    public elhnode activenode;
-    treeview currenttreeview;
-    elh currentelh;
+    public ElhNode activenode;
+    TreeView currenttreeview;
+    Elh currentelh;
     jswVerticalPanel editpanel;
     private File currentfile;
-    private elhDrawNode topdrawnode;
-    private svgdoc currentsvgdoc;
+    private ElhDrawNode topdrawnode;
+    private SvgDoc currentsvgdoc;
     private LayoutStyle layoutstyle = LayoutStyle.DEFAULT;
 
-    public myELHgui(int w, int h)
+    public MyElh(int w, int h)
     {
         super("ELH " + version);
         stylemaps.put("screen", getScreenStyles());
         stylemaps.put("print", getPrintStyles());
-        stylemaps.put("default", styleMap.makedefault());
-        URL iconURL = myELHgui.class.getResource("/elh.png");
+        stylemaps.put("default", StyleMap.makedefault());
+        URL iconURL = MyElh.class.getResource("/elh.png");
         if (iconURL != null)
         {
             setIconImage(new ImageIcon(iconURL).getImage());
@@ -66,7 +66,7 @@ public class myELHgui extends JFrame
         statusbar.add(this.activepath);
         statusbar.setBackground(Color.decode(jswTheme.NAVAREA));
         add(statusbar);
-        this.currenttreeview = new treeview(this);
+        this.currenttreeview = new TreeView(this);
         this.editpanel = new jswVerticalPanel("editpanel", false, false);
         this.editpanel.setBorder(jswStyle.makeLineBorder());
         this.editpanel.setLayout(new BorderLayout());
@@ -95,7 +95,7 @@ public class myELHgui extends JFrame
         {
             jswTheme.install();
             UIManager.put("FileChooser.readOnly", Boolean.TRUE);
-            myELHgui frame = new myELHgui(800, 400);
+            MyElh frame = new MyElh(800, 400);
             frame.setLocation(50, 50);
             frame.setMinimumSize(new Dimension(800, 400));
             frame.pack();
@@ -216,7 +216,7 @@ public class myELHgui extends JFrame
             return;
         }
         File openfile = fc.getSelectedFile();
-        elh openelh = new elh(openfile.getName());
+        Elh openelh = new Elh(openfile.getName());
         try
         {
             openelh.importELH(openfile.getAbsolutePath());
@@ -233,9 +233,9 @@ public class myELHgui extends JFrame
         this.activenode = null;
         this.activetreenode = null;
         this.currenttreeview.repaint();
-        this.currentsvgdoc = new svgdoc(stylemaps.getStyleMap("screen"));
+        this.currentsvgdoc = new SvgDoc(stylemaps.getStyleMap("screen"));
         Rectangle cas = this.svgpanel.getBounds();
-        this.topdrawnode = new elhDrawNode(currentsvgdoc, layoutstyle);
+        this.topdrawnode = new ElhDrawNode(currentsvgdoc, layoutstyle);
         topdrawnode.makeDrawNodeTree(this.currentelh, 1, 5);
         currentsvgdoc.inittree(this.topdrawnode, cas.width, cas.height);
         getContentPane().validate();
@@ -249,7 +249,7 @@ public class myELHgui extends JFrame
             return;
         }
         this.currentfile = fc.getSelectedFile();
-        this.currentelh = new elh(this.currentfile.getName());
+        this.currentelh = new Elh(this.currentfile.getName());
         writeElh();
         this.currenttreeview.maketree(this.currentelh);
     }
@@ -325,7 +325,7 @@ public class myELHgui extends JFrame
     private void setLayoutStyle(LayoutStyle style)
     {
         this.layoutstyle = style;
-        elhDrawNode.layoutstyle = style;
+        ElhDrawNode.layoutstyle = style;
         refresh();
     }
 
@@ -357,20 +357,20 @@ public class myELHgui extends JFrame
         {
             return;
         }
-        editview panel = switch (this.activenode)
+        EditView panel = switch (this.activenode)
         {
-            case event anevent ->
+            case Event anevent ->
             {
-                editviewevent eventpanel = new editviewevent(this);
+                EditViewEvent eventpanel = new EditViewEvent(this);
                 eventpanel.setup(anevent);
                 yield eventpanel;
             }
-            case entity anentity -> setupEditView(new editviewentity(this), anentity);
-            case rolegroup arolegroup -> setupEditView(new editviewrolegroup(this), arolegroup);
-            case role arole -> setupEditView(new editviewrole(this), arole);
-            case elh anelh -> setupEditView(new editviewelh(this), anelh);
+            case Entity anentity -> setupEditView(new EditViewEntity(this), anentity);
+            case RoleGroup arolegroup -> setupEditView(new EditViewRoleGroup(this), arolegroup);
+            case Role arole -> setupEditView(new EditViewRole(this), arole);
+            case Elh anelh -> setupEditView(new EditViewElh(this), anelh);
             // entity groups have no edit panel
-            case entitygroup anentitygroup -> null;
+            case EntityGroup anentitygroup -> null;
         };
         if (panel != null)
         {
@@ -380,13 +380,13 @@ public class myELHgui extends JFrame
         getContentPane().validate();
     }
 
-    private static editview setupEditView(editview panel, elhnode anode)
+    private static EditView setupEditView(EditView panel, ElhNode anode)
     {
         panel.setup(anode);
         return panel;
     }
 
-    private void showSVGView(JPanel apanel, elhDrawNode activenode)
+    private void showSVGView(JPanel apanel, ElhDrawNode activenode)
     {
         apanel.removeAll();
         apanel.setBackground(Color.decode(jswTheme.DETAILAREA));
@@ -395,7 +395,7 @@ public class myELHgui extends JFrame
         {
             return;
         }
-        currentsvgdoc = new svgdoc(stylemaps.getStyleMap("screen"));
+        currentsvgdoc = new SvgDoc(stylemaps.getStyleMap("screen"));
         currentsvgdoc.topdrawnode = this.topdrawnode;
         currentsvgdoc.inittree(this.topdrawnode, cas.width, cas.height);
         currentsvgdoc.createLayout(this.topdrawnode, currentsvgdoc.hs);
@@ -404,7 +404,7 @@ public class myELHgui extends JFrame
         currentsvgdoc.svggraphic.setColor(Color.blue);
         currentsvgdoc.svggraphic.drawRect(0,0,(int)currentsvgdoc.maxwidth,(int)currentsvgdoc.maxheight);
         this.topdrawnode.drawNode(currentsvgdoc.svggraphic);
-        svgview svgpanel = new svgview(stylemaps.get("default"));
+        SvgView svgpanel = new SvgView(stylemaps.get("default"));
         svgpanel.setLayout(new BorderLayout());
         svgpanel.setBackground(Color.decode(jswTheme.DETAILAREA));
         svgpanel.setNodeStyle(stylemaps.get("default"));
@@ -429,7 +429,7 @@ public class myELHgui extends JFrame
         {
             return;
         }
-        svgdoc adoc = new svgdoc(stylemaps.getStyleMap("print"));
+        SvgDoc adoc = new SvgDoc(stylemaps.getStyleMap("print"));
         adoc.createLayout(this.topdrawnode,adoc.hs);
         adoc.drawtree(this.topdrawnode);
         adoc.svggraphic.setStroke(new BasicStroke(4));
@@ -446,9 +446,9 @@ public class myELHgui extends JFrame
         {
             if (this.currentsvgdoc == null)
             {
-                this.currentsvgdoc = new svgdoc(stylemaps.getStyleMap("screen"));
+                this.currentsvgdoc = new SvgDoc(stylemaps.getStyleMap("screen"));
             }
-            this.topdrawnode = new elhDrawNode(currentsvgdoc, layoutstyle);
+            this.topdrawnode = new ElhDrawNode(currentsvgdoc, layoutstyle);
             topdrawnode.makeDrawNodeTree(this.currentelh, 0, 5);
             this.currenttreeview.expandPath(this.activetreenode);
             showEditView();

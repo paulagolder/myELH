@@ -5,9 +5,9 @@ import java.awt.geom.Rectangle2D;
 import java.util.HashMap;
 import java.util.Vector;
 
-public class elhDrawNode
+public class ElhDrawNode
 {
-    static svgdoc view;
+    static SvgDoc view;
     static LayoutStyle layoutstyle;
  //   private static int columncounter;
   //  public double anchor;
@@ -16,15 +16,15 @@ public class elhDrawNode
     double bottom=0.0;
     String text = "deftext";
     String elhtype;
-    Vector<elhDrawNode> children;
-    nodeStyle nodestylemap;
+    Vector<ElhDrawNode> children;
+    NodeStyle nodestylemap;
     ShapeD bounds;
     private ChildGrouping childgrouptype;
-    private elhDrawNode parent;
+    private ElhDrawNode parent;
     private String stylename;
     private double symbolshift=10;
 
-    public elhDrawNode(svgdoc asvgdoc, LayoutStyle layout)
+    public ElhDrawNode(SvgDoc asvgdoc, LayoutStyle layout)
     {
         // stylemap = astylemap;
         view = asvgdoc;
@@ -32,24 +32,24 @@ public class elhDrawNode
         bounds = new ShapeD();
     }
 
-    public elhDrawNode(elhnode anode, int r, int maxrow)
+    public ElhDrawNode(ElhNode anode, int r, int maxrow)
     {
         bounds = new ShapeD();
         this.parent = null;
         this.children = new Vector<>();
         this.text = anode.getName();
         this.childgrouptype = anode.getChildgrouptype();
-        this.elhtype = anode.getClass().getSimpleName();
+        this.elhtype = anode.getType();
         this.stylename = anode.getStylename();
         nodestylemap = view.docstylemap.getNodeStyle(elhtype);
         int count = anode.countChildren();
         if (r <= maxrow && count > 0)
         {
-            for (elhnode acnode : anode.getChildren())
+            for (ElhNode acnode : anode.getChildren())
             {
                 if (acnode != null)
                 {
-                    elhDrawNode newdnode = new elhDrawNode(acnode, r + 1, maxrow);
+                    ElhDrawNode newdnode = new ElhDrawNode(acnode, r + 1, maxrow);
                     newdnode.setParent(this);
                     this.children.add(newdnode);
                 }
@@ -103,23 +103,23 @@ public class elhDrawNode
         return textarray3;
     }
 
-    public void makeDrawNodeTree(elhnode anode, int r, int maxrow)
+    public void makeDrawNodeTree(ElhNode anode, int r, int maxrow)
     {
         this.parent = null;
         this.children = new Vector<>();
         this.text = anode.getName();
         this.childgrouptype = anode.getChildgrouptype();
-        this.elhtype = anode.getClass().getSimpleName();
+        this.elhtype = anode.getType();
         this.stylename = anode.getStylename();
         this.nodestylemap = view.docstylemap.getNodeStyle(stylename);
         int count = anode.countChildren();
         if (r <= maxrow && count > 0)
         {
-            for (elhnode acnode : anode.getChildren())
+            for (ElhNode acnode : anode.getChildren())
             {
                 if (acnode != null)
                 {
-                    elhDrawNode newdnode = new elhDrawNode(acnode, r + 1, maxrow);
+                    ElhDrawNode newdnode = new ElhDrawNode(acnode, r + 1, maxrow);
                     newdnode.setParent(this);
                     this.children.add(newdnode);
                 }
@@ -127,7 +127,7 @@ public class elhDrawNode
         }
     }
 
-    private void setParent(elhDrawNode adnode)
+    private void setParent(ElhDrawNode adnode)
     {
         this.parent = adnode;
     }
@@ -140,7 +140,7 @@ public class elhDrawNode
         return !this.children.isEmpty();
     }
 
-    public Vector<elhDrawNode> getChildren()
+    public Vector<ElhDrawNode> getChildren()
     {
         return this.children;
     }
@@ -164,7 +164,7 @@ public class elhDrawNode
         this.childgrouptype = childgrouptype;
     }
 
-    public elhDrawNode getparent()
+    public ElhDrawNode getparent()
     {
         return this.parent;
     }
@@ -208,13 +208,13 @@ public class elhDrawNode
         return bounds.containsPoint(px, py);
     }
 
-    elhDrawNode getTarget(double px, double py)
+    ElhDrawNode getTarget(double px, double py)
     {
         if (hasChildren())
         {
-            for (elhDrawNode adnode : this.children)
+            for (ElhDrawNode adnode : this.children)
             {
-                elhDrawNode fnode = adnode.getTarget(px, py);
+                ElhDrawNode fnode = adnode.getTarget(px, py);
                 if (fnode != null) return fnode;
             }
         }
@@ -341,7 +341,7 @@ public class elhDrawNode
 
     void drawNode(Graphics g2d)
     {
-        elhDrawNode adnode = this;
+        ElhDrawNode adnode = this;
         adnode.DrawShape((Graphics2D) g2d);
         adnode.drawSymbols(g2d);
         if (adnode.hasParent())
@@ -355,7 +355,7 @@ public class elhDrawNode
             if (layoutstyle == LayoutStyle.JACKSON || layoutstyle == LayoutStyle.SIMPLE) drawDownLine(g2d);
             else drawSymbols(g2d);
             drawHorizontalLine(g2d);
-            for (elhDrawNode adrawnode : adnode.children)
+            for (ElhDrawNode adrawnode : adnode.children)
             {
                 adrawnode.drawNode(g2d);
             }
@@ -383,9 +383,9 @@ public class elhDrawNode
     {
         double lw = nodestylemap.getDouble("lineWidth");
         ((Graphics2D) g2d).setStroke(new BasicStroke((float) lw));
-        Vector<elhDrawNode> kids = this.getChildren();
-        elhDrawNode firstchild = kids.getFirst();
-        elhDrawNode lastchild = kids.getLast();
+        Vector<ElhDrawNode> kids = this.getChildren();
+        ElhDrawNode firstchild = kids.getFirst();
+        ElhDrawNode lastchild = kids.getLast();
         double x = firstchild.bounds.x + firstchild.bounds.width/2.0D;
         double x2 = lastchild.bounds.x + lastchild.bounds.width/2.0D;
         double y =  this.bounds.y + this.bounds.height+view.vs/2.0D;
@@ -398,9 +398,9 @@ public class elhDrawNode
         double lw = nodestylemap.getDouble("lineWidth");
         int dy = 6;
         ((Graphics2D) g2d).setStroke(new BasicStroke((float) lw));
-        Vector<elhDrawNode> kids = this.getChildren();
-        elhDrawNode firstchild = kids.getFirst();
-        elhDrawNode lastchild = kids.getLast();
+        Vector<ElhDrawNode> kids = this.getChildren();
+        ElhDrawNode firstchild = kids.getFirst();
+        ElhDrawNode lastchild = kids.getLast();
         double x = firstchild.bounds.x + firstchild.bounds.width/2.0D;
         double x2 = lastchild.bounds.x + lastchild.bounds.width/2.0D;
         double y =  this.bounds.y + this.bounds.height+view.vs/2.0D;
@@ -531,9 +531,9 @@ public class elhDrawNode
 
     private void drawTriangle(Graphics g2d)
     {
-        elhDrawNode adnode = this;
+        ElhDrawNode adnode = this;
         String stylename = getStylename();
-        nodeStyle nodestylemap = view.docstylemap.getNodeStyle(stylename);
+        NodeStyle nodestylemap = view.docstylemap.getNodeStyle(stylename);
         g2d.setColor(nodestylemap.getColor("lineColor"));
         double lw = nodestylemap.getDouble("lineWidth");
         ((Graphics2D) g2d).setStroke(new BasicStroke((float) lw));

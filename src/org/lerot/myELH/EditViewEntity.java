@@ -2,25 +2,23 @@ package org.lerot.myELH;
 
 import java.awt.event.ActionListener;
 
-public class editviewelh extends editview implements ActionListener
+public class EditViewEntity extends EditView implements ActionListener
 {
     private static final long serialVersionUID = 1L;
 
-    editviewelh(myELHgui app)
+    EditViewEntity(MyElh app)
     {
         super(app);
     }
 
-    public void setup(elhnode anode)
+    public void setup(ElhNode anode)
     {
         super.setup(anode);
-        String[] t = {"ELH"};
-        this.typefield.setList(t);
+        this.typefield.setList(anode.getChildtypes());
         this.typefield.setSelected(anode.getType());
         this.grouptypefield.setList(ChildGrouping.choiceNames());
         this.grouptypefield.setSelected(anode.getChildgrouptype().xmlName());
-        this.childpanel.removeAll();
-        makeChildPanel();
+        this.makeChildPanel();
         makebuttonbar();
     }
 }

@@ -7,12 +7,12 @@
   import javax.swing.tree.TreePath;
 
   
-  class myTree    extends JTree
+  class MyTree    extends JTree
   {
     private static final long serialVersionUID = 1L;
     DefaultMutableTreeNode topnode;
     
-    myTree(DefaultMutableTreeNode dmtn, boolean b) {
+    MyTree(DefaultMutableTreeNode dmtn, boolean b) {
       super(dmtn, b);
       this.topnode = dmtn;
     }
@@ -47,9 +47,9 @@
             
             DefaultMutableTreeNode nextchild = childlist.nextElement();
             String nextname = "";
-            if (nextchild.getUserObject() instanceof elhnode) {
+            if (nextchild.getUserObject() instanceof ElhNode) {
               
-              nextname = ((elhnode)nextchild.getUserObject()).getName();
+              nextname = ((ElhNode)nextchild.getUserObject()).getName();
             }
             else {
               

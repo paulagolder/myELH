@@ -22,18 +22,18 @@ import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
 
-public class treeview extends JPanel implements ActionListener, MouseListener
+public class TreeView extends JPanel implements ActionListener, MouseListener
 {
     private static final long serialVersionUID = 1L;
     // selection highlights: branches blue-grey, leaves rose
     static final Color BRANCHSELECTED = Color.decode("#BFC9D4");
     static final Color LEAFSELECTED = Color.decode("#E3CBC6");
-    private final myELHgui app;
-    myTree thistree;
+    private final MyElh app;
+    MyTree thistree;
     Color bg;
     private JPopupMenu popup;
 
-    public treeview(myELHgui app)
+    public TreeView(MyElh app)
     {
         this.app = app;
         this.bg = Color.decode(jswTheme.SELECTAREA);
@@ -47,7 +47,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
         setVisible(true);
     }
 
-    public void maketree(elh anelh)
+    public void maketree(Elh anelh)
     {
         if (anelh == null)
         {
@@ -56,8 +56,8 @@ public class treeview extends JPanel implements ActionListener, MouseListener
         String name = anelh.getName();
         DefaultMutableTreeNode parent = new DefaultMutableTreeNode(name);
         parent.setUserObject(anelh);
-        List<elhnode> entities = anelh.getChildren();
-        for (elhnode e : entities)
+        List<ElhNode> entities = anelh.getChildren();
+        for (ElhNode e : entities)
         {
             name = e.getName();
             DefaultMutableTreeNode anode = new DefaultMutableTreeNode(name);
@@ -65,18 +65,18 @@ public class treeview extends JPanel implements ActionListener, MouseListener
             parent.add(anode);
         }
         remove(this.thistree);
-        this.thistree = new myTree(parent, true);
+        this.thistree = new MyTree(parent, true);
         this.thistree.addMouseListener(this);
-        this.thistree.addTreeSelectionListener(new mytreelistener());
+        this.thistree.addTreeSelectionListener(new MyTreeListener());
         this.thistree.setBackground(this.bg);
         setCellRenderer(this.thistree);
         add(this.thistree);
     }
 
-    private myTree emptytree()
+    private MyTree emptytree()
     {
-        myTree empty = new myTree(new DefaultMutableTreeNode("No ELH OPEN"), false);
-        empty.addTreeSelectionListener(new mytreelistener());
+        MyTree empty = new MyTree(new DefaultMutableTreeNode("No ELH OPEN"), false);
+        empty.addTreeSelectionListener(new MyTreeListener());
         empty.setBackground(this.bg);
         return empty;
     }
@@ -102,7 +102,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
             {
                 DefaultMutableTreeNode node = (DefaultMutableTreeNode) pValue;
                 super.getTreeCellRendererComponent(pTree, pValue, pIsSelected, pIsExpanded, pIsLeaf, pRow, pHasFocus);
-                setBackgroundNonSelectionColor(treeview.this.bg);
+                setBackgroundNonSelectionColor(TreeView.this.bg);
                 if (node.isRoot())
                 {
                     setBackgroundSelectionColor(BRANCHSELECTED);
@@ -118,12 +118,12 @@ public class treeview extends JPanel implements ActionListener, MouseListener
         });
     }
 
-    private void addnodes(DefaultMutableTreeNode topevnode, elhnode topev)
+    private void addnodes(DefaultMutableTreeNode topevnode, ElhNode topev)
     {
-        List<elhnode> events = topev.getChildren();
+        List<ElhNode> events = topev.getChildren();
         if (events != null)
         {
-            for (elhnode e : events)
+            for (ElhNode e : events)
             {
                 String name = e.getName();
                 DefaultMutableTreeNode evnode = new DefaultMutableTreeNode(name);
@@ -218,7 +218,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
     }
 
     // carries out a command from the tree's popup menu or the edit panel
-    public void actions(String comStr, elhnode selectednode)
+    public void actions(String comStr, ElhNode selectednode)
     {
         if (selectednode == null)
         {
@@ -249,7 +249,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
             selectednode.moveright();
         } else if (comStr.startsWith("NEWCHILD"))
         {
-            selectednode.addChild(elhnode.getDefaultChildtype());
+            selectednode.addChild(ElhNode.getDefaultChildtype());
         } else if (comStr.startsWith("NEWSIBLING"))
         {
             selectednode.addSibling();
@@ -258,7 +258,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
             if (selectednode.getParent() == null)
             {
                 // deleting the top node: if it only holds another elh, that becomes the top
-                if (selectednode.countChildren() == 1 && selectednode.getChildren().getFirst() instanceof elh inner)
+                if (selectednode.countChildren() == 1 && selectednode.getChildren().getFirst() instanceof Elh inner)
                 {
                     inner.setParent(null);
                     app.currentelh = inner;
@@ -266,7 +266,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
                 }
             } else
             {
-                elhnode parentnode = selectednode.getParent();
+                ElhNode parentnode = selectednode.getParent();
                 parentnode.moveChildrenFrom(selectednode);
                 parentnode.removeChild(selectednode);
                 app.activenode = parentnode;
@@ -282,10 +282,10 @@ public class treeview extends JPanel implements ActionListener, MouseListener
         app.refresh();
     }
 
-    void setselections(elhnode selectednode)
+    void setselections(ElhNode selectednode)
     {
         app.activenode = selectednode;
-        String path = elhnode.makepath(selectednode);
+        String path = ElhNode.makepath(selectednode);
         DefaultMutableTreeNode node = this.thistree.findActiveTreenode(path);
         app.activetreenode = node;
         if (node == null)
@@ -297,17 +297,17 @@ public class treeview extends JPanel implements ActionListener, MouseListener
         this.thistree.scrollPathToVisible(treepath);
     }
 
-    class mytreelistener implements TreeSelectionListener
+    class MyTreeListener implements TreeSelectionListener
     {
         public void valueChanged(TreeSelectionEvent e)
         {
-            DefaultMutableTreeNode node = (DefaultMutableTreeNode) treeview.this.thistree.getLastSelectedPathComponent();
+            DefaultMutableTreeNode node = (DefaultMutableTreeNode) TreeView.this.thistree.getLastSelectedPathComponent();
             if (node == null)
             {
                 return;
             }
             app.activetreenode = node;
-            String treepath = treeview.this.makepath(node);
+            String treepath = TreeView.this.makepath(node);
             if (app.currentelh != null)
             {
                 app.activenode = app.currentelh.findActiveEvent(treepath);

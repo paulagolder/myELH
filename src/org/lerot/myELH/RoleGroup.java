@@ -1,8 +1,8 @@
 package org.lerot.myELH;
 
-public final class rolegroup extends elhnode
+public final class RoleGroup extends ElhNode
 {
-    public rolegroup(String aname, elhnode aparent)
+    public RoleGroup(String aname, ElhNode aparent)
     {
         super(aname, aparent);
         this.childgrouptype = ChildGrouping.ROLEGROUP;

@@ -3,22 +3,22 @@ package org.lerot.myELH;
 import java.awt.*;
 import java.util.HashMap;
 
-public class styleMap extends HashMap<String, nodeStyle>
+public class StyleMap extends HashMap<String, NodeStyle>
 {
     private static final long serialVersionUID = 1L;
     //public styleMap docstylemap;
 
-    public static styleMap makedefault()
+    public static StyleMap makedefault()
     {
-        styleMap astylemap = new styleMap();
-        astylemap.put("default", nodeStyle.makeDefaultNodeStyle());
+        StyleMap astylemap = new StyleMap();
+        astylemap.put("default", NodeStyle.makeDefaultNodeStyle());
         return astylemap;
     }
 
 
-    public nodeStyle getStyleMap(String stylename)
+    public NodeStyle getStyleMap(String stylename)
     {
-        nodeStyle stylemap = this.get(stylename);
+        NodeStyle stylemap = this.get(stylename);
         if(stylemap == null)
         {
             System.out.println( "Not found style "+stylename);
@@ -31,55 +31,55 @@ public class styleMap extends HashMap<String, nodeStyle>
         return stylemap;
     }
 
-    public void include(styleMap instylemap)
+    public void include(StyleMap instylemap)
     {
-        for(Entry<String, nodeStyle> amap : instylemap.entrySet())
+        for(Entry<String, NodeStyle> amap : instylemap.entrySet())
         {
             String key = amap.getKey();
-            nodeStyle anodestyle = amap.getValue();
+            NodeStyle anodestyle = amap.getValue();
             this.put(key,anodestyle);
         }
     }
 
-    public nodeStyle getNodeStyle(String key)
+    public NodeStyle getNodeStyle(String key)
     {
-        nodeStyle anodestyle = new nodeStyle();
+        NodeStyle anodestyle = new NodeStyle();
         anodestyle.include(get("default"))  ;
         anodestyle.include(get(key));
         return anodestyle;
     }
 
-    public static styleMap makeStyles()
+    public static StyleMap makeStyles()
     {
-        styleMap astylemap = new styleMap();
-        nodeStyle docstyle = new nodeStyle();
+        StyleMap astylemap = new StyleMap();
+        NodeStyle docstyle = new NodeStyle();
         docstyle.put("fill", Boolean.FALSE);
         docstyle.put("fillColor", Color.green);
         docstyle.put("lineColor", Color.black);
         astylemap.put("document", docstyle);
-        nodeStyle anodestyle = new nodeStyle();
+        NodeStyle anodestyle = new NodeStyle();
         anodestyle.put("textattop", Boolean.FALSE);
         anodestyle.put("rheight", 40.0D);
         astylemap.put("event", anodestyle);
-        nodeStyle anodestyle2 = new nodeStyle();
+        NodeStyle anodestyle2 = new NodeStyle();
         anodestyle2.put("fill", Boolean.FALSE);
         anodestyle2.put("fillColor", Color.yellow);
         anodestyle2.put("textattop", Boolean.TRUE);
         anodestyle2.put("underlinetitle", Boolean.TRUE);
         astylemap.put("entity", anodestyle2);
-        nodeStyle rolestyle = new nodeStyle();
+        NodeStyle rolestyle = new NodeStyle();
         rolestyle.put("fill", Boolean.TRUE);
         rolestyle.put("fillColor", Color.pink);
         rolestyle.put("textattop", Boolean.TRUE);
         rolestyle.put("underlinetitle", Boolean.TRUE);
         astylemap.put("role", rolestyle);
-        nodeStyle rolegstyle = new nodeStyle();
+        NodeStyle rolegstyle = new NodeStyle();
         rolegstyle.put("fill", Boolean.TRUE);
         rolegstyle.put("fillColor", Color.green);
         rolegstyle.put("textattop", Boolean.TRUE);
         rolegstyle.put("underlinetitle", Boolean.TRUE);
         astylemap.put("rolegroup", rolegstyle);
-        nodeStyle defstyle = nodeStyle.makeDefaultNodeStyle();
+        NodeStyle defstyle = NodeStyle.makeDefaultNodeStyle();
         astylemap.put("default", defstyle);
         return astylemap;
     }

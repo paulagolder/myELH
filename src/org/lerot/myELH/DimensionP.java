@@ -1,11 +1,11 @@
 package org.lerot.myELH;
 
-public class dimensionp
+public class DimensionP
 {
     double width;
     double height;
 
-    public dimensionp(double length, double height)
+    public DimensionP(double length, double height)
     {
         this.width = length;
         this.height = height;

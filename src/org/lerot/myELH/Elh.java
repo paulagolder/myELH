@@ -14,15 +14,15 @@ import org.jdom2.input.SAXBuilder;
 import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
 
-public final class elh extends elhnode
+public final class Elh extends ElhNode
 {
-    public elh(String aname, elhnode aparent)
+    public Elh(String aname, ElhNode aparent)
     {
         super(aname, aparent);
         this.childgrouptype = ChildGrouping.SEQUENCE;
     }
 
-    public elh(String aname)
+    public Elh(String aname)
     {
         super(aname, null);
     }

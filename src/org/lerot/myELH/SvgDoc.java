@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
 
-public class svgdoc //extends JPanel
+public class SvgDoc //extends JPanel
 {
     private static final long serialVersionUID = 1L;
     public SVGGraphics2D svggraphic;
@@ -20,8 +20,8 @@ public class svgdoc //extends JPanel
     public Color backgroundcolor;
     Map<Integer, Double> columns;
     Map<Integer, Double> rows;
-    styleMap docstylemap;
-    elhDrawNode topdrawnode;
+    StyleMap docstylemap;
+    ElhDrawNode topdrawnode;
     int width;
     int height;
     int originx;
@@ -31,7 +31,7 @@ public class svgdoc //extends JPanel
     double maxheight;
     double maxwidth;
 
-    public svgdoc(styleMap astylemap)
+    public SvgDoc(StyleMap astylemap)
     {
         maxheight = 0.0;
         maxwidth = 0.0;
@@ -39,7 +39,7 @@ public class svgdoc //extends JPanel
         this.width = 0;
         this.height = 0;
         docstylemap = astylemap;
-        nodeStyle backgroundstyle = docstylemap.getNodeStyle("document");
+        NodeStyle backgroundstyle = docstylemap.getNodeStyle("document");
         backgroundcolor = backgroundstyle.getColor("fillcolor");
         int fs = backgroundstyle.getInteger("textFontSize");
         docfont = new Font("SansSerif", Font.PLAIN, fs);
@@ -52,7 +52,7 @@ public class svgdoc //extends JPanel
         svggraphic.setColor(backgroundcolor);
     }
 
-    public dimensionp createLayout(elhDrawNode adnode, double xanchor)
+    public DimensionP createLayout(ElhDrawNode adnode, double xanchor)
     {
         HashMap<String, Double> d0 = adnode.getNodeSize(svggraphic);
         adnode.bounds.setDimension(d0.get("width"), d0.get("height"));
@@ -61,7 +61,7 @@ public class svgdoc //extends JPanel
         double topy = 0.0D;
         if (adnode.hasParent())
         {
-            elhDrawNode parent = adnode.getparent();
+            ElhDrawNode parent = adnode.getparent();
             topy = parent.bounds.y + parent.bounds.height + vs;
         } else topy = vs;
         adnode.bounds.x = xanchor;
@@ -75,29 +75,29 @@ public class svgdoc //extends JPanel
             if (adnode.getChildren().size() > 1)
             {
                 width = -hs;
-                Vector<elhDrawNode> children = adnode.children;
-                for (elhDrawNode adrawnode : children)
+                Vector<ElhDrawNode> children = adnode.children;
+                for (ElhDrawNode adrawnode : children)
                 {
-                    dimensionp d = createLayout(adrawnode, xanchor);
+                    DimensionP d = createLayout(adrawnode, xanchor);
                     xanchor += d.width + hs;
                     width += d.width + hs;
                 }
                 adnode.bounds.x = (adnode.children.getFirst().bounds.x +adnode.children.getLast().bounds.x+adnode.children.getLast().bounds.width)/2-adnode.bounds.width/2;
             } else
             {
-                dimensionp d = createLayout(adnode.children.getFirst(), xanchor);
+                DimensionP d = createLayout(adnode.children.getFirst(), xanchor);
                 adnode.bounds.x = adnode.children.getFirst().bounds.x + adnode.children.getFirst().bounds.width / 2 - adnode.bounds.width / 2;
                 width = d.width ;
             }
         }
         if (adnode.bounds.x + adnode.bounds.width + hs > maxwidth)  maxwidth = adnode.bounds.x + adnode.bounds.width + hs;
-        return new dimensionp(width, height);
+        return new DimensionP(width, height);
     }
 
     public void printsvg(File outfile)
     {
         createLayout(this.topdrawnode, vs);
-        dimensionp dim = new dimensionp(maxwidth, maxheight);
+        DimensionP dim = new DimensionP(maxwidth, maxheight);
         boolean useCSS = true;
         try
         {
@@ -113,7 +113,7 @@ public class svgdoc //extends JPanel
         }
     }
 
-    public void inittree(elhDrawNode adrawnode, double aw, double ah)
+    public void inittree(ElhDrawNode adrawnode, double aw, double ah)
     {
         this.topdrawnode = adrawnode;
         this.width = (int) aw;
@@ -122,12 +122,12 @@ public class svgdoc //extends JPanel
         // this.topdrawnode.drawNode(svggraphic);
     }
 
-    public void drawtree(elhDrawNode adrawnode)
+    public void drawtree(ElhDrawNode adrawnode)
     {
         adrawnode.drawNode(svggraphic);
     }
 
-    public void xinittree(elhDrawNode adrawnode, double aw, double ah)
+    public void xinittree(ElhDrawNode adrawnode, double aw, double ah)
     {
         this.topdrawnode = adrawnode;
         this.width = (int) aw;

@@ -10,16 +10,16 @@ import org.jdom2.output.XMLOutputter;
 
 // A node in an entity life history tree. The tree only holds the data: after
 // changing it, the caller updates the screen.
-public sealed abstract class elhnode permits elh, entity, entitygroup, event, role, rolegroup
+public sealed abstract class ElhNode permits Elh, Entity, EntityGroup, Event, Role, RoleGroup
 {
     protected static String[] childtypes = {"entity", "event", "role"};
     protected ChildGrouping childgrouptype;
-    private List<elhnode> children;
+    private List<ElhNode> children;
     private String name;
-    private elhnode parent;
+    private ElhNode parent;
     private String stylename;
 
-    public elhnode(String aname, elhnode aparent)
+    public ElhNode(String aname, ElhNode aparent)
     {
         this.name = aname;
         this.parent = aparent;
@@ -37,16 +37,16 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
     }
 
     // a new node of the given type, or null if the type is not known
-    public static elhnode makeNode(String typename, String aname, elhnode parent)
+    public static ElhNode makeNode(String typename, String aname, ElhNode parent)
     {
         return switch (typename)
         {
-            case "elh" -> new elh(aname, parent);
-            case "entity" -> new entity(aname, parent);
-            case "role" -> new role(aname, parent);
-            case "event" -> new event(aname, parent);
-            case "rolegroup" -> new rolegroup(aname, parent);
-            case "entitygroup" -> new entitygroup(aname, parent);
+            case "elh" -> new Elh(aname, parent);
+            case "entity" -> new Entity(aname, parent);
+            case "role" -> new Role(aname, parent);
+            case "event" -> new Event(aname, parent);
+            case "rolegroup" -> new RoleGroup(aname, parent);
+            case "entitygroup" -> new EntityGroup(aname, parent);
             default ->
             {
                 System.out.println(" Unknown type " + typename);
@@ -56,7 +56,7 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
     }
 
     // a node for the user to fill in, named after its type
-    public static elhnode makeNode(String typename, elhnode parent)
+    public static ElhNode makeNode(String typename, ElhNode parent)
     {
         return makeNode(typename, "new " + typename, parent);
     }
@@ -64,7 +64,7 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
     // puts a new event between this node and its children
     public void insertabovechildren()
     {
-        event newevent = new event("newevent", this);
+        Event newevent = new Event("newevent", this);
         newevent.moveChildrenFrom(this);
         addChild(newevent);
     }
@@ -79,12 +79,12 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
         return this.name;
     }
 
-    public elhnode getParent()
+    public ElhNode getParent()
     {
         return this.parent;
     }
 
-    public void setParent(elhnode parent)
+    public void setParent(ElhNode parent)
     {
         this.parent = parent;
     }
@@ -99,7 +99,7 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
         this.name = aname;
     }
 
-    public List<elhnode> getChildren()
+    public List<ElhNode> getChildren()
     {
         return this.children;
     }
@@ -111,9 +111,9 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
 
     public void moveup()
     {
-        elhnode parent = getParent();
+        ElhNode parent = getParent();
         if (parent == null || parent.getParent() == null) return;
-        elhnode grandparent = parent.getParent();
+        ElhNode grandparent = parent.getParent();
         parent.children.remove(this);
         grandparent.children.add(this);
         setParent(grandparent);
@@ -122,7 +122,7 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
     public void moveleft()
     {
         if (getParent() == null) return;
-        List<elhnode> siblings = getParent().children;
+        List<ElhNode> siblings = getParent().children;
         int index = siblings.indexOf(this);
         if (index == 0) return;
         siblings.set(index, siblings.get(index - 1));
@@ -132,7 +132,7 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
     public void moveright()
     {
         if (getParent() == null) return;
-        List<elhnode> siblings = getParent().children;
+        List<ElhNode> siblings = getParent().children;
         int index = siblings.indexOf(this);
         if (index == siblings.size() - 1) return;
         siblings.set(index, siblings.get(index + 1));
@@ -141,7 +141,7 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
 
     public void deleteChildren()
     {
-        for (elhnode achild : this.children)
+        for (ElhNode achild : this.children)
         {
             achild.deleteChildren();
         }
@@ -150,7 +150,7 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
 
     public void deleteChild(String childname)
     {
-        elhnode delnode = findChildnode(childname);
+        ElhNode delnode = findChildnode(childname);
         if (delnode != null)
         {
             delnode.deleteChildren();
@@ -158,27 +158,27 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
         }
     }
 
-    void removeChild(elhnode delnode)
+    void removeChild(ElhNode delnode)
     {
         this.children.remove(delnode);
     }
 
     public void addChild(String type)
     {
-        elhnode newnode = makeNode(type, this);
+        ElhNode newnode = makeNode(type, this);
         if (newnode != null) addChild(newnode);
     }
 
-    public void addChild(elhnode e)
+    public void addChild(ElhNode e)
     {
         this.children.add(e);
     }
 
     public void addSibling()
     {
-        elhnode parent = getParent();
+        ElhNode parent = getParent();
         if (parent == null) return;
-        parent.addChild(new event("newnode", parent));
+        parent.addChild(new Event("newnode", parent));
     }
 
     // this node and everything below it, as saved in an .elh file
@@ -194,7 +194,7 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
         {
             element.setAttribute("stylename", getStylename());
         }
-        for (elhnode achild : getChildren())
+        for (ElhNode achild : getChildren())
         {
             element.addContent(achild.toElement());
         }
@@ -206,12 +206,14 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
         return new XMLOutputter(Format.getPrettyFormat()).outputString(toElement());
     }
 
+    // the node type as written in .elh files ("entity", "rolegroup", ...);
+    // also used to look up the node's drawing style
     public String getType()
     {
-        return this.getClass().getSimpleName();
+        return this.getClass().getSimpleName().toLowerCase();
     }
 
-    public elhnode findActiveEvent(String path)
+    public ElhNode findActiveEvent(String path)
     {
         StringTokenizer st = new StringTokenizer(path, "/");
         if (st.hasMoreElements())
@@ -229,8 +231,8 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
             return this;
         }
         String centityname = (String) st.nextElement();
-        elhnode centity = findChildnode(centityname);
-        elhnode cevent = null;
+        ElhNode centity = findChildnode(centityname);
+        ElhNode cevent = null;
         while (centity != null && st.hasMoreElements())
         {
             cevent = centity;
@@ -244,9 +246,9 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
         return centity;
     }
 
-    public elhnode findChildnode(String sname)
+    public ElhNode findChildnode(String sname)
     {
-        for (elhnode anentity : getChildren())
+        for (ElhNode anentity : getChildren())
         {
             if (anentity.getName().equalsIgnoreCase(sname))
             {
@@ -259,25 +261,25 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
     // copies the named child, adding the copy as a further child
     public void duplicate(String childname)
     {
-        elhnode selnode = findChildnode(childname);
+        ElhNode selnode = findChildnode(childname);
         if (selnode == null) return;
-        if (!(this instanceof event || this instanceof entity || this instanceof elh)) return;
-        elhnode newnode = selnode.copy(this);
+        if (!(this instanceof Event || this instanceof Entity || this instanceof Elh)) return;
+        ElhNode newnode = selnode.copy(this);
         if (newnode == null) return;
         newnode.setName("Copyof:" + newnode.getName());
         addChild(newnode);
     }
 
     // a copy of this node and everything below it; elh nodes are not copied
-    elhnode copy(elhnode newparent)
+    ElhNode copy(ElhNode newparent)
     {
-        if (this instanceof elh) return null;
-        elhnode newnode = makeNode(getType(), getName(), newparent);
+        if (this instanceof Elh) return null;
+        ElhNode newnode = makeNode(getType(), getName(), newparent);
         newnode.setChildgrouptype(getChildgrouptype());
         newnode.setStylename(getStylename());
-        for (elhnode child : this.children)
+        for (ElhNode child : this.children)
         {
-            elhnode childcopy = child.copy(newnode);
+            ElhNode childcopy = child.copy(newnode);
             if (childcopy != null) newnode.addChild(childcopy);
         }
         return newnode;
@@ -304,7 +306,7 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
         {
             Element at = nl.get(i);
             String nodetype = at.getName();
-            elhnode anode = makeNode(nodetype, nodetype + " " + i, this);
+            ElhNode anode = makeNode(nodetype, nodetype + " " + i, this);
             if (anode == null)
             {
                 System.out.println(" unknown nodename =" + nodetype);
@@ -349,7 +351,7 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
     public String getPath()
     {
         String path = getName();
-        for (elhnode anode = this; anode.getParent() != null; )
+        for (ElhNode anode = this; anode.getParent() != null; )
         {
             anode = anode.getParent();
             path = anode.getName() + "/" + path;
@@ -358,21 +360,21 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
     }
 
     // moves all of anode's children to the end of this node's children
-    public void moveChildrenFrom(elhnode anode)
+    public void moveChildrenFrom(ElhNode anode)
     {
-        List<elhnode> moving = anode.children;
+        List<ElhNode> moving = anode.children;
         anode.children = new ArrayList<>();
-        for (elhnode acnode : moving)
+        for (ElhNode acnode : moving)
         {
             acnode.setParent(this);
             this.addChild(acnode);
         }
     }
 
-    public static String makepath(elhnode node)
+    public static String makepath(ElhNode node)
     {
         String treepath = "";
-        for (elhnode pnode = node; pnode != null; pnode = pnode.getParent())
+        for (ElhNode pnode = node; pnode != null; pnode = pnode.getParent())
         {
             String nodeInfo = pnode.getName();
             treepath = nodeInfo + "/" + treepath;
