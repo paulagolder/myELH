@@ -12,8 +12,8 @@ public class editviewrole extends editview implements ActionListener
         super.setup(anode);
         this.typefield.setList(anode.getChildtypes());
         this.typefield.setSelected(anode.getType());
-        this.grouptypefield.setList(anode.getChildgroupingtypes());
-        this.grouptypefield.setSelected(anode.getChildgrouptype());
+        this.grouptypefield.setList(ChildGrouping.choiceNames());
+        this.grouptypefield.setSelected(anode.getChildgrouptype().xmlName());
         this.childpanel.removeAll();
         makeChildPanel();
         makebuttonbar();

@@ -88,10 +88,10 @@ class elhnodeTest
     void anElhInsideAnElhSurvivesSaving() throws IOException
     {
         elh top = new elh("outer");
-        top.setChildgrouptype("sequence");
+        top.setChildgrouptype(ChildGrouping.SEQUENCE);
         top.setStylename("elh");
         elh inner = new elh("new elh", top);
-        inner.setChildgrouptype("sequence");
+        inner.setChildgrouptype(ChildGrouping.SEQUENCE);
         inner.setStylename("elh");
         top.addChild(inner);
         elh loaded = saveAndLoad(top);

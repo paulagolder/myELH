@@ -37,13 +37,10 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
     private final String dotelh;
     private final JLabel sourcefile;
     private final JPanel svgpanel;
-    private final JMenuItem stylej;
-    private final JMenuItem styled;
     private final String userhome;
     private final String propsfile;
     private final Object props;
     private final String elhfolder;
-    private final JMenuItem styles;
     public DefaultMutableTreeNode activetreenode;
     public elhnode activenode;
     treeview currenttreeview;
@@ -55,7 +52,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
     private elhDrawNode topdrawnode;;
     private String view;
     private svgdoc currentsvgdoc;
-    private String layoutstyle = "default";
+    private LayoutStyle layoutstyle = LayoutStyle.DEFAULT;
 
     public myELHgui(int w, int h)
     {
@@ -123,12 +120,14 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         jmExport.add(svgn);
         jmb.add(jmExport);
         JMenu jmOptions = new JMenu("Options");
-        this.stylej = new JMenuItem("Jackson Style");
-        this.styles = new JMenuItem("Plain Style");
-        this.styled = new JMenuItem("Default Style");
-        jmOptions.add(this.stylej);
-        jmOptions.add(this.styles);
-        jmOptions.add(this.styled);
+        ButtonGroup stylegroup = new ButtonGroup();
+        for (LayoutStyle style : new LayoutStyle[]{LayoutStyle.JACKSON, LayoutStyle.SIMPLE, LayoutStyle.DEFAULT})
+        {
+            JRadioButtonMenuItem item = new JRadioButtonMenuItem(style.menuLabel, style == this.layoutstyle);
+            item.addActionListener(e -> setLayoutStyle(style));
+            stylegroup.add(item);
+            jmOptions.add(item);
+        }
         jmb.add(jmOptions);
         JMenu jmHelp = new JMenu("Help");
         JMenuItem jmiAbout = new JMenuItem("About");
@@ -143,9 +142,6 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         medit.addActionListener(this);
         svgdraw.addActionListener(this);
         svgn.addActionListener(this);
-        this.stylej.addActionListener(this);
-        this.styled.addActionListener(this);
-        this.styles.addActionListener(this);
         jmiAbout.addActionListener(this);
         setJMenuBar(jmb);
         setVisible(true);
@@ -260,31 +256,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
     public void actionPerformed(ActionEvent ae)
     {
         String comStr = ae.getActionCommand();
-        if (comStr.equalsIgnoreCase("Jackson Style"))
-        {
-            this.layoutstyle = "jackson";
-            elhDrawNode.layoutstyle = layoutstyle;
-            this.stylej.setEnabled(false);
-            this.styles.setEnabled(true);
-            this.styled.setEnabled(true);
-            myELHgui.mframe.refresh();
-        }  else if (comStr.equalsIgnoreCase("Plain Style"))
-        {
-            this.layoutstyle = "simple";
-            elhDrawNode.layoutstyle = layoutstyle;
-            this.stylej.setEnabled(true);
-            this.styles.setEnabled(false);
-            this.styled.setEnabled(true);
-            myELHgui.mframe.refresh();
-        }else if (comStr.equalsIgnoreCase("Default Style"))
-        {
-            this.layoutstyle = "default";
-            elhDrawNode.layoutstyle = layoutstyle;
-            this.stylej.setEnabled(true);
-            this.styles.setEnabled(true);
-            this.styled.setEnabled(false);
-            myELHgui.mframe.refresh();
-        } else if (comStr.equalsIgnoreCase("Print SVG"))
+        if (comStr.equalsIgnoreCase("Print SVG"))
         {
             svgexport(true);
         } else if (comStr.equalsIgnoreCase("VIEW SVG"))
@@ -389,6 +361,13 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         {
             System.out.println("command " + comStr + " unrecognised ");
         }
+    }
+
+    private void setLayoutStyle(LayoutStyle style)
+    {
+        this.layoutstyle = style;
+        elhDrawNode.layoutstyle = style;
+        refresh();
     }
 
     private void saveElhAs()

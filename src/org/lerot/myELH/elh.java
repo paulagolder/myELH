@@ -19,6 +19,7 @@ public final class elh extends elhnode
     public elh(String aname, elhnode aparent)
     {
         super(aname, aparent);
+        this.childgrouptype = ChildGrouping.SEQUENCE;
     }
 
     public elh(String aname)

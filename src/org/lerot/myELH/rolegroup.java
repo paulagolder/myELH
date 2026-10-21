@@ -5,6 +5,6 @@ public final class rolegroup extends elhnode
     public rolegroup(String aname, elhnode aparent)
     {
         super(aname, aparent);
-        this.childgrouptype = "rolegroup";
+        this.childgrouptype = ChildGrouping.ROLEGROUP;
     }
 }

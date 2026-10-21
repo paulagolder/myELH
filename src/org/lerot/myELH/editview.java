@@ -166,7 +166,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
                 elhnode newnode = elhnode.makeNode(this.typefield.getSelectedValue(), activenode.getParent());
                 newnode.moveChildrenFrom(activenode);
                 newnode.setName(this.namefield.getText().trim()+"-new");
-                newnode.setChildgrouptype(this.grouptypefield.getSelectedValue());
+                newnode.setChildgrouptype(ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()));
                 newnode.setStylename(this.stylefield.getText().trim());
                 activenode.getParent().addChild(newnode);
                 System.out.println(" edited +" + newnode.toLongString());
@@ -175,10 +175,10 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
             elhnode selectedelhnode = myELHgui.mframe.currentelh.findActiveEvent(path);
             //elhnode selectedelhnode = (elhnode) myELHgui.mframe.activetreenode.getUserObject();
             selectedelhnode.setName(this.namefield.getText().trim());
-            selectedelhnode.setChildgrouptype(this.grouptypefield.getSelectedValue());
+            selectedelhnode.setChildgrouptype(ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()));
             selectedelhnode.setStylename(this.stylefield.getText().trim());
             activenode.setName(this.namefield.getText().trim());
-            activenode.setChildgrouptype(this.grouptypefield.getSelectedValue());
+            activenode.setChildgrouptype(ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()));
             activenode.setStylename(this.stylefield.getText().trim());
             System.out.println(" edited -" + activenode.toLongString());
             myELHgui.mframe.currenttreeview.setselections(selectedelhnode);

@@ -5,6 +5,6 @@ public final class entitygroup extends elhnode
     public entitygroup(String aname, elhnode aparent)
     {
         super(aname, aparent);
-        this.childgrouptype = "entitygroup";
+        this.childgrouptype = ChildGrouping.ENTITYGROUP;
     }
 }

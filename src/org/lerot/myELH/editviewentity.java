@@ -11,8 +11,8 @@
       super.setup(anode);
       this.typefield.setList(anode.getChildtypes());
       this.typefield.setSelected(anode.getType());
-      this.grouptypefield.setList(anode.getChildgroupingtypes());
-      this.grouptypefield.setSelected(anode.getChildgrouptype());
+      this.grouptypefield.setList(ChildGrouping.choiceNames());
+      this.grouptypefield.setSelected(anode.getChildgrouptype().xmlName());
       this.makeChildPanel();
       makebuttonbar();
     }

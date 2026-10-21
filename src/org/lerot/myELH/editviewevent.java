@@ -12,8 +12,8 @@ public class editviewevent extends editview implements ActionListener
         this.namefield.setText(anode.getName());
         this.typefield.setList(anode.getChildtypes());
         this.typefield.setSelected(anode.getType());
-        this.grouptypefield.setList(anode.getChildgroupingtypes());
-        this.grouptypefield.setSelected(anode.getChildgrouptype());
+        this.grouptypefield.setList(ChildGrouping.choiceNames());
+        this.grouptypefield.setSelected(anode.getChildgrouptype().xmlName());
         this.stylefield.setText(anode.getStylename());
         this.childpanel.removeAll();
         makeChildPanel();

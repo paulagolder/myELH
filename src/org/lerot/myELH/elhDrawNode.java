@@ -8,7 +8,7 @@ import java.util.Vector;
 public class elhDrawNode
 {
     static svgdoc view;
-    static String layoutstyle;
+    static LayoutStyle layoutstyle;
  //   private static int columncounter;
   //  public double anchor;
  //   int row;
@@ -19,12 +19,12 @@ public class elhDrawNode
     Vector<elhDrawNode> children;
     nodeStyle nodestylemap;
     ShapeD bounds;
-    private String childgrouptype;
+    private ChildGrouping childgrouptype;
     private elhDrawNode parent;
     private String stylename;
     private double symbolshift=10;
 
-    public elhDrawNode(svgdoc asvgdoc, String layout)
+    public elhDrawNode(svgdoc asvgdoc, LayoutStyle layout)
     {
         // stylemap = astylemap;
         view = asvgdoc;
@@ -150,16 +150,16 @@ public class elhDrawNode
 
 
 
-    String getChildgrouptype()
+    ChildGrouping getChildgrouptype()
     {
         if (this.childgrouptype == null)
         {
-            return "Sequence";
+            return ChildGrouping.SEQUENCE;
         }
         return this.childgrouptype;
     }
 
-    void setChildgrouptype(String childgrouptype)
+    void setChildgrouptype(ChildGrouping childgrouptype)
     {
         this.childgrouptype = childgrouptype;
     }
@@ -348,11 +348,11 @@ public class elhDrawNode
         {
             drawUpLine(g2d);
         }
-        if (layoutstyle.equalsIgnoreCase("jackson")) drawJacksonSymbols(g2d);
+        if (layoutstyle == LayoutStyle.JACKSON) drawJacksonSymbols(g2d);
         if (adnode.hasChildren())
         {
-            if (!layoutstyle.equalsIgnoreCase("simple")) drawTriangle(g2d);
-            if (layoutstyle.equalsIgnoreCase("jackson")||layoutstyle.equalsIgnoreCase("simple")) drawDownLine(g2d);
+            if (layoutstyle != LayoutStyle.SIMPLE) drawTriangle(g2d);
+            if (layoutstyle == LayoutStyle.JACKSON || layoutstyle == LayoutStyle.SIMPLE) drawDownLine(g2d);
             else drawSymbols(g2d);
             drawHorizontalLine(g2d);
             for (elhDrawNode adrawnode : adnode.children)
@@ -429,57 +429,31 @@ public class elhDrawNode
 
     private void drawJacksonSymbols(Graphics g2d)
     {
-        //{"sequence", "option", "repetition", "rolegroup"};
-        String action = this.getChildgrouptype().toLowerCase();
-        switch (action)
+        if (this.getChildgrouptype() == ChildGrouping.ROLEGROUP)
         {
-            case "repetition":
-                break;
-            case "option":
-                break;
-            case "rolegroup":
-                drawJacksonLine(g2d);
-                break;
-            case "sequence":
-                break;
+            drawJacksonLine(g2d);
         }
         if (this.getparent() == null)
         {
             return;
         }
-        String action2 = this.getparent().getChildgrouptype().toLowerCase();
-        switch (action2)
+        switch (this.getparent().getChildgrouptype())
         {
-            case "repetition":
-                drawJacksonSymbol(g2d, "*");
-                break;
-            case "option":
-                drawJacksonSymbol(g2d, "O");
-                break;
-            case "rolegroup":
-                break;
-            case "sequence":
-                break;
+            case REPETITION -> drawJacksonSymbol(g2d, "*");
+            case OPTION -> drawJacksonSymbol(g2d, "O");
+            default -> { }
         }
     }
 
     private void drawSymbols(Graphics g2d)
     {
         g2d.setColor(Color.BLACK);
-        String type = this.getChildgrouptype().toLowerCase();
-        switch (type)
+        switch (this.getChildgrouptype())
         {
-            case "repetition":
-                drawSymbolStar(g2d);
-                break;
-            case "option":
-                drawSymbolCircle(g2d);
-                break;
-            case "rolegroup":
-                drawParallellLines(g2d);
-                break;
-            case "sequence":
-                break;
+            case REPETITION -> drawSymbolStar(g2d);
+            case OPTION -> drawSymbolCircle(g2d);
+            case ROLEGROUP -> drawParallellLines(g2d);
+            default -> { }
         }
     }
 

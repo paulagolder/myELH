@@ -13,8 +13,7 @@ import org.jdom2.output.XMLOutputter;
 public sealed abstract class elhnode permits elh, entity, entitygroup, event, role, rolegroup
 {
     protected static String[] childtypes = {"entity", "event", "role"};
-    protected static String[] childgroupingtypes = {"sequence", "option", "repetition", "rolegroup"};
-    protected String childgrouptype;
+    protected ChildGrouping childgrouptype;
     private List<elhnode> children;
     private String name;
     private elhnode parent;
@@ -25,16 +24,6 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
         this.name = aname;
         this.parent = aparent;
         this.children = new ArrayList<>();
-    }
-
-    protected static String[] getChildgroupingtypes()
-    {
-        return childgroupingtypes;
-    }
-
-    protected static String getDefaultChildgroupingtype()
-    {
-        return childgroupingtypes[0];
     }
 
     protected static String[] getChildtypes()
@@ -200,7 +189,7 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
         element.setAttribute("name", getName() == null ? "" : getName());
         if (getChildgrouptype() != null)
         {
-            element.setAttribute("childgrouptype", getChildgrouptype());
+            element.setAttribute("childgrouptype", getChildgrouptype().xmlName());
         }
         if (getStylename() != null)
         {
@@ -340,20 +329,20 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
         }
         if (ct.getAttribute("childgrouptype") != null)
         {
-            setChildgrouptype(ct.getAttribute("childgrouptype").getValue());
+            setChildgrouptype(ChildGrouping.fromXml(ct.getAttribute("childgrouptype").getValue()));
         } else
         {
-            setChildgrouptype(getDefaultChildgroupingtype());
+            setChildgrouptype(ChildGrouping.SEQUENCE);
         }
         loadChildren(ct);
     }
 
-    protected String getChildgrouptype()
+    protected ChildGrouping getChildgrouptype()
     {
         return this.childgrouptype;
     }
 
-    protected void setChildgrouptype(String childgrouptype)
+    protected void setChildgrouptype(ChildGrouping childgrouptype)
     {
         this.childgrouptype = childgrouptype;
     }
