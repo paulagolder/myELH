@@ -82,7 +82,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             this.dotelh = "/home/" + this.user + "/.myelh/";
             this.elhfolder = "/home/" + this.user + "/Documents/elh";
         }
-        URL jstatIconURL = myELHgui.class.getResource("/resources/elh.png");
+        URL jstatIconURL = myELHgui.class.getResource("/elh.png");
         if (jstatIconURL != null)
         {
             this.jstatIcon = new ImageIcon(jstatIconURL);
