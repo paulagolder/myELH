@@ -14,11 +14,8 @@ import org.jdom2.input.SAXBuilder;
 import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
 
-public class elh extends elhnode
+public final class elh extends elhnode
 {
-    static String[] childtypes = {"event", "role"};
-    static String[] childgroupingtypes = {"sequence", "option", "repetition", "rolegroup"};
-
     public elh(String aname, elhnode aparent)
     {
         super(aname, aparent);
@@ -73,13 +70,6 @@ public class elh extends elhnode
             rootNode = rootNode.getChildren().getFirst();
         }
         loadXML(rootNode);
-    }
-
-    public void insert(String string)
-    {
-        System.out.println(" inserting  entity");
-        entity newentity = new entity("newentity", this);
-        addChild(newentity);
     }
 }
 

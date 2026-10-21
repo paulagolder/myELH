@@ -1,36 +1,30 @@
 package org.lerot.myELH;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
-import java.util.Vector;
 
 import org.jdom2.Element;
 import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
 
-public abstract class elhnode
+// A node in an entity life history tree. The tree only holds the data: after
+// changing it, the caller updates the screen.
+public sealed abstract class elhnode permits elh, entity, entitygroup, event, role, rolegroup
 {
-   // static String[]   childtypes = { "event", "role" };
-   // static String[]  childgroupingtypes = { "sequence", "option", "repetition", "rolegroup" };;
     protected static String[] childtypes = {"entity", "event", "role"};
     protected static String[] childgroupingtypes = {"sequence", "option", "repetition", "rolegroup"};
     protected String childgrouptype;
-    private Vector<elhnode> children;
+    private List<elhnode> children;
     private String name;
     private elhnode parent;
     private String stylename;
-    private int id=0;
-
-    public elhnode()
-    {
-        this.children = new Vector<>();
-    }
 
     public elhnode(String aname, elhnode aparent)
     {
         this.name = aname;
         this.parent = aparent;
-        this.children = new Vector<>();
+        this.children = new ArrayList<>();
     }
 
     protected static String[] getChildgroupingtypes()
@@ -53,16 +47,37 @@ public abstract class elhnode
         return childtypes[0];
     }
 
+    // a new node of the given type, or null if the type is not known
+    public static elhnode makeNode(String typename, String aname, elhnode parent)
+    {
+        return switch (typename)
+        {
+            case "elh" -> new elh(aname, parent);
+            case "entity" -> new entity(aname, parent);
+            case "role" -> new role(aname, parent);
+            case "event" -> new event(aname, parent);
+            case "rolegroup" -> new rolegroup(aname, parent);
+            case "entitygroup" -> new entitygroup(aname, parent);
+            default ->
+            {
+                System.out.println(" Unknown type " + typename);
+                yield null;
+            }
+        };
+    }
+
+    // a node for the user to fill in, named after its type
+    public static elhnode makeNode(String typename, elhnode parent)
+    {
+        return makeNode(typename, "new " + typename, parent);
+    }
+
+    // puts a new event between this node and its children
     public void insertabovechildren()
     {
-        myELHgui.mframe.currenttreeview.suspendtreeview();
         event newevent = new event("newevent", this);
-        Vector<elhnode> oldchildren = getChildren();
-        this.children = null;
-        newevent.setChildren(oldchildren);
-        this.children = new Vector<>();
+        newevent.moveChildrenFrom(this);
         addChild(newevent);
-        myELHgui.mframe.refresh();
     }
 
     public String toLongString()
@@ -85,18 +100,6 @@ public abstract class elhnode
         this.parent = parent;
     }
 
-    public elhnode findChildEvent(String sname)
-    {
-        for (elhnode anevent : this.children)
-        {
-            if (anevent.getName().equalsIgnoreCase(sname))
-            {
-                return anevent;
-            }
-        }
-        return null;
-    }
-
     public String getName()
     {
         return this.name;
@@ -107,83 +110,59 @@ public abstract class elhnode
         this.name = aname;
     }
 
-    public Vector<elhnode> getChildren()
+    public List<elhnode> getChildren()
     {
         return this.children;
     }
 
-    protected void setChildren(Vector<elhnode> somechildren)
-    {
-        this.children = somechildren;
-    }
-
     public int countChildren()
     {
-        if (this.children == null) return 0;
         return this.children.size();
     }
 
     public void moveup()
     {
-        elhnode event = this;
-        elhnode parent = event.getParent();
+        elhnode parent = getParent();
         if (parent == null || parent.getParent() == null) return;
         elhnode grandparent = parent.getParent();
-        Vector<elhnode> oldsiblings = parent.getChildren();
-        Vector<elhnode> newsiblings = grandparent.getChildren();
-        event.setParent(grandparent);
-        newsiblings.add(event);
-        grandparent.setChildren(newsiblings);
-        oldsiblings.remove(event);
-        parent.setChildren(oldsiblings);
+        parent.children.remove(this);
+        grandparent.children.add(this);
+        setParent(grandparent);
     }
 
     public void moveleft()
     {
-        elhnode event = this;
-        elhnode parent = event.getParent();
-        Vector<elhnode> siblings = parent.getChildren();
-        int index = siblings.indexOf(event);
+        if (getParent() == null) return;
+        List<elhnode> siblings = getParent().children;
+        int index = siblings.indexOf(this);
         if (index == 0) return;
-        Vector<elhnode> newsiblings = new Vector<>(siblings);
-        elhnode previous = siblings.get(index - 1);
-        newsiblings.set(index, previous);
-        newsiblings.set(index - 1, event);
-        parent.setChildren(newsiblings);
+        siblings.set(index, siblings.get(index - 1));
+        siblings.set(index - 1, this);
     }
 
     public void moveright()
     {
-        elhnode event = this;
-        elhnode parent = event.getParent();
-        Vector<elhnode> siblings = parent.getChildren();
-        int index = siblings.indexOf(event);
+        if (getParent() == null) return;
+        List<elhnode> siblings = getParent().children;
+        int index = siblings.indexOf(this);
         if (index == siblings.size() - 1) return;
-        Vector<elhnode> newsiblings = new Vector<>(siblings);
-        elhnode next = siblings.get(index + 1);
-        newsiblings.set(index, next);
-        newsiblings.set(index + 1, event);
-        parent.setChildren(newsiblings);
+        siblings.set(index, siblings.get(index + 1));
+        siblings.set(index + 1, this);
     }
 
     public void deleteChildren()
     {
-        if (countChildren() > 0)
+        for (elhnode achild : this.children)
         {
-            Vector<elhnode> entities = getChildren();
-            for (elhnode anentity : entities)
-            {
-                anentity.deleteChildren();
-                anentity = null;
-            }
+            achild.deleteChildren();
         }
-        setChildren(new Vector<>());
+        this.children = new ArrayList<>();
         System.out.println("deleted children " + this);
     }
 
     public void deleteChild(String childname)
     {
-        elhnode delnode = findChildEvent(childname);
+        elhnode delnode = findChildnode(childname);
         if (delnode != null)
         {
             delnode.deleteChildren();
@@ -194,67 +173,12 @@ public abstract class elhnode
     void removeChild(elhnode delnode)
     {
         this.children.remove(delnode);
-        delnode = null;
-    }
-
-    public void movedown(String path)
-    {
-        Vector<elhnode> entities = getChildren();
-        int count = entities.size();
-        elhnode subevent = null;
-        for (elhnode anentity : entities)
-        {
-            if (anentity.getName().equalsIgnoreCase(path))
-            {
-                subevent = anentity;
-                break;
-            }
-        }
-        if (subevent != null)
-        {
-            int i1 = entities.indexOf(subevent);
-            if (i1 < count - 1)
-            {
-                elhnode next = entities.get(i1 + 1);
-                entities.setElementAt(subevent, i1 + 1);
-                entities.setElementAt(next, i1);
-            }
-        }
     }
 
     public void addChild(String type)
     {
-        elhnode newnode = makeNode(type,this);
-        Vector<elhnode> siblings = getChildren();
-        siblings.add(newnode);
-        setChildren(siblings);
-    }
-
-    public static  elhnode makeNode(String typename, elhnode parent)
-    {
-        elhnode newnode = null;
-        switch (typename)
-        {
-            case "entity":
-                newnode = new entity("new entity", parent);
-                break;
-            case "role":
-                newnode = new role("new role", parent);
-                break;
-            case "event":
-                newnode = new event("new event", parent);
-                break;
-            case "rolegroup":
-                newnode = new rolegroup("new rolegroup", parent);
-                break;
-            case "entitygroup":
-                newnode = new entitygroup("new entitygroup", parent);
-                break;
-            default:
-                System.out.println(" Unknown type " + typename);
-                return null;
-        }
-        return newnode;
+        elhnode newnode = makeNode(type, this);
+        if (newnode != null) addChild(newnode);
     }
 
     public void addChild(elhnode e)
@@ -266,10 +190,7 @@ public abstract class elhnode
     {
         elhnode parent = getParent();
         if (parent == null) return;
-        elhnode newnode = new event("newnode", parent);
-        Vector<elhnode> siblings = parent.getChildren();
-        siblings.add(newnode);
-        parent.setChildren(siblings);
+        parent.addChild(new event("newnode", parent));
     }
 
     // this node and everything below it, as saved in an .elh file
@@ -304,9 +225,8 @@ public abstract class elhnode
 
     public elhnode findActiveEvent(String path)
     {
-        String str = path;
-        StringTokenizer st = new StringTokenizer(str, "/");
-        if (st != null && st.hasMoreElements())
+        StringTokenizer st = new StringTokenizer(path, "/");
+        if (st.hasMoreElements())
         {
             String cfilename = (String) st.nextElement();
             if (!cfilename.equalsIgnoreCase(getName()))
@@ -348,41 +268,23 @@ public abstract class elhnode
         return null;
     }
 
-    public void duplicate(String path)
+    // copies the named child, adding the copy as a further child
+    public void duplicate(String childname)
     {
-        elhnode selnode = null;
-        Vector<elhnode> entities = getChildren();
-        for (elhnode anentity : entities)
-        {
-            if (anentity.getName().equalsIgnoreCase(path))
-            {
-                selnode = anentity;
-                break;
-            }
-        }
-        if (selnode != null)
-        {
-            elhnode newnode = selnode.copy(this);
-            newnode.setName("Copyof:" + newnode.getName());
-            if (this instanceof event)
-            {
-                this.addChild(newnode);
-            } else if (this instanceof entity)
-            {
-                this.addChild(newnode);
-            } else if (this instanceof elh)
-            {
-                this.addChild(newnode);
-            }
-            myELHgui.mframe.refresh();
-        }
+        elhnode selnode = findChildnode(childname);
+        if (selnode == null) return;
+        if (!(this instanceof event || this instanceof entity || this instanceof elh)) return;
+        elhnode newnode = selnode.copy(this);
+        if (newnode == null) return;
+        newnode.setName("Copyof:" + newnode.getName());
+        addChild(newnode);
     }
 
+    // a copy of this node and everything below it; elh nodes are not copied
     elhnode copy(elhnode newparent)
     {
-        elhnode newnode = makeNode(getType(), newparent);
-        if (newnode == null) return null;
-        newnode.setName(getName());
+        if (this instanceof elh) return null;
+        elhnode newnode = makeNode(getType(), getName(), newparent);
         newnode.setChildgrouptype(getChildgrouptype());
         newnode.setStylename(getStylename());
         for (elhnode child : this.children)
@@ -410,51 +312,18 @@ public abstract class elhnode
     public void loadChildren(Element ct)
     {
         List<Element> nl = ct.getChildren();
-        if (nl != null && !nl.isEmpty())
+        for (int i = 0; i < nl.size(); i++)
         {
-            for (int i = 0; i < nl.size(); i++)
+            Element at = nl.get(i);
+            String nodetype = at.getName();
+            elhnode anode = makeNode(nodetype, nodetype + " " + i, this);
+            if (anode == null)
             {
-                Element at = nl.get(i);
-                String nodetype = at.getName();
-                //  System.out.println(" nodename =" + nodetype);
-                String str;
-                switch (nodetype)
-                {
-                    case "elh":
-                        elh anelh = new elh("elh " + i, this);
-                        anelh.loadXML(at);
-                        addChild(anelh);
-                        break;
-                    case "entity":
-                        entity anentity = new entity("entity " + i, this);
-                        anentity.loadXML(at);
-                        addChild(anentity);
-                        break;
-                    case "role":
-                        role arole = new role("role " + i, this);
-                        arole.loadXML(at);
-                        addChild(arole);
-                        break;
-                    case "event":
-                        event anevent = new event("event " + i, this);
-                        anevent.loadXML(at);
-                        addChild(anevent);
-                        break;
-                    case "rolegroup":
-                        rolegroup arolegroup = new rolegroup("rolegroup " + i, this);
-                        arolegroup.loadXML(at);
-                        addChild(arolegroup);
-                        break;
-                    case "entitygroup":
-                        entitygroup anentitygroup = new entitygroup("entitygroup " + i, this);
-                        anentitygroup.loadXML(at);
-                        addChild(anentitygroup);
-                        break;
-                    default:
-                        System.out.println(" unknown nodename =" + nodetype);
-                        break;
-                }
+                System.out.println(" unknown nodename =" + nodetype);
+                continue;
             }
+            anode.loadXML(at);
+            addChild(anode);
         }
     }
 
@@ -477,7 +346,6 @@ public abstract class elhnode
             setChildgrouptype(getDefaultChildgroupingtype());
         }
         loadChildren(ct);
-
     }
 
     protected String getChildgrouptype()
@@ -501,14 +369,16 @@ public abstract class elhnode
         return path;
     }
 
+    // moves all of anode's children to the end of this node's children
     public void moveChildrenFrom(elhnode anode)
     {
-        for(elhnode acnode : anode.getChildren())
+        List<elhnode> moving = anode.children;
+        anode.children = new ArrayList<>();
+        for (elhnode acnode : moving)
         {
             acnode.setParent(this);
             this.addChild(acnode);
         }
-        anode.children = new Vector<>();
     }
 
     public static String makepath(elhnode node)
@@ -521,7 +391,4 @@ public abstract class elhnode
         }
         return treepath;
     }
-
-
 }
-

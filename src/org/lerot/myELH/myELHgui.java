@@ -54,9 +54,6 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
     private File svgfile;
     private elhDrawNode topdrawnode;;
     private String view;
-    private editview evpanel;
-    private editview evpanel2;
-    private editview evpanel3;
     private svgdoc currentsvgdoc;
     private String layoutstyle = "default";
 
@@ -313,10 +310,7 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             {
                 return;
             }
-            if (this.activenode instanceof event)
-            {
-                this.activenode.insertabovechildren();
-            } else if (this.activenode instanceof entity)
+            if (this.activenode instanceof event || this.activenode instanceof entity)
             {
                 this.activenode.insertabovechildren();
             }
@@ -324,36 +318,6 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             showEditView();
             repaint();
             getContentPane().validate();
-        } else if (comStr.equalsIgnoreCase("insert child"))
-        {
-            if (this.activenode == null)
-            {
-                return;
-            }
-            if (this.activenode instanceof event)
-            {
-                ((event) this.activenode).insert("newevent");
-            } else if (this.activenode instanceof entity)
-            {
-                ((entity) this.activenode).insert("newevent");
-            } else if (this.activenode instanceof elh)
-            {
-                ((elh) this.activenode).insert("newevent");
-            } else if (this.activenode instanceof role)
-            {
-                ((role) this.activenode).insert("newevent");
-            }
-            this.currenttreeview.maketree(this.currentelh);
-            showEditView();
-            repaint();
-            getContentPane().validate();
-        } else if (comStr.equalsIgnoreCase("insert sibling"))
-        {
-            if (this.activenode != null && this.activenode instanceof event)
-            {
-                ((event) this.activenode).insert("newevent");
-            }
-            this.currenttreeview.maketree(this.currentelh);
         } else if (comStr.equalsIgnoreCase("open"))
         {
             JFileChooser fc = new JFileChooser();
@@ -518,34 +482,33 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         {
             return;
         }
-        if (this.activenode instanceof event)
+        editview panel = switch (this.activenode)
         {
-            this.evpanel = new editviewevent();
-            ((editviewevent) this.evpanel).setup((event) this.activenode);
-            apanel.add(this.evpanel, "Center");
-        } else if (this.activenode instanceof entity)
+            case event anevent ->
+            {
+                editviewevent eventpanel = new editviewevent();
+                eventpanel.setup(anevent);
+                yield eventpanel;
+            }
+            case entity anentity -> setupEditView(new editviewentity(), anentity);
+            case rolegroup arolegroup -> setupEditView(new editviewrolegroup(), arolegroup);
+            case role arole -> setupEditView(new editviewrole(), arole);
+            case elh anelh -> setupEditView(new editviewelh(), anelh);
+            // entity groups have no edit panel
+            case entitygroup anentitygroup -> null;
+        };
+        if (panel != null)
         {
-            this.evpanel2 = new editviewentity();
-            this.evpanel2.setup(this.activenode);
-            apanel.add(this.evpanel2, "Center");
-        } else if (this.activenode instanceof rolegroup)
-        {
-            this.evpanel2 = new editviewrolegroup();
-            this.evpanel2.setup(this.activenode);
-            apanel.add(this.evpanel2, "Center");
-        } else if (this.activenode instanceof role)
-        {
-            this.evpanel2 = new editviewrole();
-            this.evpanel2.setup(this.activenode);
-            apanel.add(this.evpanel2, "Center");
-        } else if (this.activenode instanceof elh)
-        {
-            this.evpanel3 = new editviewelh();
-            this.evpanel3.setup(this.activenode);
-            apanel.add(this.evpanel3, "Center");
+            apanel.add(panel, "Center");
         }
         repaint();
         getContentPane().validate();
+    }
+
+    private static editview setupEditView(editview panel, elhnode anode)
+    {
+        panel.setup(anode);
+        return panel;
     }
 
     private void showSVGView(JPanel apanel, elhDrawNode activenode)

@@ -175,6 +175,41 @@ class elhnodeTest
     }
 
     @Test
+    void insertAboveChildrenPutsANewEventBetween()
+    {
+        elhnode person = makeTree().findChildnode("Person");
+        person.insertabovechildren();
+        assertEquals(1, person.countChildren());
+        elhnode newevent = person.getChildren().getFirst();
+        assertInstanceOf(event.class, newevent);
+        assertSame(person, newevent.getParent());
+        assertEquals(3, newevent.countChildren());
+        assertSame(newevent, newevent.findChildnode("a").getParent());
+    }
+
+    @Test
+    void duplicateAddsACopyOfTheChild()
+    {
+        elhnode person = makeTree().findChildnode("Person");
+        person.findChildnode("b").addChild(new event("b1", person.findChildnode("b")));
+        person.duplicate("b");
+        assertEquals(4, person.countChildren());
+        elhnode copy = person.findChildnode("Copyof:b");
+        assertNotSame(person.findChildnode("b"), copy);
+        assertSame(person, copy.getParent());
+        assertEquals("b1", copy.getChildren().getFirst().getName());
+    }
+
+    @Test
+    void movingTheTopNodeDoesNothing()
+    {
+        elh top = makeTree();
+        assertDoesNotThrow(top::moveleft);
+        assertDoesNotThrow(top::moveright);
+        assertDoesNotThrow(top::moveup);
+    }
+
+    @Test
     void copyKeepsTypeAndGivesChildrenTheCopyAsParent()
     {
         elh top = makeTree();

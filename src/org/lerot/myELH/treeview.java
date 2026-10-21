@@ -5,7 +5,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.util.Vector;
+import java.util.List;
 import javax.swing.JComponent;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
@@ -56,7 +56,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
         String name = anelh.getName();
         DefaultMutableTreeNode parent = new DefaultMutableTreeNode(name);
         parent.setUserObject(anelh);
-        Vector<elhnode> entities = anelh.getChildren();
+        List<elhnode> entities = anelh.getChildren();
         for (elhnode e : entities)
         {
             name = e.getName();
@@ -101,7 +101,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
 
     private void addnodes(DefaultMutableTreeNode topevnode, elhnode topev)
     {
-        Vector<elhnode> events = topev.getChildren();
+        List<elhnode> events = topev.getChildren();
         if (events != null)
         {
             for (elhnode e : events)
