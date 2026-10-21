@@ -1,29 +1,31 @@
-  package org.lerot.myELH;
-  
-  import java.awt.event.ActionEvent;
-  import java.awt.event.ActionListener;
+package org.lerot.myELH;
 
-  public class editviewrolegroup     extends editview     implements ActionListener
-  {
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+public class editviewrolegroup extends editview implements ActionListener
+{
     private static final long serialVersionUID = 1L;
-    
-    public void setup(elhnode anode) {
-      super.setup(anode);
-      this.typefield.setList(rolegroup.getChildtypes());
-      this.typefield.setSelected(anode.getType());
-      this.grouptypefield.setList(ChildGrouping.choiceNames());
-      this.grouptypefield.setSelected(anode.getChildgrouptype().xmlName());
-      makeChildPanel();
+
+    editviewrolegroup(myELHgui app)
+    {
+        super(app);
+    }
+
+    public void setup(elhnode anode)
+    {
+        super.setup(anode);
+        this.typefield.setList(rolegroup.getChildtypes());
+        this.typefield.setSelected(anode.getType());
+        this.grouptypefield.setList(ChildGrouping.choiceNames());
+        this.grouptypefield.setSelected(anode.getChildgrouptype().xmlName());
+        makeChildPanel();
         makebuttonbar();
     }
-  
-    
-    public void actionPerformed(ActionEvent ae) {
-      String comStr = ae.getActionCommand();
-      actions(comStr, this.activenode);
+
+    public void actionPerformed(ActionEvent ae)
+    {
+        String comStr = ae.getActionCommand();
+        actions(comStr, this.activenode);
     }
-  
-    
-
-  }
-
+}

@@ -6,51 +6,39 @@ import org.lerot.mywidgets.jswTheme;
 import org.lerot.mywidgets.jswVerticalPanel;
 
 import javax.swing.*;
-import javax.swing.border.LineBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
-import java.util.InvalidPropertiesFormatException;
-import java.util.Properties;
+import java.nio.file.Path;
 
 import static org.lerot.myELH.styleMaps.getPrintStyles;
 import static org.lerot.myELH.styleMaps.getScreenStyles;
 
-public class myELHgui extends JFrame implements ActionListener, ComponentListener
+// The main window: the tree of the open ELH on the left, and either the
+// edit panel for the selected node or the diagram on the right.
+public class myELHgui extends JFrame
 {
-
     private static final long serialVersionUID = 1L;
     private static final String version = "2.0";
-    public static myELHgui mframe;
-    static JLabel activepath;
     final styleMaps stylemaps = new styleMaps();
-    private final String userdir;
-    private final String user;
-    private final String osversion;
-    private final String os;
-    private final String dotelh;
-    private final JLabel sourcefile;
+    // where the file choosers start
+    private final File elhfolder = Path.of(System.getProperty("user.home"), "Documents", "elh").toFile();
+    private final JLabel sourcefile = new JLabel();
+    private final JLabel activepath = new JLabel();
     private final JPanel svgpanel;
-    private final String userhome;
-    private final String propsfile;
-    private final Object props;
-    private final String elhfolder;
     public DefaultMutableTreeNode activetreenode;
     public elhnode activenode;
     treeview currenttreeview;
     elh currentelh;
     jswVerticalPanel editpanel;
-    private ImageIcon jstatIcon;
     private File currentfile;
-    private File svgfile;
-    private elhDrawNode topdrawnode;;
-    private String view;
+    private elhDrawNode topdrawnode;
     private svgdoc currentsvgdoc;
     private LayoutStyle layoutstyle = LayoutStyle.DEFAULT;
 
@@ -59,65 +47,80 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         super("ELH " + version);
         stylemaps.put("screen", getScreenStyles());
         stylemaps.put("print", getPrintStyles());
-        this.userdir = System.getProperty("user.dir");
-        this.userhome = System.getProperty("user.home");
-        this.user = System.getProperty("user.name");
-        this.osversion = System.getProperty("os.version");
-        this.os = System.getProperty("os.name");
-        System.out.println("user :" + this.user);
-        System.out.println("user directory :" + this.userdir);
-        System.out.println("operating system :" + this.os + "(" + this.osversion + ")");
-        if (this.os.startsWith("Windows"))
+        stylemaps.put("default", styleMap.makedefault());
+        URL iconURL = myELHgui.class.getResource("/elh.png");
+        if (iconURL != null)
         {
-            this.dotelh = "C:/Users/" + this.user + "/.myelh/";
-            this.elhfolder = "C:/Users/" + this.user + "/Documents/elh";
-        } else
-        {
-            this.dotelh = "/home/" + this.user + "/.myelh/";
-            this.elhfolder = "/home/" + this.user + "/Documents/elh";
+            setIconImage(new ImageIcon(iconURL).getImage());
         }
-        URL jstatIconURL = myELHgui.class.getResource("/elh.png");
-        if (jstatIconURL != null)
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        setJMenuBar(makeMenuBar());
+        setSize(w, h);
+        getContentPane().setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
+        JPanel statusbar = new JPanel();
+        statusbar.setLayout(new BoxLayout(statusbar, BoxLayout.X_AXIS));
+        statusbar.add(new JLabel("ACTIVE FILE:"));
+        statusbar.add(this.sourcefile);
+        statusbar.add(Box.createHorizontalGlue());
+        statusbar.add(new JLabel("ACTIVE ENTITY:"));
+        statusbar.add(this.activepath);
+        statusbar.setBackground(Color.decode(jswTheme.NAVAREA));
+        add(statusbar);
+        this.currenttreeview = new treeview(this);
+        this.editpanel = new jswVerticalPanel("editpanel", false, false);
+        this.editpanel.setBorder(jswStyle.makeLineBorder());
+        this.editpanel.setLayout(new BorderLayout());
+        this.svgpanel = new JPanel();
+        this.svgpanel.setBorder(jswStyle.makeLineBorder());
+        this.svgpanel.setLayout(new BorderLayout());
+        this.svgpanel.addComponentListener(new ComponentAdapter()
         {
-            this.jstatIcon = new ImageIcon(jstatIconURL);
-            Image jstatIconImage = this.jstatIcon.getImage();
-            setIconImage(jstatIconImage);
-        } else
-        {
-            System.out.println("no icon");
-        }
-        addWindowListener(new WindowAdapter()
-        {
-            public void windowClosing(WindowEvent e)
+            public void componentResized(ComponentEvent e)
             {
-                System.exit(0);
+                refresh();
             }
         });
+        JPanel mainpanels = new JPanel();
+        mainpanels.setLayout(new BoxLayout(mainpanels, BoxLayout.X_AXIS));
+        mainpanels.add(this.currenttreeview);
+        mainpanels.add(this.editpanel);
+        mainpanels.add(this.svgpanel);
+        add(mainpanels);
+        showEdit();
+    }
+
+    public static void main(String[] args)
+    {
+        SwingUtilities.invokeLater(() ->
+        {
+            jswTheme.install();
+            UIManager.put("FileChooser.readOnly", Boolean.TRUE);
+            myELHgui frame = new myELHgui(800, 400);
+            frame.setLocation(50, 50);
+            frame.setMinimumSize(new Dimension(800, 400));
+            frame.pack();
+            frame.setVisible(true);
+        });
+    }
+
+    private JMenuBar makeMenuBar()
+    {
         JMenuBar jmb = new JMenuBar();
         JMenu jmFile = new JMenu("File");
-        JMenuItem jmiOpen = new JMenuItem("Open");
-        JMenuItem jmiNew = new JMenuItem("New");
-        JMenuItem jmiClose = new JMenuItem("Close");
-        JMenuItem jmiSaveAs = new JMenuItem("Save As");
-        JMenuItem jmiSave = new JMenuItem("Save");
-        JMenuItem jmiExit = new JMenuItem("Exit");
-        jmFile.add(jmiOpen);
-        jmFile.add(jmiNew);
-        jmFile.add(jmiSave);
-        jmFile.add(jmiSaveAs);
-        jmFile.add(jmiClose);
+        addMenuItem(jmFile, "Open", this::openElh);
+        addMenuItem(jmFile, "New", this::newElh);
+        addMenuItem(jmFile, "Save", this::saveElh);
+        addMenuItem(jmFile, "Save As", this::saveElhAs);
+        addMenuItem(jmFile, "Close", this::closeElh);
         jmFile.addSeparator();
-        jmFile.add(jmiExit);
+        addMenuItem(jmFile, "Exit", () -> System.exit(0));
         jmb.add(jmFile);
         JMenu jmView = new JMenu("View");
-        JMenuItem medit = new JMenuItem("View EDIT");
-        JMenuItem svgdraw = new JMenuItem("View SVG");
-        jmView.add(medit);
-        jmView.add(svgdraw);
+        addMenuItem(jmView, "View EDIT", this::showEdit);
+        addMenuItem(jmView, "View SVG", this::showSvg);
         jmb.add(jmView);
         JMenu jmExport = new JMenu("Export");
-        JMenuItem svgn = new JMenuItem("Print SVG");
-        jmExport.add(svgn);
+        addMenuItem(jmExport, "Print SVG", this::svgexport);
         jmb.add(jmExport);
         JMenu jmOptions = new JMenu("Options");
         ButtonGroup stylegroup = new ButtonGroup();
@@ -130,75 +133,18 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         }
         jmb.add(jmOptions);
         JMenu jmHelp = new JMenu("Help");
-        JMenuItem jmiAbout = new JMenuItem("About");
-        jmHelp.add(jmiAbout);
+        addMenuItem(jmHelp, "About", () -> JOptionPane.showMessageDialog(this,
+                "myELH " + version + "\nEntity life history editor", "About myELH",
+                JOptionPane.INFORMATION_MESSAGE));
         jmb.add(jmHelp);
-        jmiOpen.addActionListener(this);
-        jmiNew.addActionListener(this);
-        jmiClose.addActionListener(this);
-        jmiSaveAs.addActionListener(this);
-        jmiSave.addActionListener(this);
-        jmiExit.addActionListener(this);
-        medit.addActionListener(this);
-        svgdraw.addActionListener(this);
-        svgn.addActionListener(this);
-        jmiAbout.addActionListener(this);
-        setJMenuBar(jmb);
-        setVisible(true);
-        setSize(w, h);
-        getContentPane().setLayout(new BoxLayout(getContentPane(), 1));
-        JPanel statusbar = new JPanel();
-        statusbar.setLayout(new BoxLayout(statusbar, 0));
-        statusbar.add(new JLabel("ACTIVE FILE:"));
-        statusbar.add(this.sourcefile = new JLabel());
-        statusbar.add(Box.createHorizontalGlue());
-        statusbar.add(new JLabel("ACTIVE ENTITY:"));
-        statusbar.add(activepath = new JLabel());
-        statusbar.setBackground(Color.decode(jswTheme.NAVAREA));
-        add(statusbar);
-        this.currenttreeview = new treeview();
-        this.editpanel = new jswVerticalPanel("editpanel", false, false);
-        this.editpanel.setBorder(jswStyle.makeLineBorder());
-        this.editpanel.setLayout(new BorderLayout());
-        showEditView(this.editpanel, this.activenode);
-        this.svgpanel = new JPanel();
-        this.svgpanel.setBorder(jswStyle.makeLineBorder());
-        this.svgpanel.setLayout(new BorderLayout());
-        this.svgpanel.addComponentListener(this);
-        JPanel mainpanels = new JPanel();
-        mainpanels.setLayout(new BoxLayout(mainpanels, 0));
-        mainpanels.add(this.currenttreeview);
-        mainpanels.add(this.editpanel);
-        mainpanels.add(this.svgpanel);
-        this.editpanel.setVisible(false);
-        this.svgpanel.setVisible(true);
-        add(mainpanels);
-        repaint();
-        getContentPane().validate();
-        setDefaultCloseOperation(3);
-        stylemaps.put("default", styleMap.makedefault());
-        this.propsfile = this.dotelh + "properties.xml";
-        this.props = readProperties(this.propsfile);
-        this.view = "EDIT";
-        this.editpanel.setVisible(true);
-        this.svgpanel.setVisible(false);
+        return jmb;
     }
 
-    public static void main(String[] args)
+    private static void addMenuItem(JMenu menu, String label, Runnable action)
     {
-        jswTheme.install();
-        UIManager.put("FileChooser.readOnly", Boolean.TRUE);
-        (mframe = new myELHgui(800, 400)).addWindowListener(new WindowAdapter()
-        {
-            public void windowClosing(WindowEvent e)
-            {
-                System.exit(0);
-            }
-        });
-        mframe.setLocation(50, 50);
-        mframe.setMinimumSize(new Dimension(800, 400));
-        mframe.pack();
-        mframe.setVisible(true);
+        JMenuItem item = new JMenuItem(label);
+        item.addActionListener(e -> action.run());
+        menu.add(item);
     }
 
     public static jswStyles tablestyles()
@@ -253,121 +199,70 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         return tablestyles;
     }
 
-    public void actionPerformed(ActionEvent ae)
+    private JFileChooser elhChooser(String title)
     {
-        String comStr = ae.getActionCommand();
-        if (comStr.equalsIgnoreCase("Print SVG"))
-        {
-            svgexport(true);
-        } else if (comStr.equalsIgnoreCase("VIEW SVG"))
-        {
-            this.view = "SVG";
-            this.editpanel.setVisible(false);
-            this.svgpanel.setVisible(true);
-        } else if (comStr.equalsIgnoreCase("VIEW EDIT"))
-        {
-            this.view = "EDIT";
-            this.editpanel.setVisible(true);
-            this.svgpanel.setVisible(false);
-        } else if (comStr.startsWith("VIEW:"))
-        {
-            String path = comStr.substring(5);
-            activepath.setText(path);
-            showEditView();
-            repaint();
-            getContentPane().validate();
-        } else if (comStr.equalsIgnoreCase("INSERT ABOVE CHILDREN"))
-        {
-            if (this.activenode == null)
-            {
-                return;
-            }
-            if (this.activenode instanceof event || this.activenode instanceof entity)
-            {
-                this.activenode.insertabovechildren();
-            }
-            this.currenttreeview.maketree(this.currentelh);
-            showEditView();
-            repaint();
-            getContentPane().validate();
-        } else if (comStr.equalsIgnoreCase("open"))
-        {
-            JFileChooser fc = new JFileChooser();
-            fc.setCurrentDirectory(new File(this.elhfolder));
-            fc.setDialogTitle("Open ELH file");
-            FileNameExtensionFilter filter = new FileNameExtensionFilter("ELH", "xml", "elh");
-            fc.setFileFilter(filter);
-            int returnVal = fc.showOpenDialog(this);
-            if (returnVal == 0)
-            {
-                File openfile = fc.getSelectedFile();
-                elh openelh = new elh(openfile.getName());
-                try
-                {
-                    openelh.importELH(openfile.getAbsolutePath());
-                } catch (IOException e)
-                {
-                    JOptionPane.showMessageDialog(this, "Could not open " + openfile + "\n" + e.getMessage(),
-                            "Open failed", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                this.currentfile = openfile;
-                this.sourcefile.setText(this.currentfile.getName());
-                this.currentelh = openelh;
-                this.currenttreeview.maketree(this.currentelh);
-                this.activenode = null;
-                this.currenttreeview.repaint();
-                // currentsvgdoc = new svgdoc("screen");
-                currentsvgdoc = new svgdoc("screen");
-                Rectangle cas = this.svgpanel.getBounds();
-                this.topdrawnode = new elhDrawNode(currentsvgdoc, layoutstyle);
-               // this.nodestack = new elhnodestack(this.currentelh, currentsvgdoc,layoutstyle);
-                topdrawnode.makeDrawNodeTree(this.currentelh, 1, 5);
-                currentsvgdoc.inittree(this.topdrawnode, cas.width, cas.height);
-                getContentPane().validate();
-            } else
-            {
-                System.out.println("Open command cancelled by user.");
-            }
-        } else if (comStr.equalsIgnoreCase("new"))
-        {
-            JFileChooser fc = new JFileChooser();
-            fc.setDialogTitle("Specify a new ELH file");
-            FileNameExtensionFilter filter = new FileNameExtensionFilter("ELH", "xml", "elh");
-            fc.setFileFilter(filter);
-            int returnVal = fc.showSaveDialog(this);
-            if (returnVal != 0)
-            {
-                System.out.println("New command cancelled by user.");
-                return;
-            }
-            this.currentfile = fc.getSelectedFile();
-            this.currentelh = new elh(this.currentfile.getName());
-            saveElh();
-            this.currenttreeview.maketree(this.currentelh);
-        } else if (comStr.equalsIgnoreCase("save as"))
-        {
-            saveElhAs();
-        } else if (comStr.equalsIgnoreCase("save"))
-        {
-            if (this.currentfile == null)
-            {
-                saveElhAs();
-            } else
-            {
-                saveElh();
-            }
-        } else
-        {
-            System.out.println("command " + comStr + " unrecognised ");
-        }
+        JFileChooser fc = new JFileChooser();
+        fc.setCurrentDirectory(this.elhfolder);
+        fc.setDialogTitle(title);
+        fc.setFileFilter(new FileNameExtensionFilter("ELH", "xml", "elh"));
+        return fc;
     }
 
-    private void setLayoutStyle(LayoutStyle style)
+    private void openElh()
     {
-        this.layoutstyle = style;
-        elhDrawNode.layoutstyle = style;
-        refresh();
+        JFileChooser fc = elhChooser("Open ELH file");
+        if (fc.showOpenDialog(this) != JFileChooser.APPROVE_OPTION)
+        {
+            return;
+        }
+        File openfile = fc.getSelectedFile();
+        elh openelh = new elh(openfile.getName());
+        try
+        {
+            openelh.importELH(openfile.getAbsolutePath());
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not open " + openfile + "\n" + e.getMessage(),
+                    "Open failed", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        this.currentfile = openfile;
+        this.sourcefile.setText(this.currentfile.getName());
+        this.currentelh = openelh;
+        this.currenttreeview.maketree(this.currentelh);
+        this.activenode = null;
+        this.activetreenode = null;
+        this.currenttreeview.repaint();
+        this.currentsvgdoc = new svgdoc(stylemaps.getStyleMap("screen"));
+        Rectangle cas = this.svgpanel.getBounds();
+        this.topdrawnode = new elhDrawNode(currentsvgdoc, layoutstyle);
+        topdrawnode.makeDrawNodeTree(this.currentelh, 1, 5);
+        currentsvgdoc.inittree(this.topdrawnode, cas.width, cas.height);
+        getContentPane().validate();
+    }
+
+    private void newElh()
+    {
+        JFileChooser fc = elhChooser("Specify a new ELH file");
+        if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION)
+        {
+            return;
+        }
+        this.currentfile = fc.getSelectedFile();
+        this.currentelh = new elh(this.currentfile.getName());
+        writeElh();
+        this.currenttreeview.maketree(this.currentelh);
+    }
+
+    private void saveElh()
+    {
+        if (this.currentfile == null)
+        {
+            saveElhAs();
+        } else
+        {
+            writeElh();
+        }
     }
 
     private void saveElhAs()
@@ -376,22 +271,16 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         {
             return;
         }
-        JFileChooser fc = new JFileChooser();
-        fc.setCurrentDirectory(new File(this.elhfolder));
-        fc.setDialogTitle("Save to new ELH file");
-        FileNameExtensionFilter filter = new FileNameExtensionFilter("ELH", "xml", "elh");
-        fc.setFileFilter(filter);
-        int returnVal = fc.showSaveDialog(this);
-        if (returnVal != 0)
+        JFileChooser fc = elhChooser("Save to new ELH file");
+        if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION)
         {
-            System.out.println("Save As command cancelled by user.");
             return;
         }
         this.currentfile = fc.getSelectedFile();
-        saveElh();
+        writeElh();
     }
 
-    private void saveElh()
+    private void writeElh()
     {
         if (this.currentelh == null)
         {
@@ -408,55 +297,62 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         }
     }
 
-    public void componentHidden(ComponentEvent arg0)
+    private void closeElh()
     {
+        this.currentelh = null;
+        this.currentfile = null;
+        this.activenode = null;
+        this.activetreenode = null;
+        this.topdrawnode = null;
+        this.sourcefile.setText("");
+        this.activepath.setText("");
+        this.currenttreeview.cleartree();
+        refresh();
     }
 
-    public void componentMoved(ComponentEvent arg0)
+    private void showEdit()
     {
+        this.editpanel.setVisible(true);
+        this.svgpanel.setVisible(false);
     }
 
-    public void componentResized(ComponentEvent arg0)
+    private void showSvg()
     {
-        if (mframe != null)
-        {
-            refresh();
-        }
+        this.editpanel.setVisible(false);
+        this.svgpanel.setVisible(true);
     }
 
-    public void componentShown(ComponentEvent arg0)
+    private void setLayoutStyle(LayoutStyle style)
     {
+        this.layoutstyle = style;
+        elhDrawNode.layoutstyle = style;
+        refresh();
     }
 
     public void refresh()
     {
-        //  System.out.println(" in refresh " + this.activetreenode);
-        if (this.activetreenode != null)
-        {
-            TreePath treepath = new TreePath(mframe.activetreenode.getPath());
-            mframe.currenttreeview.thistree.setSelectionPath(treepath);
-            mframe.currenttreeview.thistree.scrollPathToVisible(treepath);
-        }
-        mframe.showEditView();
-        mframe.showSVGView(this.svgpanel, this.topdrawnode);
-        mframe.repaint();
+        selectActiveTreenode();
+        showEditView();
+        showSVGView(this.svgpanel, this.topdrawnode);
+        repaint();
         getContentPane().validate();
+        selectActiveTreenode();
+    }
+
+    private void selectActiveTreenode()
+    {
         if (this.activetreenode != null)
         {
-            TreePath treepath = new TreePath(mframe.activetreenode.getPath());
-            mframe.currenttreeview.thistree.setSelectionPath(treepath);
-            mframe.currenttreeview.thistree.scrollPathToVisible(treepath);
+            TreePath treepath = new TreePath(this.activetreenode.getPath());
+            this.currenttreeview.thistree.setSelectionPath(treepath);
+            this.currenttreeview.thistree.scrollPathToVisible(treepath);
         }
     }
 
     public void showEditView()
     {
-        showEditView(this.editpanel, this.activenode);
-    }
-
-    public void showEditView(JPanel apanel, Object activenode2)
-    {
-        apanel.removeAll();
+        this.editpanel.removeAll();
+        this.activepath.setText(this.activenode == null ? "" : this.activenode.getPath());
         if (this.activenode == null)
         {
             return;
@@ -465,20 +361,20 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         {
             case event anevent ->
             {
-                editviewevent eventpanel = new editviewevent();
+                editviewevent eventpanel = new editviewevent(this);
                 eventpanel.setup(anevent);
                 yield eventpanel;
             }
-            case entity anentity -> setupEditView(new editviewentity(), anentity);
-            case rolegroup arolegroup -> setupEditView(new editviewrolegroup(), arolegroup);
-            case role arole -> setupEditView(new editviewrole(), arole);
-            case elh anelh -> setupEditView(new editviewelh(), anelh);
+            case entity anentity -> setupEditView(new editviewentity(this), anentity);
+            case rolegroup arolegroup -> setupEditView(new editviewrolegroup(this), arolegroup);
+            case role arole -> setupEditView(new editviewrole(this), arole);
+            case elh anelh -> setupEditView(new editviewelh(this), anelh);
             // entity groups have no edit panel
             case entitygroup anentitygroup -> null;
         };
         if (panel != null)
         {
-            apanel.add(panel, "Center");
+            this.editpanel.add(panel, "Center");
         }
         repaint();
         getContentPane().validate();
@@ -499,15 +395,15 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         {
             return;
         }
-        currentsvgdoc = new svgdoc("screen");
+        currentsvgdoc = new svgdoc(stylemaps.getStyleMap("screen"));
         currentsvgdoc.topdrawnode = this.topdrawnode;
-        currentsvgdoc.inittree(this.topdrawnode, cas.width, cas.height);;
-        dimensionp dim = currentsvgdoc.createLayout(this.topdrawnode, currentsvgdoc.hs);
+        currentsvgdoc.inittree(this.topdrawnode, cas.width, cas.height);
+        currentsvgdoc.createLayout(this.topdrawnode, currentsvgdoc.hs);
         currentsvgdoc.drawtree(this.topdrawnode);
         currentsvgdoc.svggraphic.setStroke(new BasicStroke(4));
         currentsvgdoc.svggraphic.setColor(Color.blue);
         currentsvgdoc.svggraphic.drawRect(0,0,(int)currentsvgdoc.maxwidth,(int)currentsvgdoc.maxheight);
-         this.topdrawnode.drawNode(currentsvgdoc.svggraphic);
+        this.topdrawnode.drawNode(currentsvgdoc.svggraphic);
         svgview svgpanel = new svgview(stylemaps.get("default"));
         svgpanel.setLayout(new BorderLayout());
         svgpanel.setBackground(Color.decode(jswTheme.DETAILAREA));
@@ -519,80 +415,47 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         getContentPane().validate();
     }
 
-    private void svgexport(boolean saveas)
+    private void svgexport()
     {
-        JFileChooser fc = new JFileChooser();
-        fc.setDialogTitle("Save SVG file");
-        fc.setCurrentDirectory(new File(this.elhfolder));
-        FileNameExtensionFilter filter = new FileNameExtensionFilter("svg", "svg");
-        fc.setFileFilter(filter);
-        int returnVal = fc.showSaveDialog(this);
-        if (returnVal != 0)
-        {
-            System.out.println("Open command cancelled by user.");
-            return;
-        }
-        this.svgfile = fc.getSelectedFile();
         if (this.topdrawnode == null)
         {
             return;
         }
-        // this.topdrawnode.updatetree();
-        svgdoc adoc = new svgdoc("print");
-        dimensionp dim = adoc.createLayout(this.topdrawnode,adoc.hs);
+        JFileChooser fc = new JFileChooser();
+        fc.setDialogTitle("Save SVG file");
+        fc.setCurrentDirectory(this.elhfolder);
+        fc.setFileFilter(new FileNameExtensionFilter("svg", "svg"));
+        if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION)
+        {
+            return;
+        }
+        svgdoc adoc = new svgdoc(stylemaps.getStyleMap("print"));
+        adoc.createLayout(this.topdrawnode,adoc.hs);
         adoc.drawtree(this.topdrawnode);
         adoc.svggraphic.setStroke(new BasicStroke(4));
         adoc.svggraphic.setColor(Color.blue);
         adoc.svggraphic.drawRect(0,0,(int)adoc.maxwidth,(int)adoc.maxheight);
-    //    this.topdrawnode.drawNode(currentsvgdoc.svggraphic);
         adoc.inittree(this.topdrawnode,(int)adoc.maxwidth,(int)adoc.maxheight);
-        adoc.printsvg(this.svgfile);
+        adoc.printsvg(fc.getSelectedFile());
     }
 
-    /*
-     this.topdrawnode.updatetree();
-    svgdoc adoc = new svgdoc();
-    dimensionp dim = adoc.getExportSize(this.topdrawnode);
-            adoc.setup(this.topdrawnode, dim.width, dim.height);
-            adoc.output(this.svgfile);
-    */
-
-
-
-
-
-
-    public void updateview(elhnode activenode)
+    // redraws the diagram of the whole ELH after the tree selection changes
+    public void updateview()
     {
-        String treepath = elhnode.makepath(activenode);
-        if (mframe.currentelh != null)
+        if (this.currentelh != null)
         {
-            activenode = mframe.currentelh.findActiveEvent(treepath);
-            this.activetreenode = mframe.currenttreeview.thistree.findActiveTreenode(treepath);
+            if (this.currentsvgdoc == null)
+            {
+                this.currentsvgdoc = new svgdoc(stylemaps.getStyleMap("screen"));
+            }
             this.topdrawnode = new elhDrawNode(currentsvgdoc, layoutstyle);
-            topdrawnode.makeDrawNodeTree(activenode, 0, 5);
-            mframe.currenttreeview.expandPath(this.activetreenode);
-            mframe.showEditView();
-            mframe.showSVGView(this.svgpanel, this.topdrawnode);
+            topdrawnode.makeDrawNodeTree(this.currentelh, 0, 5);
+            this.currenttreeview.expandPath(this.activetreenode);
+            showEditView();
+            showSVGView(this.svgpanel, this.topdrawnode);
         }
-        mframe.repaint();
+        repaint();
         getContentPane().validate();
-    }
-
-    public Properties readProperties(String propsfile)
-    {
-        Properties prop = new Properties();
-        try
-        {
-            prop.loadFromXML(new FileInputStream(propsfile));
-            return prop;
-        } catch (InvalidPropertiesFormatException e)
-        {
-            e.printStackTrace();
-        } catch (IOException ignored)
-        {
-        }
-        return null;
     }
 
     public void maketree()
@@ -600,5 +463,3 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
         this.currenttreeview.maketree(this.currentelh);
     }
 }
-
-

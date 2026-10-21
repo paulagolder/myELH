@@ -28,16 +28,16 @@ public class treeview extends JPanel implements ActionListener, MouseListener
     // selection highlights: branches blue-grey, leaves rose
     static final Color BRANCHSELECTED = Color.decode("#BFC9D4");
     static final Color LEAFSELECTED = Color.decode("#E3CBC6");
+    private final myELHgui app;
     myTree thistree;
     Color bg;
     private JPopupMenu popup;
 
-    public treeview()
+    public treeview(myELHgui app)
     {
+        this.app = app;
         this.bg = Color.decode(jswTheme.SELECTAREA);
-        this.thistree = new myTree(new DefaultMutableTreeNode("No ELH OPEN"), false);
-        this.thistree.removeAll();
-        this.thistree.addTreeSelectionListener(new mytreelistener());
+        this.thistree = emptytree();
         add(this.thistree);
         setBackground(this.bg);
         this.thistree.setBackground(this.bg);
@@ -71,6 +71,25 @@ public class treeview extends JPanel implements ActionListener, MouseListener
         this.thistree.setBackground(this.bg);
         setCellRenderer(this.thistree);
         add(this.thistree);
+    }
+
+    private myTree emptytree()
+    {
+        myTree empty = new myTree(new DefaultMutableTreeNode("No ELH OPEN"), false);
+        empty.addTreeSelectionListener(new mytreelistener());
+        empty.setBackground(this.bg);
+        return empty;
+    }
+
+    // shows the "No ELH OPEN" tree again
+    public void cleartree()
+    {
+        remove(this.thistree);
+        this.thistree = emptytree();
+        setCellRenderer(this.thistree);
+        add(this.thistree);
+        revalidate();
+        repaint();
     }
 
     public void setCellRenderer(JTree atree)
@@ -135,17 +154,6 @@ public class treeview extends JPanel implements ActionListener, MouseListener
         }
     }
 
-    public void suspendtreeview()
-    {
-        TreeSelectionListener alistener = this.thistree.getTreeSelectionListeners()[0];
-        this.thistree.removeTreeSelectionListener(alistener);
-    }
-
-    public void activatetreeview()
-    {
-        this.thistree.addTreeSelectionListener(new mytreelistener());
-    }
-
     JPopupMenu makeTreePopup(String path)
     {
         JPopupMenu popup = new JPopupMenu();
@@ -179,8 +187,7 @@ public class treeview extends JPanel implements ActionListener, MouseListener
     public void actionPerformed(ActionEvent ae)
     {
         String comStr = ae.getActionCommand();
-        elhnode activenode = myELHgui.mframe.activenode;
-        actions(comStr, activenode);
+        actions(comStr, app.activenode);
     }
 
     public void mouseClicked(MouseEvent e)
@@ -210,85 +217,81 @@ public class treeview extends JPanel implements ActionListener, MouseListener
     {
     }
 
+    // carries out a command from the tree's popup menu or the edit panel
     public void actions(String comStr, elhnode selectednode)
     {
-        System.out.println(String.valueOf(comStr) + " " + selectednode + " in treeview ");
-        myELHgui.mframe.activenode = selectednode;
-        if (comStr.startsWith("VIEW PARENT"))
+        if (selectednode == null)
         {
-            myELHgui.mframe.activenode = selectednode.getParent();
-            myELHgui.mframe.currenttreeview.setselections(myELHgui.mframe.activenode);
-            myELHgui.mframe.refresh();
-        } else if (comStr.startsWith("VIEW"))
+            return;
+        }
+        app.activenode = selectednode;
+        if (comStr.startsWith("VIEW"))
         {
-            myELHgui.mframe.activenode = selectednode.getParent();
-            myELHgui.mframe.currenttreeview.setselections(myELHgui.mframe.activenode);
-            myELHgui.mframe.refresh();
+            // VIEW PARENT: show the parent of the selected node
+            if (selectednode.getParent() == null)
+            {
+                return;
+            }
+            setselections(selectednode.getParent());
+            app.refresh();
+            return;
         } else if (comStr.startsWith("UP"))
         {
             selectednode.moveup();
-            myELHgui.mframe.maketree();
-            myELHgui.mframe.refresh();
         } else if (comStr.startsWith("MARK"))
         {
             selectednode.mark();
-            myELHgui.mframe.maketree();
-            myELHgui.mframe.refresh();
         } else if (comStr.startsWith("LEFT"))
         {
             selectednode.moveleft();
-            myELHgui.mframe.maketree();
-            myELHgui.mframe.refresh();
         } else if (comStr.startsWith("RIGHT"))
         {
             selectednode.moveright();
-            myELHgui.mframe.maketree();
-            myELHgui.mframe.refresh();
         } else if (comStr.startsWith("NEWCHILD"))
         {
-            selectednode.addChild(selectednode.getDefaultChildtype());
-            myELHgui.mframe.maketree();
-            myELHgui.mframe.refresh();
+            selectednode.addChild(elhnode.getDefaultChildtype());
         } else if (comStr.startsWith("NEWSIBLING"))
         {
-            String childname = selectednode.getName();
             selectednode.addSibling();
-            myELHgui.mframe.maketree();
-            myELHgui.mframe.refresh();
         } else if (comStr.startsWith("DELETE"))
         {
-            if(selectednode.getParent()  == null)
+            if (selectednode.getParent() == null)
             {
-                if(selectednode.getChildren().size()==1)
+                // deleting the top node: if it only holds another elh, that becomes the top
+                if (selectednode.countChildren() == 1 && selectednode.getChildren().getFirst() instanceof elh inner)
                 {
-                    myELHgui.mframe.activenode = selectednode.getChildren().get(0);
-                    myELHgui.mframe.currentelh = (elh) myELHgui.mframe.activenode;
+                    inner.setParent(null);
+                    app.currentelh = inner;
+                    app.activenode = inner;
                 }
-            }else
+            } else
             {
-                elhnode targetnode = selectednode;
                 elhnode parentnode = selectednode.getParent();
-                parentnode.moveChildrenFrom(targetnode);
-                parentnode.removeChild(targetnode);
-                myELHgui.mframe.activenode = parentnode;
+                parentnode.moveChildrenFrom(selectednode);
+                parentnode.removeChild(selectednode);
+                app.activenode = parentnode;
             }
-         //   myELHgui.mframe.currentview.setselections(selectednode);
-            myELHgui.mframe.maketree();
-            myELHgui.mframe.refresh();
-        } else if (comStr.startsWith("DUPLICATE"))
+        } else if (comStr.startsWith("DUPLICATE:"))
         {
-            String path = comStr.substring(10);
-            selectednode.duplicate(path);
-            myELHgui.mframe.refresh();
+            selectednode.duplicate(comStr.substring("DUPLICATE:".length()));
+        } else
+        {
+            return;
         }
+        app.maketree();
+        app.refresh();
     }
 
     void setselections(elhnode selectednode)
     {
-        myELHgui.mframe.activenode = selectednode;
+        app.activenode = selectednode;
         String path = elhnode.makepath(selectednode);
         DefaultMutableTreeNode node = this.thistree.findActiveTreenode(path);
-        myELHgui.mframe.activetreenode = node;
+        app.activetreenode = node;
+        if (node == null)
+        {
+            return;
+        }
         TreePath treepath = new TreePath(node.getPath());
         this.thistree.setSelectionPath(treepath);
         this.thistree.scrollPathToVisible(treepath);
@@ -303,13 +306,13 @@ public class treeview extends JPanel implements ActionListener, MouseListener
             {
                 return;
             }
-            myELHgui.mframe.activetreenode = node;
+            app.activetreenode = node;
             String treepath = treeview.this.makepath(node);
-            if (myELHgui.mframe.currentelh != null)
+            if (app.currentelh != null)
             {
-                myELHgui.mframe.activenode = myELHgui.mframe.currentelh.findActiveEvent(treepath);
+                app.activenode = app.currentelh.findActiveEvent(treepath);
             }
-            myELHgui.mframe.updateview( myELHgui.mframe.currentelh);
+            app.updateview();
         }
     }
 }

@@ -6,6 +6,11 @@ public class editviewevent extends editview implements ActionListener
 {
     private static final long serialVersionUID = 1L;
 
+    editviewevent(myELHgui app)
+    {
+        super(app);
+    }
+
     public void setup(event anode)
     {
         super.setup(anode);

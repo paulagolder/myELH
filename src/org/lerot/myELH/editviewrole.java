@@ -7,6 +7,11 @@ public class editviewrole extends editview implements ActionListener
 {
     private static final long serialVersionUID = 1L;
 
+    editviewrole(myELHgui app)
+    {
+        super(app);
+    }
+
     public void setup(elhnode anode)
     {
         super.setup(anode);

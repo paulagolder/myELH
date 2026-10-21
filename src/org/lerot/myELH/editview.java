@@ -26,10 +26,12 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
     private jswButton editbutton;
     private jswButton insertabovebutton;
     private JPopupMenu popup;
+    protected final myELHgui app;
 
-    public editview()
+    public editview(myELHgui app)
     {
         super("editview", true, true);
+        this.app = app;
         // setInsets(10, 10, 10, 10);
         setBorder(jswStyle.makeLineBorder());
         jswTheme.tint(this, jswTheme.EDITAREA);
@@ -74,7 +76,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
     public void setup(elhnode anode)
     {
         //  System.out.println(" in set up  " + anode.toLongString());
-        this.activenode = myELHgui.mframe.activenode;
+        this.activenode = app.activenode;
         this.namefield.setText(anode.getName());
         this.stylefield.setText(anode.getStylename());
         // this.grouptypefield.setSelected(anode.getGrouping());
@@ -89,6 +91,7 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         //  this.insertbutton.addMouseListener(this);
         buttonbar.add(this.insertbutton);
         this.insertabovebutton = new jswButton(this, "INSERT ABOVE CHILDREN");
+        buttonbar.add(this.insertabovebutton);
         this.viewbutton = new jswButton(this, "VIEW PARENT");
         buttonbar.add(this.viewbutton);
         this.editbutton = new jswButton(this, "Save Edits");
@@ -98,8 +101,12 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
         this.bottompanel.add(" MIDDLE  ", buttonbar);
         if (this.activenode.getParent() == null)
         {
-            this.insertabovebutton.setEnabled(false);
             this.viewbutton.setEnabled(false);
+        }
+        // a new event can only be put above the children of an event or entity
+        if (!(this.activenode instanceof event || this.activenode instanceof entity))
+        {
+            this.insertabovebutton.setEnabled(false);
         }
     }
 
@@ -158,7 +165,6 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
 
     public void actions(String comStr, elhnode activenode)
     {
-        System.out.println(comStr + " action in edit view");
         if (comStr.equalsIgnoreCase("save edits"))
         {
            /* if (!(this.typefield.getSelectedValue().equalsIgnoreCase(activenode.getType())))
@@ -169,66 +175,69 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
                 newnode.setChildgrouptype(ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()));
                 newnode.setStylename(this.stylefield.getText().trim());
                 activenode.getParent().addChild(newnode);
-                System.out.println(" edited +" + newnode.toLongString());
             }else*/
             String path = activenode.getPath();
-            elhnode selectedelhnode = myELHgui.mframe.currentelh.findActiveEvent(path);
-            //elhnode selectedelhnode = (elhnode) myELHgui.mframe.activetreenode.getUserObject();
+            elhnode selectedelhnode = app.currentelh.findActiveEvent(path);
             selectedelhnode.setName(this.namefield.getText().trim());
             selectedelhnode.setChildgrouptype(ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()));
             selectedelhnode.setStylename(this.stylefield.getText().trim());
             activenode.setName(this.namefield.getText().trim());
             activenode.setChildgrouptype(ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()));
             activenode.setStylename(this.stylefield.getText().trim());
-            System.out.println(" edited -" + activenode.toLongString());
-            myELHgui.mframe.currenttreeview.setselections(selectedelhnode);
-            myELHgui.mframe.maketree();
-            myELHgui.mframe.currenttreeview.setselections(selectedelhnode);
-            myELHgui.mframe.refresh();
+            app.currenttreeview.setselections(selectedelhnode);
+            app.maketree();
+            app.currenttreeview.setselections(selectedelhnode);
+            app.refresh();
         } else if (comStr.startsWith("VIEW:"))
         {
-            System.out.println(comStr + " action");
             String path = comStr.substring(5);
             elhnode targetnode = activenode.findChildnode(path);
-            System.out.println(comStr + " action " + path + " " + targetnode);
             this.activenode = targetnode;
-            myELHgui.mframe.currenttreeview.setselections(targetnode);
-            myELHgui.mframe.refresh();
+            app.currenttreeview.setselections(targetnode);
+            app.refresh();
         } else if (comStr.startsWith("UP:"))
         {
-            System.out.println(comStr + " action");
             String path = comStr.substring(3);
             elhnode targetnode = activenode.findChildnode(path);
-            myELHgui.mframe.currenttreeview.actions("LEFT", targetnode);
+            app.currenttreeview.actions("LEFT", targetnode);
         } else if (comStr.startsWith("DELETE:"))
         {
-            System.out.println(comStr + " action");
             String path = comStr.substring(7);
             this.activenode.deleteChild(path);
-            myELHgui.mframe.maketree();
-            myELHgui.mframe.refresh();
+            app.maketree();
+            app.refresh();
         } else if (comStr.startsWith("DOWN:"))
         {
-            System.out.println(comStr + " action");
             String path = comStr.substring(5);
             elhnode targetnode = activenode.findChildnode(path);
-            myELHgui.mframe.currenttreeview.actions("RIGHT", targetnode);
+            app.currenttreeview.actions("RIGHT", targetnode);
         } else if (comStr.startsWith("NEWCHILD"))
         {
             this.popup = makePopup(this.activenode);
             this.popup.show(this, 50, 50);
-        } else if (comStr.startsWith("NEWROLE"))
+        } else if (comStr.equalsIgnoreCase("NEWROLE"))
         {
             activenode.addChild("role");
-        } else if (comStr.startsWith("NEWEVENT"))
+            app.maketree();
+            app.refresh();
+        } else if (comStr.equalsIgnoreCase("NEWEVENT"))
         {
             activenode.addChild("event");
-        } else if (comStr.startsWith("NEWENTITY"))
+            app.maketree();
+            app.refresh();
+        } else if (comStr.equalsIgnoreCase("NEWENTITY"))
         {
             activenode.addChild("entity");
+            app.maketree();
+            app.refresh();
+        } else if (comStr.equalsIgnoreCase("INSERT ABOVE CHILDREN"))
+        {
+            activenode.insertabovechildren();
+            app.maketree();
+            app.refresh();
         } else
         {
-            myELHgui.mframe.currenttreeview.actions(comStr, activenode);
+            app.currenttreeview.actions(comStr, activenode);
         }
     }
 
@@ -254,7 +263,6 @@ public abstract class editview extends jswVerticalPanel implements ActionListene
 
     public void mousePressed(MouseEvent me)
     {
-        System.out.println(" preparing popup 44 ");
         if (me.isPopupTrigger())
         {
             this.popup = makePopup(this.activenode);

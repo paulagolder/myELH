@@ -7,7 +7,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionAdapter;
 
 public class svgview extends JPanel
 {
@@ -30,7 +29,6 @@ public class svgview extends JPanel
         asvgdoc.svggraphic.getRoot(root);
         this.topdrawnode = asvgdoc.topdrawnode;
         dimensionp d = asvgdoc.createLayout(this.topdrawnode, asvgdoc.hs);
-        System.out.println("========================================");
         this.canvas = new JSVGCanvas();
         this.canvas.setDocumentState(1);
         this.canvas.addMouseMotionListener(new MyMouseListener());
@@ -57,7 +55,6 @@ public class svgview extends JPanel
         {
             int x = event.getX();
             int y = event.getY();
-            System.out.println("dragged " + x + ":" + y);
             if (svgview.this.clickednode != null)
             {
                 ShapeI si = svgview.this.clickednode.bounds.getShapeI();
@@ -72,7 +69,6 @@ public class svgview extends JPanel
         {
             int x = event.getX();
             int y = event.getY();
-            // System.out.println("moving " + x + ":" + y);
             if (svgview.this.topdrawnode.getTarget(x, y) != null)
             {
                 svgview.this.setCursor(Cursor.getPredefinedCursor(1));
@@ -91,7 +87,6 @@ public class svgview extends JPanel
         {
             int x = evt.getX();
             int y = evt.getY();
-            System.out.println("clicked " + x + ":" + y);
             elhDrawNode oldactivenode = svgview.this.clickednode;
             elhDrawNode newclickednode = svgview.this.topdrawnode.getTarget(x, y);
             if (newclickednode == null) return;
@@ -108,30 +103,4 @@ public class svgview extends JPanel
             newclickednode.drawborder(g2d, selectednodecolor, selectednodewidth);
         }
     }
-
-    class MyMouseMotionListener extends MouseMotionAdapter
-    {
-        public void mouseReleased(MouseEvent e)
-        {
-            int x = e.getX();
-            int y = e.getY();
-            System.out.println("released " + x + ":" + y);
-        }
-
-        public void mouseEntered(MouseEvent e)
-        {
-            int x = e.getX();
-            int y = e.getY();
-            System.out.println("entered " + x + ":" + y);
-        }
-
-        public void mouseExited(MouseEvent e)
-        {
-            int x = e.getX();
-            int y = e.getY();
-            System.out.println("exited " + x + ":" + y);
-        }
-    }
 }
-
-

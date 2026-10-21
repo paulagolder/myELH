@@ -146,7 +146,6 @@ public sealed abstract class elhnode permits elh, entity, entitygroup, event, ro
             achild.deleteChildren();
         }
         this.children = new ArrayList<>();
-        System.out.println("deleted children " + this);
     }
 
     public void deleteChild(String childname)

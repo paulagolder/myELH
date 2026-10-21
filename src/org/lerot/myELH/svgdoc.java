@@ -22,7 +22,6 @@ public class svgdoc //extends JPanel
     Map<Integer, Double> rows;
     styleMap docstylemap;
     elhDrawNode topdrawnode;
-    String docstyle;
     int width;
     int height;
     int originx;
@@ -32,15 +31,14 @@ public class svgdoc //extends JPanel
     double maxheight;
     double maxwidth;
 
-    public svgdoc(String stylename)
+    public svgdoc(styleMap astylemap)
     {
-        this.docstyle = stylename;
         maxheight = 0.0;
         maxwidth = 0.0;
         this.originx = 0;
         this.width = 0;
         this.height = 0;
-        docstylemap = myELHgui.mframe.stylemaps.getStyleMap(stylename);
+        docstylemap = astylemap;
         nodeStyle backgroundstyle = docstylemap.getNodeStyle("document");
         backgroundcolor = backgroundstyle.getColor("fillcolor");
         int fs = backgroundstyle.getInteger("textFontSize");
