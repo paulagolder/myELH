@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.Objects;
 
 import static org.lerot.myELH.StyleMaps.getPrintStyles;
 import static org.lerot.myELH.StyleMaps.getScreenStyles;
@@ -25,7 +26,9 @@ import static org.lerot.myELH.StyleMaps.getScreenStyles;
 public class MyElh extends JFrame
 {
     private static final long serialVersionUID = 1L;
-    private static final String version = "2.0";
+    // set in build.gradle.kts and written into the jar's manifest
+    private static final String version = Objects.requireNonNullElse(
+            MyElh.class.getPackage().getImplementationVersion(), "(development)");
     final StyleMaps stylemaps = new StyleMaps();
     // where the file choosers start
     private final File elhfolder = Path.of(System.getProperty("user.home"), "Documents", "elh").toFile();

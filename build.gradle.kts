@@ -5,6 +5,10 @@
 //   ./gradlew run       compile and start the app
 //   ./gradlew build     compile and build the single runnable jar
 //   ./gradlew deploy    build it and copy it to ~/applications/myELH.jar
+//   ./gradlew appImage  build build/jpackage/image/myELH, a folder holding
+//                       the app with its own Java; start it with bin/myELH
+//   ./gradlew deb       build build/jpackage/myelh_<version>_amd64.deb;
+//                       install it with "sudo apt install ./<that file>"
 //   ./gradlew dependencies --configuration runtimeClasspath
 //                       list every library, including the ones pulled in
 //                       automatically by the libraries listed below
@@ -13,6 +17,9 @@ plugins {
     // "application" adds the java plugin (compile, jar) plus the run task
     application
 }
+
+// shown in Help > About and given to the installer
+version = "2.0"
 
 java {
     // compile for Java 21, whatever Java version runs Gradle
@@ -83,6 +90,7 @@ tasks.jar {
     archiveFileName = "myELH.jar"
     manifest {
         attributes["Main-Class"] = application.mainClass
+        attributes["Implementation-Version"] = project.version
     }
     val runtimeJars = configurations.runtimeClasspath
     dependsOn(runtimeJars)
@@ -90,6 +98,8 @@ tasks.jar {
     // signature files from signed libraries would make the merged jar
     // fail its signature check, so leave them out
     exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "META-INF/*.EC")
+    // mywidgets' module description; the merged jar is not a module
+    exclude("module-info.class")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
@@ -98,4 +108,67 @@ tasks.register<Copy>("deploy") {
     description = "Builds myELH.jar and copies it to ~/applications"
     from(tasks.jar)
     into(layout.dir(providers.systemProperty("user.home").map { File(it, "applications") }))
+}
+
+// Packaging with jpackage, from the same Java 21 the build compiles with.
+// The app gets its own cut-down Java holding just the modules it uses
+// (found with jdeps; jdk.unsupported is used by FlatLaf).
+val jpackage = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+    .map { it.metadata.installationPath.file("bin/jpackage").asFile.path }
+val jpackageDir = layout.buildDirectory.dir("jpackage")
+val appVersion = version.toString()
+
+val jpackageInput = tasks.register<Sync>("jpackageInput") {
+    from(tasks.jar)
+    into(jpackageDir.map { it.dir("input") })
+}
+
+tasks.register<Exec>("appImage") {
+    group = "distribution"
+    description = "Builds build/jpackage/image/myELH, the app with its own Java"
+    dependsOn(jpackageInput)
+    val input = jpackageDir.map { it.dir("input") }
+    val output = jpackageDir.map { it.dir("image") }
+    val icon = layout.projectDirectory.file("resources/elh.png")
+    inputs.dir(input)
+    inputs.file(icon)
+    outputs.dir(output)
+    // jpackage will not overwrite an earlier image
+    doFirst { output.get().asFile.deleteRecursively() }
+    executable(jpackage.get())
+    args(
+        "--type", "app-image",
+        "--name", "myELH",
+        "--app-version", appVersion,
+        "--input", input.get().asFile.path,
+        "--main-jar", "myELH.jar",
+        "--main-class", application.mainClass.get(),
+        "--icon", icon.asFile.path,
+        "--add-modules", "java.base,java.desktop,java.logging,jdk.unsupported",
+        "--jlink-options", "--strip-debug --no-man-pages --no-header-files",
+        "--dest", output.get().asFile.path,
+    )
+}
+
+tasks.register<Exec>("deb") {
+    group = "distribution"
+    description = "Builds a .deb installer for Debian/Ubuntu from the app image"
+    dependsOn("appImage")
+    val image = jpackageDir.map { it.dir("image/myELH") }
+    val output = jpackageDir
+    inputs.dir(image)
+    outputs.file(jpackageDir.map { it.file("myelh_${appVersion}_amd64.deb") })
+    executable(jpackage.get())
+    args(
+        "--type", "deb",
+        "--name", "myELH",
+        "--app-version", appVersion,
+        "--app-image", image.get().asFile.path,
+        "--description", "Entity life history editor",
+        "--vendor", "lerot",
+        "--linux-package-name", "myelh",
+        "--linux-menu-group", "Office",
+        "--linux-shortcut",
+        "--dest", output.get().asFile.path,
+    )
 }
