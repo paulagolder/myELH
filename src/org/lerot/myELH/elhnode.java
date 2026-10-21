@@ -4,7 +4,9 @@ import java.util.List;
 import java.util.StringTokenizer;
 import java.util.Vector;
 
-import org.jdom.Element;
+import org.jdom2.Element;
+import org.jdom2.output.Format;
+import org.jdom2.output.XMLOutputter;
 
 public abstract class elhnode
 {
@@ -270,37 +272,29 @@ public abstract class elhnode
         parent.setChildren(siblings);
     }
 
-    public String xmlout() {
-        StringBuilder out = new StringBuilder();
-        String nodeclass= getType();
-        out.append("<").append(nodeclass).append(" name=\"").append(xmlescape(getName())).append("\"");
-        if (getChildgrouptype() != null) {
-            out.append(" childgrouptype=\"").append(xmlescape(getChildgrouptype())).append("\"");
-        }
-        if (getStylename() != null) {
-            out.append(" stylename=\"").append(xmlescape(getStylename())).append("\"");
-        }
-        if(!getChildren().isEmpty())
+    // this node and everything below it, as saved in an .elh file
+    public Element toElement()
+    {
+        Element element = new Element(getType());
+        element.setAttribute("name", getName() == null ? "" : getName());
+        if (getChildgrouptype() != null)
         {
-            out.append(" > \n");
-            for (elhnode achild : getChildren())
-            {
-                out.append(achild.xmlout());
-            }
-            out.append("</").append(nodeclass).append(">\n");
-        }else
-        {
-            out.append(" /> \n");
+            element.setAttribute("childgrouptype", getChildgrouptype());
         }
-
-        return out.toString();
+        if (getStylename() != null)
+        {
+            element.setAttribute("stylename", getStylename());
+        }
+        for (elhnode achild : getChildren())
+        {
+            element.addContent(achild.toElement());
+        }
+        return element;
     }
 
-    // makes a name safe to write inside a quoted XML attribute
-    static String xmlescape(String text)
+    public String xmlout()
     {
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                .replace("\"", "&quot;");
+        return new XMLOutputter(Format.getPrettyFormat()).outputString(toElement());
     }
 
     public String getType()

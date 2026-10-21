@@ -2,13 +2,17 @@ package org.lerot.myELH;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
-import org.jdom.Document;
-import org.jdom.Element;
-import org.jdom.JDOMException;
-import org.jdom.input.SAXBuilder;
+import org.jdom2.Document;
+import org.jdom2.Element;
+import org.jdom2.JDOMException;
+import org.jdom2.ProcessingInstruction;
+import org.jdom2.input.SAXBuilder;
+import org.jdom2.output.Format;
+import org.jdom2.output.XMLOutputter;
 
 public class elh extends elhnode
 {
@@ -35,40 +39,40 @@ public class elh extends elhnode
                 && root.getAttribute("childgrouptype") == null
                 && root.getAttribute("stylename") == null
                 && root.getChildren().size() == 1
-                && ((Element) root.getChildren().getFirst()).getName().equals("elh");
+                && root.getChildren().getFirst().getName().equals("elh");
     }
 
     public void makeElh(String filename) throws IOException
     {
-        try (PrintWriter printWriter = new PrintWriter(filename, StandardCharsets.UTF_8))
+        Document doc = new Document();
+        doc.addContent(new ProcessingInstruction("xml-stylesheet",
+                "type='text/xsl' href='./Stylesheets/elh.xsl'"));
+        doc.setRootElement(toElement());
+        // Files.newBufferedWriter writes UTF-8, which is also the outputter's default
+        try (Writer out = Files.newBufferedWriter(Path.of(filename)))
         {
-            printWriter.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-            printWriter.println("<?xml-stylesheet type='text/xsl' href='./Stylesheets/elh.xsl' ?>");
-            printWriter.print(xmlout());
-            if (printWriter.checkError()) throw new IOException("Could not write " + filename);
+            new XMLOutputter(Format.getPrettyFormat()).output(doc, out);
         }
     }
 
-    public void importELH(String importfilename)
+    public void importELH(String importfilename) throws IOException
     {
         SAXBuilder builder = new SAXBuilder();
         File xmlFile = new File(importfilename);
+        Document doc;
         try
         {
-            Document doc = builder.build(xmlFile);
-            Element rootNode = doc.getRootElement();
-            if (isOldWrapper(rootNode))
-            {
-                rootNode = (Element) rootNode.getChildren().getFirst();
-            }
-            loadXML(rootNode);
-        } catch (IOException ioe)
+            doc = builder.build(xmlFile);
+        } catch (JDOMException e)
         {
-            ioe.printStackTrace();
-        } catch (JDOMException e2)
-        {
-            e2.printStackTrace();
+            throw new IOException(e.getMessage(), e);
         }
+        Element rootNode = doc.getRootElement();
+        if (isOldWrapper(rootNode))
+        {
+            rootNode = rootNode.getChildren().getFirst();
+        }
+        loadXML(rootNode);
     }
 
     public void insert(String string)

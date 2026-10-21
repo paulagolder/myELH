@@ -364,10 +364,20 @@ public class myELHgui extends JFrame implements ActionListener, ComponentListene
             int returnVal = fc.showOpenDialog(this);
             if (returnVal == 0)
             {
-                this.currentfile = fc.getSelectedFile();
+                File openfile = fc.getSelectedFile();
+                elh openelh = new elh(openfile.getName());
+                try
+                {
+                    openelh.importELH(openfile.getAbsolutePath());
+                } catch (IOException e)
+                {
+                    JOptionPane.showMessageDialog(this, "Could not open " + openfile + "\n" + e.getMessage(),
+                            "Open failed", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                this.currentfile = openfile;
                 this.sourcefile.setText(this.currentfile.getName());
-                this.currentelh = new elh(this.currentfile.getName());
-                this.currentelh.importELH(this.currentfile.getAbsolutePath());
+                this.currentelh = openelh;
                 this.currenttreeview.maketree(this.currentelh);
                 this.activenode = null;
                 this.currenttreeview.repaint();

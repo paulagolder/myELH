@@ -48,7 +48,7 @@ dependencies {
     // it brings the FlatLaf look and feel and MigLayout with it
     implementation("org.lerot:mywidgets")
 
-    implementation("org.jdom:jdom:1.1.3")                         // reading .elh files
+    implementation("org.jdom:jdom2:2.0.6.1")                      // reading and writing .elh files
     implementation("org.apache.xmlgraphics:batik-svggen:1.19")    // drawing the diagram as SVG
     implementation("org.apache.xmlgraphics:batik-swing:1.19")     // showing the SVG on screen
 

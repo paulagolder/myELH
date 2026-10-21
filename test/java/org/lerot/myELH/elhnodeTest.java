@@ -77,6 +77,14 @@ class elhnodeTest
     }
 
     @Test
+    void openingAFileThatIsNotXmlFails() throws IOException
+    {
+        Path file = tempdir.resolve("broken.elh");
+        Files.writeString(file, "<elh name=\"unfinished\"");
+        assertThrows(IOException.class, () -> new elh("loaded").importELH(file.toString()));
+    }
+
+    @Test
     void anElhInsideAnElhSurvivesSaving() throws IOException
     {
         elh top = new elh("outer");
