@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.prefs.Preferences;
 
 import static org.lerot.myELH.StyleMaps.getPrintStyles;
 import static org.lerot.myELH.StyleMaps.getScreenStyles;
@@ -37,6 +38,9 @@ public class MyElh extends JFrame
     private final JLabel activepath = new JLabel();
     // while a project is active every ELH is saved into its folder
     private Project currentproject;
+    // remembers the active project between runs (~/.java/.userPrefs on Linux)
+    private static final Preferences prefs = Preferences.userNodeForPackage(MyElh.class);
+    private static final String LASTPROJECT = "lastproject";
     private final JPanel svgpanel;
     public DefaultMutableTreeNode activetreenode;
     public ElhNode activenode;
@@ -92,6 +96,7 @@ public class MyElh extends JFrame
         mainpanels.add(this.svgpanel);
         add(mainpanels);
         showEdit();
+        reopenLastProject();
     }
 
     public static void main(String[] args)
@@ -278,11 +283,34 @@ public class MyElh extends JFrame
         }
     }
 
+    // reopens the project that was active when the app last closed, if it is still there
+    private void reopenLastProject()
+    {
+        String lastfolder = prefs.get(LASTPROJECT, null);
+        if (lastfolder != null && new File(lastfolder, Project.PROJECTFILE).isFile())
+        {
+            try
+            {
+                setProject(Project.load(new File(lastfolder)));
+            } catch (IOException e)
+            {
+                // a damaged project.xml: start without a project
+            }
+        }
+    }
+
     // an open ELH moves with the project: from now on it is saved into its folder
     private void setProject(Project project)
     {
         this.currentproject = project;
         this.projectname.setText(project == null ? "" : project.getName());
+        if (project == null)
+        {
+            prefs.remove(LASTPROJECT);
+        } else
+        {
+            prefs.put(LASTPROJECT, project.getFolder().getAbsolutePath());
+        }
         if (project != null && this.currentfile != null)
         {
             setCurrentFile(this.currentfile);
