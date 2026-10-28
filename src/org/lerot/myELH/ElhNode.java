@@ -252,6 +252,42 @@ public final class ElhNode
         }
     }
 
+    // the nodes in this tree linked to the project event with this id
+    public void findLinked(String ref, List<ElhNode> found)
+    {
+        if (ref.equals(this.eventref))
+        {
+            found.add(this);
+        }
+        for (ElhNode achild : this.children)
+        {
+            achild.findLinked(ref, found);
+        }
+    }
+
+    // where this node is in its tree: the child index at each level down from the top
+    public List<Integer> indexPath()
+    {
+        List<Integer> path = new ArrayList<>();
+        for (ElhNode anode = this; anode.parent != null; anode = anode.parent)
+        {
+            path.addFirst(anode.parent.children.indexOf(anode));
+        }
+        return path;
+    }
+
+    // the node at an indexPath() below this one, or null if the tree has no such node
+    public ElhNode nodeAtIndexPath(List<Integer> path)
+    {
+        ElhNode anode = this;
+        for (int index : path)
+        {
+            if (index < 0 || index >= anode.children.size()) return null;
+            anode = anode.children.get(index);
+        }
+        return anode;
+    }
+
     // links each unlinked leaf event to the project event of the same name,
     // adding events to the project as needed; true if any node was linked
     public boolean linkLeafEvents(Project project)

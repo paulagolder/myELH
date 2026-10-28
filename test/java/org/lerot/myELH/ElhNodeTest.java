@@ -172,6 +172,31 @@ class ElhNodeTest
     }
 
     @Test
+    void anIndexPathFindsTheSameNodeInAFreshCopy() throws IOException
+    {
+        ElhNode top = makeTree();
+        ElhNode c = top.findChildnode("Person").findChildnode("c");
+        ElhNode loaded = saveAndLoad(top);
+        ElhNode found = loaded.nodeAtIndexPath(c.indexPath());
+        assertEquals("c", found.getName());
+        assertEquals(java.util.List.of(0, 2), c.indexPath());
+        assertNull(loaded.nodeAtIndexPath(java.util.List.of(0, 9)));
+    }
+
+    @Test
+    void findLinkedFindsEveryNodeOfAnEvent()
+    {
+        ElhNode top = makeTree();
+        ElhNode person = top.findChildnode("Person");
+        person.findChildnode("a").setEventref("e1");
+        person.findChildnode("c").setEventref("e1");
+        person.findChildnode("b").setEventref("e2");
+        java.util.List<ElhNode> found = new java.util.ArrayList<>();
+        top.findLinked("e1", found);
+        assertEquals(java.util.List.of("a", "c"), found.stream().map(ElhNode::getName).toList());
+    }
+
+    @Test
     void savingEditsCanChangeTheType()
     {
         ElhNode b = makeTree().findChildnode("Person").findChildnode("b");

@@ -9,12 +9,13 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 // The project screen: the project's details, then two tabs. ELHs lists the
 // ELHs in its folder, and each button acts on the latest version file of the
@@ -34,11 +35,14 @@ public class ProjectView extends JPanel
     private final JTable eventtable = new JTable(this.eventmodel);
     // the event of each row of the events table
     private final List<ProjectEvent> rowevents = new ArrayList<>();
+    // the project's ELHs, the one being edited as it is in memory
+    private final Supplier<Collection<ProjectElh>> projectelhs;
     private Project project;
 
     public ProjectView(Consumer<File> openlatest, Consumer<File> deletelatest, Consumer<File> deleteall,
-            Runnable collectevents)
+            Runnable collectevents, Supplier<Collection<ProjectElh>> projectelhs)
     {
+        this.projectelhs = projectelhs;
         setLayout(new BorderLayout());
         setBorder(jswStyle.makeLineBorder());
         JPanel details = new JPanel(new GridLayout(3, 1));
@@ -149,23 +153,17 @@ public class ProjectView extends JPanel
     }
 
     // one row per project event, one column per ELH. A cell is ticked if the
-    // ELH's latest version uses the event, or shows the ELH's own wording
-    // where that differs from the event's name.
+    // ELH uses the event, or shows the ELH's own wording where that differs
+    // from the event's name.
     private void showEvents()
     {
         List<String> elhnames = new ArrayList<>();
         List<Map<String, List<String>>> uses = new ArrayList<>();
-        for (Map.Entry<String, File> entry : ElhVersions.latestVersions(this.project.getFolder()).entrySet())
+        for (ProjectElh elh : this.projectelhs.get())
         {
             Map<String, List<String>> found = new HashMap<>();
-            try
-            {
-                ElhFile.read(entry.getValue().toPath()).collectEventrefs(found);
-            } catch (IOException e)
-            {
-                // an unreadable file uses no events
-            }
-            elhnames.add(entry.getKey());
+            elh.top().collectEventrefs(found);
+            elhnames.add(elh.name());
             uses.add(found);
         }
         List<Object> columns = new ArrayList<>(List.of("Event", "Used in"));
@@ -209,93 +207,29 @@ public class ProjectView extends JPanel
         return row < 0 ? null : this.rowevents.get(row);
     }
 
-    // a new or changed event name, or null if cancelled, blank or taken by another event
-    private String askEventName(String prompt, String current, ProjectEvent changing)
-    {
-        String name = (String) JOptionPane.showInputDialog(this, prompt, "Event",
-                JOptionPane.PLAIN_MESSAGE, null, null, current);
-        if (name == null || name.isBlank())
-        {
-            return null;
-        }
-        name = name.trim();
-        ProjectEvent existing = this.project.findEventByName(name);
-        if (existing != null && existing != changing)
-        {
-            JOptionPane.showMessageDialog(this, "The project already has an event called " + existing.getName(),
-                    "Event", JOptionPane.ERROR_MESSAGE);
-            return null;
-        }
-        return name;
-    }
-
     private void addEvent()
     {
-        String name = askEventName("Name of the new event:", "", null);
-        if (name != null)
-        {
-            this.project.addEvent(name);
-            saveProject();
-        }
+        if (EventActions.addEvent(this, this.project) != null) showEvents();
     }
 
-    // only the catalogue name changes; each ELH keeps its own wording
     private void renameEvent()
     {
         ProjectEvent event = selectedEvent();
-        if (event == null) return;
-        String name = askEventName("New name for " + event.getName() + ":", event.getName(), event);
-        if (name != null)
-        {
-            event.setName(name);
-            saveProject();
-        }
+        if (event != null && EventActions.renameEvent(this, this.project, event)) showEvents();
     }
 
     private void describeEvent()
     {
         ProjectEvent event = selectedEvent();
-        if (event == null) return;
-        JTextArea text = new JTextArea(event.getDescription(), 6, 40);
-        text.setLineWrap(true);
-        text.setWrapStyleWord(true);
-        if (JOptionPane.showConfirmDialog(this, new JScrollPane(text), "Description of " + event.getName(),
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) == JOptionPane.OK_OPTION)
-        {
-            event.setDescription(text.getText().trim());
-            saveProject();
-        }
+        if (event != null && EventActions.describeEvent(this, this.project, event)) showEvents();
     }
 
-    // ELH nodes linked to a deleted event keep its id, which then links to nothing
     private void deleteEvent()
     {
         int row = this.eventtable.getSelectedRow();
         if (row < 0) return;
-        ProjectEvent event = this.rowevents.get(row);
         int usedin = (Integer) this.eventmodel.getValueAt(row, 1);
-        String message = "Delete event " + event.getName() + "?"
-                + (usedin == 0 ? "" : "\nIt is used in " + usedin + " ELH" + (usedin == 1 ? "" : "s")
-                + "; their nodes will no longer be linked to a project event.");
-        if (JOptionPane.showConfirmDialog(this, message, "Delete event", JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION)
-        {
-            this.project.removeEvent(event);
-            saveProject();
-        }
-    }
-
-    private void saveProject()
-    {
-        try
-        {
-            this.project.save();
-        } catch (IOException e)
-        {
-            JOptionPane.showMessageDialog(this, "Could not save the project\n" + e.getMessage(),
-                    "Save failed", JOptionPane.ERROR_MESSAGE);
-        }
-        showEvents();
+        if (EventActions.deleteEvent(this, this.project, this.rowevents.get(row), usedin)) showEvents();
     }
 
     private static class ReadOnlyModel extends DefaultTableModel

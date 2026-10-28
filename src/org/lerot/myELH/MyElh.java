@@ -19,7 +19,10 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.prefs.Preferences;
 
 import static org.lerot.myELH.StyleMaps.getPrintStyles;
@@ -39,6 +42,8 @@ public class MyElh extends JFrame
     private final JLabel projectname = new JLabel();
     private final JLabel sourcefile = new JLabel();
     private final JLabel activepath = new JLabel();
+    // "ACTIVE ENTITY:" or, on the events tab, "ACTIVE EVENT:"
+    private final JLabel activelabel = new JLabel();
     // while a project is active every ELH is saved into its folder
     private Project currentproject;
     // remembers the active project between runs (~/.java/.userPrefs on Linux)
@@ -54,12 +59,15 @@ public class MyElh extends JFrame
     private File currentfile;
     // the open ELH's shape when it was last loaded or saved
     private String savedstructure;
-    // the ELH screen (tree, edit panel, diagram) or the project screen
-    private static final String ELHSCREEN = "elh";
-    private static final String PROJECTSCREEN = "project";
-    private final CardLayout screens = new CardLayout();
-    private final JPanel screenpanel = new JPanel(screens);
+    // the two dimensions of the model, entities and events, each with its own
+    // tab and menus; the project tab is the way into both
+    private static final int PROJECTTAB = 0;
+    private static final int ENTITYTAB = 1;
+    private static final int EVENTTAB = 2;
+    private final JTabbedPane tabs = new JTabbedPane();
+    private int currenttab = ENTITYTAB;
     private final ProjectView projectview;
+    private final EventView eventview;
     private final DiagramPanel diagrampanel;
     private LayoutStyle layoutstyle = LayoutStyle.DEFAULT;
 
@@ -83,7 +91,6 @@ public class MyElh extends JFrame
                 exitApp();
             }
         });
-        setJMenuBar(makeMenuBar());
         setSize(w, h);
         getContentPane().setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
         JPanel statusbar = new JPanel();
@@ -94,7 +101,7 @@ public class MyElh extends JFrame
         statusbar.add(new JLabel("ACTIVE FILE:"));
         statusbar.add(this.sourcefile);
         statusbar.add(Box.createHorizontalGlue());
-        statusbar.add(new JLabel("ACTIVE ENTITY:"));
+        statusbar.add(this.activelabel);
         statusbar.add(this.activepath);
         statusbar.setBackground(Color.decode(jswTheme.NAVAREA));
         add(statusbar);
@@ -116,12 +123,133 @@ public class MyElh extends JFrame
         mainpanels.add(this.editpanel);
         mainpanels.add(this.svgpanel);
         this.projectview = new ProjectView(this::openLatest, this::deleteLatestVersion, this::deleteAllVersions,
-                this::collectEvents);
-        this.screenpanel.add(mainpanels, ELHSCREEN);
-        this.screenpanel.add(this.projectview, PROJECTSCREEN);
-        add(this.screenpanel);
+                this::collectEvents, this::projectElhs);
+        this.eventview = new EventView(this);
+        this.tabs.addTab("Project", this.projectview);
+        this.tabs.addTab("Entities", mainpanels);
+        this.tabs.addTab("Events", this.eventview);
+        this.tabs.setSelectedIndex(ENTITYTAB);
+        this.tabs.addChangeListener(e -> tabChanged());
+        add(this.tabs);
         showEdit();
+        enableProjectTabs();
         reopenLastProject();
+        setJMenuBar(makeMenuBar(this.currenttab));
+        showStatus();
+    }
+
+    // linked browsing: the tab switched to follows what was active in the other
+    private void tabChanged()
+    {
+        int previoustab = this.currenttab;
+        this.currenttab = this.tabs.getSelectedIndex();
+        if (this.currenttab == PROJECTTAB && this.currentproject != null)
+        {
+            this.projectview.show(this.currentproject);
+        } else if (this.currenttab == EVENTTAB)
+        {
+            if (previoustab == ENTITYTAB)
+            {
+                this.eventview.focusOn(this.activenode);
+            } else
+            {
+                this.eventview.refresh();
+            }
+        } else if (this.currenttab == ENTITYTAB && previoustab == EVENTTAB)
+        {
+            selectLinkedNode(this.eventview.selectedEvent());
+        }
+        setJMenuBar(makeMenuBar(this.currenttab));
+        showStatus();
+        getRootPane().revalidate();
+    }
+
+    // selects a node of the open ELH linked to the event, unless the active node already is one
+    private void selectLinkedNode(ProjectEvent event)
+    {
+        if (event == null || this.currentelh == null) return;
+        java.util.List<ElhNode> linked = new java.util.ArrayList<>();
+        this.currentelh.findLinked(event.getId(), linked);
+        if (!linked.isEmpty() && !linked.contains(this.activenode))
+        {
+            selectNode(linked.getFirst());
+        }
+    }
+
+    private void showStatus()
+    {
+        if (this.currenttab == EVENTTAB)
+        {
+            this.activelabel.setText("ACTIVE EVENT:");
+            ProjectEvent event = this.eventview.selectedEvent();
+            this.activepath.setText(event == null ? "" : event.getName());
+        } else
+        {
+            this.activelabel.setText("ACTIVE ENTITY:");
+            this.activepath.setText(this.activenode == null ? "" : this.activenode.getPath());
+        }
+    }
+
+    // from the events screen
+    void eventSelected(ProjectEvent event)
+    {
+        if (this.currenttab == EVENTTAB)
+        {
+            showStatus();
+        }
+    }
+
+    // the project's ELHs, each at its latest version, except that the one
+    // being edited is taken as it is in memory
+    Collection<ProjectElh> projectElhs()
+    {
+        Map<String, ProjectElh> elhs = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        if (this.currentproject == null)
+        {
+            return elhs.values();
+        }
+        for (Map.Entry<String, File> entry : ElhVersions.latestVersions(this.currentproject.getFolder()).entrySet())
+        {
+            try
+            {
+                elhs.put(entry.getKey(), new ProjectElh(entry.getKey(), entry.getValue(),
+                        ElhFile.read(entry.getValue().toPath())));
+            } catch (IOException e)
+            {
+                // an unreadable file is left out
+            }
+        }
+        if (this.currentelh != null && this.currentfile != null)
+        {
+            String name = ElhVersions.baseName(this.currentfile);
+            elhs.put(name, new ProjectElh(name, this.currentfile, this.currentelh));
+        }
+        return elhs.values();
+    }
+
+    // from the events screen: opens the ELH if it is not the one being
+    // edited (saving that first), and selects the node on the entities tab
+    void goToNode(ProjectElh elh, ElhNode node)
+    {
+        ElhNode target = node;
+        if (elh.top() != this.currentelh)
+        {
+            java.util.List<Integer> where = node.indexPath();
+            if (this.currentelh != null && !saveElh())
+            {
+                return;
+            }
+            if (!loadElh(elh.file()))
+            {
+                return;
+            }
+            target = this.currentelh.nodeAtIndexPath(where);
+        }
+        this.tabs.setSelectedIndex(ENTITYTAB);
+        if (target != null)
+        {
+            selectNode(target);
+        }
     }
 
     public static void main(String[] args)
@@ -138,18 +266,45 @@ public class MyElh extends JFrame
         });
     }
 
-    private JMenuBar makeMenuBar()
+    // the Project and Help menus are always there; between them, the menus of the tab
+    private JMenuBar makeMenuBar(int tab)
     {
         JMenuBar jmb = new JMenuBar();
         JMenu jmProject = new JMenu("Project");
         addMenuItem(jmProject, "New Project", this::newProject);
         addMenuItem(jmProject, "Open Project", this::openProject);
-        addMenuItem(jmProject, "Project View", this::showProjectView);
         addMenuItem(jmProject, "Close Project", this::closeProject);
         jmProject.addSeparator();
         addMenuItem(jmProject, "Exit", this::exitApp);
         jmb.add(jmProject);
-        JMenu jmFile = new JMenu("File");
+        if (tab == ENTITYTAB)
+        {
+            addEntityMenus(jmb);
+        } else if (tab == EVENTTAB)
+        {
+            JMenu jmEvent = new JMenu("Event");
+            addMenuItem(jmEvent, "New Event", this.eventview::newEvent);
+            addMenuItem(jmEvent, "Delete Event", this.eventview::deleteEvent);
+            jmEvent.addSeparator();
+            addMenuItem(jmEvent, "Show All Events", this.eventview::showAll);
+            addMenuItem(jmEvent, "Collect Events from ELHs", this::collectEvents);
+            jmb.add(jmEvent);
+            // to be filled once the events screen has a diagram
+            jmb.add(new JMenu("View"));
+            jmb.add(new JMenu("Export"));
+            jmb.add(new JMenu("Options"));
+        }
+        JMenu jmHelp = new JMenu("Help");
+        addMenuItem(jmHelp, "About", () -> JOptionPane.showMessageDialog(this,
+                "myELH " + version + "\nEntity life history editor", "About myELH",
+                JOptionPane.INFORMATION_MESSAGE));
+        jmb.add(jmHelp);
+        return jmb;
+    }
+
+    private void addEntityMenus(JMenuBar jmb)
+    {
+        JMenu jmFile = new JMenu("Entity");
         addMenuItem(jmFile, "Open", this::openElh);
         addMenuItem(jmFile, "New", this::newElh);
         addMenuItem(jmFile, "Save", this::saveElh);
@@ -158,8 +313,8 @@ public class MyElh extends JFrame
         addMenuItem(jmFile, "Close", this::closeElh);
         jmb.add(jmFile);
         JMenu jmView = new JMenu("View");
-        addMenuItem(jmView, "View EDIT", () -> { showElhScreen(); showEdit(); });
-        addMenuItem(jmView, "View SVG", () -> { showElhScreen(); showSvg(); });
+        addMenuItem(jmView, "View EDIT", this::showEdit);
+        addMenuItem(jmView, "View SVG", this::showSvg);
         jmView.addSeparator();
         addMenuItem(jmView, "Zoom In", KeyEvent.VK_EQUALS, () -> diagrampanel.setZoom(diagrampanel.getZoom() * 1.25));
         addMenuItem(jmView, "Zoom Out", KeyEvent.VK_MINUS, () -> diagrampanel.setZoom(diagrampanel.getZoom() / 1.25));
@@ -178,12 +333,6 @@ public class MyElh extends JFrame
             jmOptions.add(item);
         }
         jmb.add(jmOptions);
-        JMenu jmHelp = new JMenu("Help");
-        addMenuItem(jmHelp, "About", () -> JOptionPane.showMessageDialog(this,
-                "myELH " + version + "\nEntity life history editor", "About myELH",
-                JOptionPane.INFORMATION_MESSAGE));
-        jmb.add(jmHelp);
-        return jmb;
     }
 
     private static void addMenuItem(JMenu menu, String label, Runnable action)
@@ -340,6 +489,7 @@ public class MyElh extends JFrame
         {
             prefs.put(LASTPROJECT, project.getFolder().getAbsolutePath());
         }
+        enableProjectTabs();
         if (project != null && this.currentfile != null)
         {
             setCurrentFile(this.currentfile);
@@ -348,6 +498,13 @@ public class MyElh extends JFrame
         {
             showProjectView();
         }
+    }
+
+    // the project and events tabs are only there while a project is open
+    private void enableProjectTabs()
+    {
+        this.tabs.setEnabledAt(PROJECTTAB, this.currentproject != null);
+        this.tabs.setEnabledAt(EVENTTAB, this.currentproject != null);
     }
 
     // saves and closes the open ELH, then closes the project; false if the
@@ -391,12 +548,12 @@ public class MyElh extends JFrame
             return;
         }
         this.projectview.show(this.currentproject);
-        this.screens.show(this.screenpanel, PROJECTSCREEN);
+        this.tabs.setSelectedIndex(PROJECTTAB);
     }
 
     private void showElhScreen()
     {
-        this.screens.show(this.screenpanel, ELHSCREEN);
+        this.tabs.setSelectedIndex(ENTITYTAB);
     }
 
     // chosen in the project view: the open ELH is saved before the other is opened
@@ -494,6 +651,7 @@ public class MyElh extends JFrame
             loadElh(this.currentfile);
         }
         this.projectview.show(this.currentproject);
+        this.eventview.refresh();
     }
 
     public Project getProject()
