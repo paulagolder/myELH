@@ -4,6 +4,7 @@
   import java.util.StringTokenizer;
   import javax.swing.JTree;
   import javax.swing.tree.DefaultMutableTreeNode;
+  import javax.swing.tree.TreeNode;
   import javax.swing.tree.TreePath;
 
   
@@ -41,11 +42,11 @@
         while (st.hasMoreElements()) {
           
           String centityname = (String)st.nextElement();
-          Enumeration<DefaultMutableTreeNode> childlist = (Enumeration)currentsearchnode.children();
+          Enumeration<TreeNode> childlist = currentsearchnode.children();
           DefaultMutableTreeNode foundchild = null;
           while (childlist.hasMoreElements()) {
-            
-            DefaultMutableTreeNode nextchild = childlist.nextElement();
+
+            DefaultMutableTreeNode nextchild = (DefaultMutableTreeNode)childlist.nextElement();
             String nextname = "";
             if (nextchild.getUserObject() instanceof ElhNode) {
               
