@@ -4,6 +4,7 @@ import java.awt.*;
 import java.awt.geom.Dimension2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.geom.RoundRectangle2D;
 import java.util.HashMap;
 
 public class ShapeD
@@ -84,4 +85,17 @@ public class ShapeD
         ShapeI shapei = getShapeI();
         g2d.drawRect(shapei.x,shapei.y,shapei.width,shapei.height);
     }
+
+    public void drawSoftRect(Graphics2D g2d)
+    {
+        ShapeI shapei = getShapeI();
+        int arcWidth = 20;  // Horizontal diameter of the corner arc
+        int arcHeight = 20; // Vertical diameter of the corner arc
+
+        g2d.drawRoundRect(shapei.x,shapei.y,shapei.width,shapei.height, arcWidth, arcHeight);
+
+    }
+
+
+
 }

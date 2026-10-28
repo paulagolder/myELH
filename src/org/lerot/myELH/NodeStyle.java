@@ -27,6 +27,7 @@ public class NodeStyle extends HashMap<String, Object>
         anodestyle.put("canexpand", Boolean.TRUE);
         anodestyle.put("textattop", Boolean.FALSE);
         anodestyle.put("underlinetitle", Boolean.FALSE);
+        anodestyle.put("rectanglestyle", "hard");
         return anodestyle;
     }
 
@@ -48,6 +49,11 @@ public class NodeStyle extends HashMap<String, Object>
     public Integer getInteger(String key)
     {
         return (Integer) get(key);
+    }
+
+    public String getString(String key)
+    {
+        return (String) get(key);
     }
 
     public void include(NodeStyle anodestyle)

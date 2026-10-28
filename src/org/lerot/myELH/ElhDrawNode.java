@@ -171,19 +171,35 @@ public class ElhDrawNode
         return null;
     }
 
-    public void drawborder(Graphics2D g2d, Color acolor, int width)
+    public void drawHardborder(Graphics2D g2d, Color acolor, int width)
     {
         g2d.setStroke(new BasicStroke((float) width));
         g2d.setColor(acolor);
         bounds.drawRect(g2d);
-        // g2d.drawRect((int)bounds.x, (int)bounds.y, (int)bounds.width, (int)bounds.height);
+    }
+
+    public void drawSoftborder(Graphics2D g2d, Color acolor, int width)
+    {
+        g2d.setStroke(new BasicStroke((float) width));
+        g2d.setColor(acolor);
+        bounds.drawSoftRect(g2d);
     }
 
     public void drawnodeborder(Graphics2D g2d)
     {
         Color acolor = nodestylemap.getColor("borderColor");
         int bw = (int) nodestylemap.getDouble("borderWidth");
-        drawborder(g2d, acolor, bw);
+        String rectstyle = nodestylemap.getString( "rectanglestyle");
+        switch (rectstyle)
+        {
+            case ("hard") -> drawHardborder(g2d, acolor, bw);
+            case ("soft")  ->drawSoftborder(g2d, acolor, bw);
+            default ->drawHardborder(g2d, acolor, bw);
+        }
+
+
+
+
     }
 
     ShapeD DrawShape(Graphics2D g2d)

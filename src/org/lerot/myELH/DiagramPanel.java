@@ -115,7 +115,7 @@ public class DiagramPanel extends JComponent
             ElhDrawNode selectedbox = selected == null ? null : diagram.findNode(selected);
             if (selectedbox != null)
             {
-                selectedbox.drawborder(g2d, SELECTEDCOLOR, SELECTEDWIDTH);
+                selectedbox.drawHardborder(g2d, SELECTEDCOLOR, SELECTEDWIDTH);
             }
         } finally
         {

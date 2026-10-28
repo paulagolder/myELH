@@ -11,6 +11,8 @@ public class StyleMap extends HashMap<String, NodeStyle>
     {
         StyleMap astylemap = new StyleMap();
         astylemap.put("default", NodeStyle.makeDefaultNodeStyle());
+        astylemap.put("entity", NodeStyle.makeDefaultNodeStyle());
+
         return astylemap;
     }
 

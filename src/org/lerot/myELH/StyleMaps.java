@@ -7,8 +7,6 @@ public class StyleMaps extends HashMap<String, StyleMap>
 {
     private static final long serialVersionUID = 1L;
 
-
-
     static public StyleMap getScreenStyles()
     {
         StyleMap sm = StyleMap.makedefault();
@@ -49,24 +47,28 @@ public class StyleMaps extends HashMap<String, StyleMap>
         NodeStyle anodestyle = new NodeStyle();
         anodestyle.put("textattop", Boolean.FALSE);
         anodestyle.put("rheight", 40.0D);
+        anodestyle.put("rectanglestyle", "hard");
         astylemap.put("event", anodestyle);
         NodeStyle anodestyle2 = new NodeStyle();
         anodestyle2.put("fill", Boolean.FALSE);
         anodestyle2.put("fillColor", Color.yellow);
         anodestyle2.put("textattop", Boolean.TRUE);
         anodestyle2.put("underlinetitle", Boolean.TRUE);
+        anodestyle2.put("rectanglestyle", "hard");
         astylemap.put("entity", anodestyle2);
         NodeStyle rolestyle = new NodeStyle();
         rolestyle.put("fill", Boolean.TRUE);
         rolestyle.put("fillColor", Color.pink);
         rolestyle.put("textattop", Boolean.TRUE);
         rolestyle.put("underlinetitle", Boolean.TRUE);
+        rolestyle.put("rectanglestyle", "soft");
         astylemap.put("role", rolestyle);
         NodeStyle rolegstyle = new NodeStyle();
         rolegstyle.put("fill", Boolean.TRUE);
         rolegstyle.put("fillColor", Color.green);
         rolegstyle.put("textattop", Boolean.TRUE);
         rolegstyle.put("underlinetitle", Boolean.TRUE);
+        rolegstyle.put("rectanglestyle", "soft");
         astylemap.put("rolegroup", rolegstyle);
         NodeStyle defstyle = NodeStyle.makeDefaultNodeStyle();
         astylemap.put("default", defstyle);
