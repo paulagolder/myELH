@@ -9,35 +9,35 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-// The project screen: the project's details and the ELHs in its folder.
-// Each button acts on the latest version file of the selected ELH.
+// The project screen: the project's details, then two tabs. ELHs lists the
+// ELHs in its folder, and each button acts on the latest version file of the
+// selected one. Events lists the project's events against the ELHs whose
+// latest version uses them (the entity-event matrix).
 public class ProjectView extends JPanel
 {
     private static final long serialVersionUID = 1L;
     private final JLabel title = new JLabel();
     private final JLabel author = new JLabel();
     private final JLabel folder = new JLabel();
-    private final DefaultTableModel model = new DefaultTableModel(
-            new Object[]{"ELH", "Latest version", "Versions"}, 0)
-    {
-        private static final long serialVersionUID = 1L;
-
-        @Override
-        public boolean isCellEditable(int row, int column)
-        {
-            return false;
-        }
-    };
+    private final DefaultTableModel model = new ReadOnlyModel(new Object[]{"ELH", "Latest version", "Versions"});
     private final JTable table = new JTable(this.model);
     // the latest version file of each row
     private final List<File> latestfiles = new ArrayList<>();
+    private final DefaultTableModel eventmodel = new ReadOnlyModel(new Object[0]);
+    private final JTable eventtable = new JTable(this.eventmodel);
+    // the event of each row of the events table
+    private final List<ProjectEvent> rowevents = new ArrayList<>();
+    private Project project;
 
-    public ProjectView(Consumer<File> openlatest, Consumer<File> deletelatest, Consumer<File> deleteall)
+    public ProjectView(Consumer<File> openlatest, Consumer<File> deletelatest, Consumer<File> deleteall,
+            Runnable collectevents)
     {
         setLayout(new BorderLayout());
         setBorder(jswStyle.makeLineBorder());
@@ -48,6 +48,15 @@ public class ProjectView extends JPanel
         details.add(this.author);
         details.add(this.folder);
         add(details, BorderLayout.NORTH);
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab("ELHs", makeElhTab(openlatest, deletelatest, deleteall));
+        tabs.addTab("Events", makeEventTab(collectevents));
+        add(tabs, BorderLayout.CENTER);
+    }
+
+    private JPanel makeElhTab(Consumer<File> openlatest, Consumer<File> deletelatest, Consumer<File> deleteall)
+    {
+        JPanel tab = new JPanel(new BorderLayout());
         this.table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         this.table.addMouseListener(new MouseAdapter()
         {
@@ -60,18 +69,53 @@ public class ProjectView extends JPanel
                 }
             }
         });
-        add(new JScrollPane(this.table), BorderLayout.CENTER);
+        tab.add(new JScrollPane(this.table), BorderLayout.CENTER);
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
         addButton(buttons, "Open latest version", openlatest);
         addButton(buttons, "Delete latest version", deletelatest);
         addButton(buttons, "Delete all versions", deleteall);
-        add(buttons, BorderLayout.SOUTH);
+        tab.add(buttons, BorderLayout.SOUTH);
+        return tab;
+    }
+
+    private JPanel makeEventTab(Runnable collectevents)
+    {
+        JPanel tab = new JPanel(new BorderLayout());
+        this.eventtable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        this.eventtable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        this.eventtable.addMouseListener(new MouseAdapter()
+        {
+            @Override
+            public void mouseClicked(MouseEvent e)
+            {
+                if (e.getClickCount() == 2)
+                {
+                    renameEvent();
+                }
+            }
+        });
+        tab.add(new JScrollPane(this.eventtable), BorderLayout.CENTER);
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        addEventButton(buttons, "Add event", this::addEvent);
+        addEventButton(buttons, "Rename", this::renameEvent);
+        addEventButton(buttons, "Description", this::describeEvent);
+        addEventButton(buttons, "Delete event", this::deleteEvent);
+        addEventButton(buttons, "Collect events from ELHs", collectevents);
+        tab.add(buttons, BorderLayout.SOUTH);
+        return tab;
     }
 
     private void addButton(JPanel buttons, String label, Consumer<File> action)
     {
         JButton button = new JButton(label);
         button.addActionListener(e -> actOnSelected(action));
+        buttons.add(button);
+    }
+
+    private static void addEventButton(JPanel buttons, String label, Runnable action)
+    {
+        JButton button = new JButton(label);
+        button.addActionListener(e -> action.run());
         buttons.add(button);
     }
 
@@ -85,9 +129,10 @@ public class ProjectView extends JPanel
         }
     }
 
-    // fills the screen from the project's folder as it now is
+    // fills the screen from the project and its folder as they now are
     public void show(Project project)
     {
+        this.project = project;
         this.title.setText(project.getName());
         this.author.setText("Author: " + (project.getAuthor() == null ? "" : project.getAuthor()));
         this.folder.setText("Folder: " + project.getFolder());
@@ -99,6 +144,173 @@ public class ProjectView extends JPanel
             this.model.addRow(new Object[]{entry.getKey(), latest.getName(),
                     ElhVersions.countVersions(project.getFolder(), entry.getKey())});
             this.latestfiles.add(latest);
+        }
+        showEvents();
+    }
+
+    // one row per project event, one column per ELH. A cell is ticked if the
+    // ELH's latest version uses the event, or shows the ELH's own wording
+    // where that differs from the event's name.
+    private void showEvents()
+    {
+        List<String> elhnames = new ArrayList<>();
+        List<Map<String, List<String>>> uses = new ArrayList<>();
+        for (Map.Entry<String, File> entry : ElhVersions.latestVersions(this.project.getFolder()).entrySet())
+        {
+            Map<String, List<String>> found = new HashMap<>();
+            try
+            {
+                ElhFile.read(entry.getValue().toPath()).collectEventrefs(found);
+            } catch (IOException e)
+            {
+                // an unreadable file uses no events
+            }
+            elhnames.add(entry.getKey());
+            uses.add(found);
+        }
+        List<Object> columns = new ArrayList<>(List.of("Event", "Used in"));
+        columns.addAll(elhnames);
+        this.eventmodel.setColumnIdentifiers(columns.toArray());
+        this.eventmodel.setRowCount(0);
+        this.rowevents.clear();
+        for (ProjectEvent event : this.project.getEvents())
+        {
+            List<Object> row = new ArrayList<>();
+            row.add(event.getName());
+            row.add(null);
+            int usedin = 0;
+            for (Map<String, List<String>> found : uses)
+            {
+                List<String> localnames = found.get(event.getId());
+                if (localnames == null)
+                {
+                    row.add("");
+                    continue;
+                }
+                usedin++;
+                List<String> different = localnames.stream()
+                        .filter(n -> !n.equalsIgnoreCase(event.getName())).distinct().toList();
+                row.add(different.isEmpty() ? "✓" : String.join(", ", different));
+            }
+            row.set(1, usedin);
+            this.eventmodel.addRow(row.toArray());
+            this.rowevents.add(event);
+        }
+        this.eventtable.getColumnModel().getColumn(0).setPreferredWidth(160);
+        for (int c = 1; c < this.eventtable.getColumnCount(); c++)
+        {
+            this.eventtable.getColumnModel().getColumn(c).setPreferredWidth(c == 1 ? 60 : 110);
+        }
+    }
+
+    private ProjectEvent selectedEvent()
+    {
+        int row = this.eventtable.getSelectedRow();
+        return row < 0 ? null : this.rowevents.get(row);
+    }
+
+    // a new or changed event name, or null if cancelled, blank or taken by another event
+    private String askEventName(String prompt, String current, ProjectEvent changing)
+    {
+        String name = (String) JOptionPane.showInputDialog(this, prompt, "Event",
+                JOptionPane.PLAIN_MESSAGE, null, null, current);
+        if (name == null || name.isBlank())
+        {
+            return null;
+        }
+        name = name.trim();
+        ProjectEvent existing = this.project.findEventByName(name);
+        if (existing != null && existing != changing)
+        {
+            JOptionPane.showMessageDialog(this, "The project already has an event called " + existing.getName(),
+                    "Event", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+        return name;
+    }
+
+    private void addEvent()
+    {
+        String name = askEventName("Name of the new event:", "", null);
+        if (name != null)
+        {
+            this.project.addEvent(name);
+            saveProject();
+        }
+    }
+
+    // only the catalogue name changes; each ELH keeps its own wording
+    private void renameEvent()
+    {
+        ProjectEvent event = selectedEvent();
+        if (event == null) return;
+        String name = askEventName("New name for " + event.getName() + ":", event.getName(), event);
+        if (name != null)
+        {
+            event.setName(name);
+            saveProject();
+        }
+    }
+
+    private void describeEvent()
+    {
+        ProjectEvent event = selectedEvent();
+        if (event == null) return;
+        JTextArea text = new JTextArea(event.getDescription(), 6, 40);
+        text.setLineWrap(true);
+        text.setWrapStyleWord(true);
+        if (JOptionPane.showConfirmDialog(this, new JScrollPane(text), "Description of " + event.getName(),
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) == JOptionPane.OK_OPTION)
+        {
+            event.setDescription(text.getText().trim());
+            saveProject();
+        }
+    }
+
+    // ELH nodes linked to a deleted event keep its id, which then links to nothing
+    private void deleteEvent()
+    {
+        int row = this.eventtable.getSelectedRow();
+        if (row < 0) return;
+        ProjectEvent event = this.rowevents.get(row);
+        int usedin = (Integer) this.eventmodel.getValueAt(row, 1);
+        String message = "Delete event " + event.getName() + "?"
+                + (usedin == 0 ? "" : "\nIt is used in " + usedin + " ELH" + (usedin == 1 ? "" : "s")
+                + "; their nodes will no longer be linked to a project event.");
+        if (JOptionPane.showConfirmDialog(this, message, "Delete event", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION)
+        {
+            this.project.removeEvent(event);
+            saveProject();
+        }
+    }
+
+    private void saveProject()
+    {
+        try
+        {
+            this.project.save();
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not save the project\n" + e.getMessage(),
+                    "Save failed", JOptionPane.ERROR_MESSAGE);
+        }
+        showEvents();
+    }
+
+    private static class ReadOnlyModel extends DefaultTableModel
+    {
+        private static final long serialVersionUID = 1L;
+
+        ReadOnlyModel(Object[] columns)
+        {
+            super(columns, 0);
+        }
+
+        @Override
+        public boolean isCellEditable(int row, int column)
+        {
+            return false;
         }
     }
 }

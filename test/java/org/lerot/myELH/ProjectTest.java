@@ -25,6 +25,40 @@ class ProjectTest
     }
 
     @Test
+    void theEventCatalogueIsSavedWithTheProject() throws IOException
+    {
+        Project project = Project.create(elhfolder.toFile(), "Library", "Paul");
+        ProjectEvent borrow = project.addEvent("Borrow");
+        borrow.setDescription("A member takes a book away");
+        project.addEvent("Return");
+        project.save();
+        Project loaded = Project.load(elhfolder.resolve("Library").toFile());
+        assertEquals(2, loaded.getEvents().size());
+        assertEquals("Borrow", loaded.findEvent(borrow.getId()).getName());
+        assertEquals("A member takes a book away", loaded.findEventByName("borrow").getDescription());
+    }
+
+    @Test
+    void addingAnEventTwiceGivesTheSameEvent() throws IOException
+    {
+        Project project = Project.create(elhfolder.toFile(), "Library", "Paul");
+        assertSame(project.addEvent("Borrow"), project.addEvent("BORROW"));
+        assertEquals(1, project.getEvents().size());
+    }
+
+    @Test
+    void theIdOfADeletedEventIsNeverReused() throws IOException
+    {
+        Project project = Project.create(elhfolder.toFile(), "Library", "Paul");
+        project.addEvent("Borrow");
+        ProjectEvent returned = project.addEvent("Return");
+        project.removeEvent(returned);
+        project.save();
+        Project loaded = Project.load(elhfolder.resolve("Library").toFile());
+        assertNotEquals(returned.getId(), loaded.addEvent("Renew").getId());
+    }
+
+    @Test
     void cannotCreateAProjectOverAnExistingFolder() throws IOException
     {
         Project.create(elhfolder.toFile(), "Library", "Paul");

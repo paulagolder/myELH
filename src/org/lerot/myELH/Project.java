@@ -22,6 +22,10 @@ public final class Project
     private final File folder;
     private String name;
     private String author;
+    // the project's event catalogue, in the order the events were added
+    private final List<ProjectEvent> events = new ArrayList<>();
+    // the number in the next event id (e1, e2, ...); saved, so ids are never reused
+    private int nexteventid = 1;
 
     private Project(File folder, String name, String author)
     {
@@ -56,8 +60,31 @@ public final class Project
         }
         Element root = doc.getRootElement();
         String name = root.getChildTextTrim("name");
-        return new Project(folder, name == null || name.isEmpty() ? folder.getName() : name,
+        Project project = new Project(folder, name == null || name.isEmpty() ? folder.getName() : name,
                 root.getChildTextTrim("author"));
+        Element eventlist = root.getChild("events");
+        if (eventlist != null)
+        {
+            for (Element event : eventlist.getChildren("event"))
+            {
+                String id = event.getAttributeValue("id");
+                String eventname = event.getAttributeValue("name");
+                if (id != null && eventname != null)
+                {
+                    project.events.add(new ProjectEvent(id, eventname, event.getChildTextTrim("description")));
+                    if (id.matches("e\\d+"))
+                    {
+                        project.nexteventid = Math.max(project.nexteventid, Integer.parseInt(id.substring(1)) + 1);
+                    }
+                }
+            }
+            String nextid = eventlist.getAttributeValue("nextid");
+            if (nextid != null && nextid.matches("\\d+"))
+            {
+                project.nexteventid = Math.max(project.nexteventid, Integer.parseInt(nextid));
+            }
+        }
+        return project;
     }
 
     // the folders directly inside parentfolder that hold a project.xml
@@ -84,6 +111,20 @@ public final class Project
         Element root = new Element("project");
         root.addContent(new Element("name").setText(this.name));
         root.addContent(new Element("author").setText(this.author == null ? "" : this.author));
+        Element eventlist = new Element("events");
+        eventlist.setAttribute("nextid", String.valueOf(this.nexteventid));
+        for (ProjectEvent event : this.events)
+        {
+            Element element = new Element("event");
+            element.setAttribute("id", event.getId());
+            element.setAttribute("name", event.getName());
+            if (!event.getDescription().isEmpty())
+            {
+                element.addContent(new Element("description").setText(event.getDescription()));
+            }
+            eventlist.addContent(element);
+        }
+        root.addContent(eventlist);
         try (Writer out = Files.newBufferedWriter(new File(this.folder, PROJECTFILE).toPath()))
         {
             new XMLOutputter(Format.getPrettyFormat()).output(new Document(root), out);
@@ -103,5 +144,42 @@ public final class Project
     public String getAuthor()
     {
         return this.author;
+    }
+
+    public List<ProjectEvent> getEvents()
+    {
+        return List.copyOf(this.events);
+    }
+
+    // the catalogue event with this id, or null
+    public ProjectEvent findEvent(String id)
+    {
+        return this.events.stream().filter(e -> e.getId().equals(id)).findFirst().orElse(null);
+    }
+
+    // the catalogue event with this name, in any case, or null
+    public ProjectEvent findEventByName(String eventname)
+    {
+        return this.events.stream().filter(e -> e.getName().equalsIgnoreCase(eventname)).findFirst().orElse(null);
+    }
+
+    // adds a new event to the catalogue, or returns the one already of that name;
+    // the caller saves the project
+    public ProjectEvent addEvent(String eventname)
+    {
+        ProjectEvent existing = findEventByName(eventname);
+        if (existing != null)
+        {
+            return existing;
+        }
+        ProjectEvent event = new ProjectEvent("e" + this.nexteventid++, eventname, "");
+        this.events.add(event);
+        return event;
+    }
+
+    // links to a deleted event are left broken: its id is never given to another
+    public void removeEvent(ProjectEvent event)
+    {
+        this.events.remove(event);
     }
 }

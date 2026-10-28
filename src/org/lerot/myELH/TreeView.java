@@ -255,9 +255,7 @@ public class TreeView extends JPanel implements ActionListener, MouseListener
         } else if (comStr.startsWith("NEWSIBLING"))
         {
             if (selectednode.getParent() == null) return;
-            String name = app.askNodeName("event");
-            if (name == null) return;
-            selectednode.addSibling(name);
+            if (app.addLeafEvent(selectednode::addSibling) == null) return;
         } else if (comStr.startsWith("DELETE"))
         {
             if (selectednode.getParent() == null)

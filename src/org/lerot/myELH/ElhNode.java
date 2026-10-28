@@ -2,6 +2,7 @@ package org.lerot.myELH;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.StringTokenizer;
 
 import org.jdom2.Element;
@@ -18,6 +19,8 @@ public final class ElhNode
     private String name;
     private ElhNode parent;
     private String stylename;
+    // the id of the project event a leaf event stands for, or null
+    private String eventref;
 
     public ElhNode(NodeType type, String aname, ElhNode aparent)
     {
@@ -196,10 +199,12 @@ public final class ElhNode
         if (newnode != null) addChild(newnode);
     }
 
-    public void addChild(String type, String aname)
+    // the new node, or null if the type is not known
+    public ElhNode addChild(String type, String aname)
     {
         ElhNode newnode = makeNode(type, aname, this);
         if (newnode != null) addChild(newnode);
+        return newnode;
     }
 
     public void addChild(ElhNode e)
@@ -207,11 +212,61 @@ public final class ElhNode
         this.children.add(e);
     }
 
-    public void addSibling(String aname)
+    // the new event, or null if this node is the top and so has no siblings
+    public ElhNode addSibling(String aname)
     {
         ElhNode parent = getParent();
-        if (parent == null) return;
-        parent.addChild(new ElhNode(NodeType.EVENT, aname, parent));
+        if (parent == null) return null;
+        ElhNode sibling = new ElhNode(NodeType.EVENT, aname, parent);
+        parent.addChild(sibling);
+        return sibling;
+    }
+
+    // a leaf event is an action; event nodes with children only group them
+    public boolean isLeafEvent()
+    {
+        return is(NodeType.EVENT) && this.children.isEmpty();
+    }
+
+    public String getEventref()
+    {
+        return this.eventref;
+    }
+
+    public void setEventref(String eventref)
+    {
+        this.eventref = eventref == null || eventref.isEmpty() ? null : eventref;
+    }
+
+    // every node in this tree linked to a project event: event id -> the
+    // names the nodes go by here
+    public void collectEventrefs(Map<String, List<String>> found)
+    {
+        if (this.eventref != null)
+        {
+            found.computeIfAbsent(this.eventref, k -> new ArrayList<>()).add(this.name);
+        }
+        for (ElhNode achild : this.children)
+        {
+            achild.collectEventrefs(found);
+        }
+    }
+
+    // links each unlinked leaf event to the project event of the same name,
+    // adding events to the project as needed; true if any node was linked
+    public boolean linkLeafEvents(Project project)
+    {
+        boolean linked = false;
+        if (isLeafEvent() && this.eventref == null)
+        {
+            this.eventref = project.addEvent(this.name).getId();
+            linked = true;
+        }
+        for (ElhNode achild : this.children)
+        {
+            linked |= achild.linkLeafEvents(project);
+        }
+        return linked;
     }
 
     // this node and everything below it, as saved in an .elh file
@@ -226,6 +281,10 @@ public final class ElhNode
         if (getStylename() != null)
         {
             element.setAttribute("stylename", getStylename());
+        }
+        if (this.eventref != null)
+        {
+            element.setAttribute("eventref", this.eventref);
         }
         for (ElhNode achild : getChildren())
         {
@@ -327,6 +386,7 @@ public final class ElhNode
         ElhNode newnode = new ElhNode(this.type, getName(), newparent);
         newnode.setChildgrouptype(getChildgrouptype());
         newnode.setStylename(getStylename());
+        newnode.setEventref(this.eventref);
         for (ElhNode child : this.children)
         {
             ElhNode childcopy = child.copy(newnode);
@@ -371,6 +431,7 @@ public final class ElhNode
     {
         String nodetype = ct.getName();
         setName(ct.getAttributeValue("name", getName()));
+        setEventref(ct.getAttributeValue("eventref"));
         if (ct.getAttribute("stylename") != null)
         {
             setStylename(ct.getAttribute("stylename").getValue());

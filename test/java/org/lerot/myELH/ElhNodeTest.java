@@ -130,6 +130,48 @@ class ElhNodeTest
     }
 
     @Test
+    void eventLinksSurviveSaving() throws IOException
+    {
+        ElhNode top = makeTree();
+        top.findChildnode("Person").findChildnode("a").setEventref("e7");
+        ElhNode loaded = saveAndLoad(top);
+        assertEquals("e7", loaded.findChildnode("Person").findChildnode("a").getEventref());
+        assertNull(loaded.findChildnode("Person").findChildnode("b").getEventref());
+    }
+
+    @Test
+    void collectingEventsLinksOnlyLeafEvents() throws IOException
+    {
+        Project project = Project.create(tempdir.toFile(), "Library", "Paul");
+        ElhNode top = makeTree();
+        ElhNode b = top.findChildnode("Person").findChildnode("b");
+        b.addChild(new ElhNode(NodeType.EVENT, "b1", b));
+        assertTrue(top.linkLeafEvents(project));
+        // a and c are leaves, b now groups b1; Person is an entity
+        assertEquals(3, project.getEvents().size());
+        assertNull(b.getEventref());
+        assertNull(top.findChildnode("Person").getEventref());
+        assertEquals(project.findEventByName("b1").getId(), b.findChildnode("b1").getEventref());
+        // a second collect has nothing left to link
+        assertFalse(top.linkLeafEvents(project));
+    }
+
+    @Test
+    void eachElhCanWordASharedEventItsOwnWay() throws IOException
+    {
+        Project project = Project.create(tempdir.toFile(), "Library", "Paul");
+        String borrow = project.addEvent("Borrow").getId();
+        ElhNode member = new ElhNode(NodeType.ELH, "member", null);
+        member.addChild(NodeType.EVENT.xmlName(), "Borrows").setEventref(borrow);
+        ElhNode book = new ElhNode(NodeType.ELH, "book", null);
+        book.addChild(NodeType.EVENT.xmlName(), "Is borrowed").setEventref(borrow);
+        java.util.Map<String, java.util.List<String>> found = new java.util.HashMap<>();
+        member.collectEventrefs(found);
+        book.collectEventrefs(found);
+        assertEquals(java.util.List.of("Borrows", "Is borrowed"), found.get(borrow));
+    }
+
+    @Test
     void savingEditsCanChangeTheType()
     {
         ElhNode b = makeTree().findChildnode("Person").findChildnode("b");

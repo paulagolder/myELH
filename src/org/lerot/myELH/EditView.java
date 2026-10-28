@@ -22,6 +22,10 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
     protected jswButton viewbutton;
     protected jswDropDownBox grouptypefield;
     protected JPanel bottompanel;
+    // the project event a leaf event stands for; only there for a leaf event
+    // while a project is open
+    private jswDropDownBox eventfield;
+    private static final String NOEVENT = "(none)";
     ElhNode activenode;
     private jswButton insertbutton;
     private jswButton editbutton;
@@ -84,6 +88,18 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
         this.typefield.setSelected(anode.getType());
         this.grouptypefield.setList(groupingChoices(anode.getChildgrouptype()));
         this.grouptypefield.setSelected(anode.getChildgrouptype().xmlName());
+        Project project = app.getProject();
+        if (project != null && anode.isLeafEvent())
+        {
+            java.util.List<String> names = new java.util.ArrayList<>(java.util.List.of(NOEVENT));
+            project.getEvents().forEach(e -> names.add(e.getName()));
+            this.eventfield = new jswDropDownBox(null, "event");
+            this.eventfield.setList(names.toArray(String[]::new));
+            ProjectEvent linked = anode.getEventref() == null ? null : project.findEvent(anode.getEventref());
+            this.eventfield.setSelected(linked == null ? NOEVENT : linked.getName());
+            this.namepanel.addCell(new jswLabel("PROJECT EVENT:"), 4, 0);
+            this.namepanel.addCell((jswPanel) this.eventfield, 4, 1);
+        }
         makeChildPanel();
         makebuttonbar();
     }
@@ -189,6 +205,16 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
                     NodeType.fromXml(this.typefield.getSelectedValue()),
                     ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()),
                     this.stylefield.getText().trim());
+            if (this.eventfield != null)
+            {
+                ProjectEvent chosen = app.getProject().findEventByName(this.eventfield.getSelectedValue());
+                activenode.setEventref(chosen == null ? null : chosen.getId());
+            }
+            // only events stand for project events
+            if (!activenode.is(NodeType.EVENT))
+            {
+                activenode.setEventref(null);
+            }
             app.maketree();
             app.currenttreeview.setselections(activenode);
             app.refresh();
@@ -223,9 +249,15 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
                 || comStr.equalsIgnoreCase("NEWENTITY"))
         {
             String type = comStr.substring(3).toLowerCase();
-            String name = app.askNodeName(type);
-            if (name == null) return;
-            activenode.addChild(type, name);
+            if (type.equals(NodeType.EVENT.xmlName()))
+            {
+                if (app.addLeafEvent(name -> activenode.addChild(type, name)) == null) return;
+            } else
+            {
+                String name = app.askNodeName(type);
+                if (name == null) return;
+                activenode.addChild(type, name);
+            }
             app.maketree();
             app.refresh();
         } else if (comStr.equalsIgnoreCase("INSERT ABOVE CHILDREN"))

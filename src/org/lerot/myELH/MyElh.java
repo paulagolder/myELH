@@ -115,7 +115,8 @@ public class MyElh extends JFrame
         mainpanels.add(this.currenttreeview);
         mainpanels.add(this.editpanel);
         mainpanels.add(this.svgpanel);
-        this.projectview = new ProjectView(this::openLatest, this::deleteLatestVersion, this::deleteAllVersions);
+        this.projectview = new ProjectView(this::openLatest, this::deleteLatestVersion, this::deleteAllVersions,
+                this::collectEvents);
         this.screenpanel.add(mainpanels, ELHSCREEN);
         this.screenpanel.add(this.projectview, PROJECTSCREEN);
         add(this.screenpanel);
@@ -442,6 +443,106 @@ public class MyElh extends JFrame
             closeElh();
         }
         deleteFiles(versions);
+    }
+
+    // chosen in the project view: links every unlinked leaf event in the
+    // latest version of each ELH to the project event of the same name,
+    // adding events to the project as needed. The files are rewritten in
+    // place; the open ELH is saved first and reopened after.
+    private void collectEvents()
+    {
+        if (JOptionPane.showConfirmDialog(this,
+                "Link the unlinked events in the latest version of each ELH to project events\n"
+                        + "of the same name, adding events to the project as needed?\n"
+                        + "Those ELH files are rewritten.",
+                "Collect events", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+        if (this.currentelh != null && !saveElh())
+        {
+            return;
+        }
+        boolean reopen = false;
+        for (File latest : ElhVersions.latestVersions(this.currentproject.getFolder()).values())
+        {
+            try
+            {
+                ElhNode top = ElhFile.read(latest.toPath());
+                if (top.linkLeafEvents(this.currentproject))
+                {
+                    ElhFile.write(top, latest.toPath());
+                    reopen |= latest.getAbsoluteFile().equals(
+                            this.currentfile == null ? null : this.currentfile.getAbsoluteFile());
+                }
+            } catch (IOException e)
+            {
+                JOptionPane.showMessageDialog(this, "Could not link the events in " + latest + "\n" + e.getMessage(),
+                        "Collect events", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+        try
+        {
+            this.currentproject.save();
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not save the project\n" + e.getMessage(),
+                    "Collect events", JOptionPane.ERROR_MESSAGE);
+        }
+        if (reopen)
+        {
+            loadElh(this.currentfile);
+        }
+        this.projectview.show(this.currentproject);
+    }
+
+    public Project getProject()
+    {
+        return this.currentproject;
+    }
+
+    // asks for a new leaf event and adds it with adder, linked to its project
+    // event. With a project open the project's events are offered, and a new
+    // name is added to them. The new node, or null if the user cancels.
+    public ElhNode addLeafEvent(java.util.function.Function<String, ElhNode> adder)
+    {
+        if (this.currentproject == null)
+        {
+            String name = askNodeName("event");
+            return name == null ? null : adder.apply(name);
+        }
+        JComboBox<String> choice = new JComboBox<>(this.currentproject.getEvents().stream()
+                .map(ProjectEvent::getName).toArray(String[]::new));
+        choice.setEditable(true);
+        choice.setSelectedItem("");
+        JPanel form = new JPanel(new BorderLayout(4, 4));
+        form.add(new JLabel("Choose a project event, or type a new one:"), BorderLayout.NORTH);
+        form.add(choice, BorderLayout.CENTER);
+        if (JOptionPane.showConfirmDialog(this, form, "New event", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION)
+        {
+            return null;
+        }
+        Object chosen = choice.getSelectedItem();
+        if (chosen == null || chosen.toString().isBlank())
+        {
+            return null;
+        }
+        ProjectEvent event = this.currentproject.addEvent(chosen.toString().trim());
+        try
+        {
+            this.currentproject.save();
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not save the project\n" + e.getMessage(),
+                    "New event", JOptionPane.ERROR_MESSAGE);
+        }
+        ElhNode node = adder.apply(event.getName());
+        if (node != null)
+        {
+            node.setEventref(event.getId());
+        }
+        return node;
     }
 
     private void deleteFiles(java.util.List<File> files)
