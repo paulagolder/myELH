@@ -10,7 +10,7 @@ import java.awt.event.MouseWheelEvent;
 import java.util.function.Consumer;
 
 // Shows an ElhDiagram on screen, inside a scroll pane. Clicking a box
-// selects its node; Ctrl + mouse wheel zooms.
+// selects its node, double-clicking opens it; Ctrl + mouse wheel zooms.
 public class DiagramPanel extends JComponent
 {
     private static final long serialVersionUID = 1L;
@@ -22,7 +22,7 @@ public class DiagramPanel extends JComponent
     private ElhNode selected;
     private double zoom = 1.0;
 
-    public DiagramPanel(Consumer<ElhNode> onselect)
+    public DiagramPanel(Consumer<ElhNode> onselect, Consumer<ElhNode> onopen)
     {
         setOpaque(true);
         setBackground(Color.decode(jswTheme.DETAILAREA));
@@ -31,7 +31,15 @@ public class DiagramPanel extends JComponent
             public void mouseClicked(MouseEvent e)
             {
                 ElhDrawNode clicked = nodeAt(e.getPoint());
-                if (clicked != null)
+                if (clicked == null)
+                {
+                    return;
+                }
+                // the first click of a double click has already selected it
+                if (e.getClickCount() == 2)
+                {
+                    onopen.accept(clicked.source);
+                } else
                 {
                     onselect.accept(clicked.source);
                 }

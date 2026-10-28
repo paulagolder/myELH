@@ -105,7 +105,7 @@ public class MyElh extends JFrame
         this.svgpanel = new JPanel();
         this.svgpanel.setBorder(jswStyle.makeLineBorder());
         this.svgpanel.setLayout(new BorderLayout());
-        this.diagrampanel = new DiagramPanel(this::selectNode);
+        this.diagrampanel = new DiagramPanel(this::selectNode, this::openNode);
         JScrollPane diagramscroll = new JScrollPane(this.diagrampanel);
         // small, so the diagram scrolls rather than squeezing the tree
         diagramscroll.setPreferredSize(new Dimension(200, 200));
@@ -704,6 +704,13 @@ public class MyElh extends JFrame
     private void selectNode(ElhNode anode)
     {
         this.currenttreeview.setselections(anode);
+    }
+
+    // a box double-clicked in the diagram: select its node and switch to its edit panel
+    private void openNode(ElhNode anode)
+    {
+        selectNode(anode);
+        showEdit();
     }
 
     private void svgexport()
