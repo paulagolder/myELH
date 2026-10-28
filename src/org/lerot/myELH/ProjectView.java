@@ -102,7 +102,7 @@ public class ProjectView extends JPanel
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
         addEventButton(buttons, "Add event", this::addEvent);
         addEventButton(buttons, "Rename", this::renameEvent);
-        addEventButton(buttons, "Description", this::describeEvent);
+        addEventButton(buttons, "Action", this::editAction);
         addEventButton(buttons, "Delete event", this::deleteEvent);
         addEventButton(buttons, "Collect events from ELHs", collectevents);
         tab.add(buttons, BorderLayout.SOUTH);
@@ -218,10 +218,10 @@ public class ProjectView extends JPanel
         if (event != null && EventActions.renameEvent(this, this.project, event)) showEvents();
     }
 
-    private void describeEvent()
+    private void editAction()
     {
         ProjectEvent event = selectedEvent();
-        if (event != null && EventActions.describeEvent(this, this.project, event)) showEvents();
+        if (event != null && EventActions.editAction(this, this.project, event)) showEvents();
     }
 
     private void deleteEvent()

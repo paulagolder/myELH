@@ -71,7 +71,10 @@ public final class Project
                 String eventname = event.getAttributeValue("name");
                 if (id != null && eventname != null)
                 {
-                    project.events.add(new ProjectEvent(id, eventname, event.getChildTextTrim("description")));
+                    // projects saved before events had actions kept a description instead
+                    String action = event.getChildTextTrim("action");
+                    project.events.add(new ProjectEvent(id, eventname,
+                            action != null ? action : event.getChildTextTrim("description")));
                     if (id.matches("e\\d+"))
                     {
                         project.nexteventid = Math.max(project.nexteventid, Integer.parseInt(id.substring(1)) + 1);
@@ -118,9 +121,9 @@ public final class Project
             Element element = new Element("event");
             element.setAttribute("id", event.getId());
             element.setAttribute("name", event.getName());
-            if (!event.getDescription().isEmpty())
+            if (!event.getAction().isEmpty())
             {
-                element.addContent(new Element("description").setText(event.getDescription()));
+                element.addContent(new Element("action").setText(event.getAction()));
             }
             eventlist.addContent(element);
         }

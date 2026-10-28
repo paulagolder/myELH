@@ -26,6 +26,9 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
     // while a project is open
     private jswDropDownBox eventfield;
     private static final String NOEVENT = "(none)";
+    // a leaf event's part in its event: only there for a leaf event
+    private jswTextBox conditionfield;
+    private jswTextBox resultfield;
     ElhNode activenode;
     private jswButton insertbutton;
     private jswButton editbutton;
@@ -99,6 +102,17 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
             this.eventfield.setSelected(linked == null ? NOEVENT : linked.getName());
             this.namepanel.addCell(new jswLabel("PROJECT EVENT:"), 4, 0);
             this.namepanel.addCell((jswPanel) this.eventfield, 4, 1);
+        }
+        if (anode.isLeafEvent())
+        {
+            this.conditionfield = new jswTextBox(this, "conditionfield", 200, "conditionfield");
+            this.conditionfield.setText(anode.getCondition());
+            this.resultfield = new jswTextBox(this, "resultfield", 200, "resultfield");
+            this.resultfield.setText(anode.getResult());
+            this.namepanel.addCell(new jswLabel("CONDITION:"), 5, 0);
+            this.namepanel.addCell((jswPanel) this.conditionfield, 5, 1);
+            this.namepanel.addCell(new jswLabel("RESULT:"), 6, 0);
+            this.namepanel.addCell((jswPanel) this.resultfield, 6, 1);
         }
         makeChildPanel();
         makebuttonbar();
@@ -209,6 +223,11 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
             {
                 ProjectEvent chosen = app.getProject().findEventByName(this.eventfield.getSelectedValue());
                 activenode.setEventref(chosen == null ? null : chosen.getId());
+            }
+            if (this.conditionfield != null)
+            {
+                activenode.setCondition(this.conditionfield.getText());
+                activenode.setResult(this.resultfield.getText());
             }
             // only events stand for project events
             if (!activenode.is(NodeType.EVENT))

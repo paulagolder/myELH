@@ -7,13 +7,14 @@ public final class ProjectEvent
 {
     private final String id;
     private String name;
-    private String description;
+    // what happens in the world when the event occurs
+    private String action;
 
-    ProjectEvent(String id, String name, String description)
+    ProjectEvent(String id, String name, String action)
     {
         this.id = id;
         this.name = name;
-        this.description = description == null ? "" : description;
+        this.action = action == null ? "" : action;
     }
 
     public String getId()
@@ -31,14 +32,14 @@ public final class ProjectEvent
         this.name = name;
     }
 
-    public String getDescription()
+    public String getAction()
     {
-        return this.description;
+        return this.action;
     }
 
-    void setDescription(String description)
+    void setAction(String action)
     {
-        this.description = description == null ? "" : description;
+        this.action = action == null ? "" : action;
     }
 
     public String toString()

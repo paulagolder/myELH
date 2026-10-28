@@ -65,17 +65,17 @@ final class EventActions
         return true;
     }
 
-    static boolean describeEvent(Component parent, Project project, ProjectEvent event)
+    static boolean editAction(Component parent, Project project, ProjectEvent event)
     {
-        JTextArea text = new JTextArea(event.getDescription(), 6, 40);
+        JTextArea text = new JTextArea(event.getAction(), 6, 40);
         text.setLineWrap(true);
         text.setWrapStyleWord(true);
-        if (JOptionPane.showConfirmDialog(parent, new JScrollPane(text), "Description of " + event.getName(),
+        if (JOptionPane.showConfirmDialog(parent, new JScrollPane(text), "Action of " + event.getName(),
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION)
         {
             return false;
         }
-        event.setDescription(text.getText().trim());
+        event.setAction(text.getText().trim());
         save(parent, project);
         return true;
     }

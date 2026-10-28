@@ -21,6 +21,10 @@ public final class ElhNode
     private String stylename;
     // the id of the project event a leaf event stands for, or null
     private String eventref;
+    // for a leaf event, the object's own part in the event (its CORD Action):
+    // what must be true of it beforehand, and what the event does to it
+    private String condition = "";
+    private String result = "";
 
     public ElhNode(NodeType type, String aname, ElhNode aparent)
     {
@@ -228,6 +232,26 @@ public final class ElhNode
         return is(NodeType.EVENT) && this.children.isEmpty();
     }
 
+    public String getCondition()
+    {
+        return this.condition;
+    }
+
+    public void setCondition(String condition)
+    {
+        this.condition = condition == null ? "" : condition.trim();
+    }
+
+    public String getResult()
+    {
+        return this.result;
+    }
+
+    public void setResult(String result)
+    {
+        this.result = result == null ? "" : result.trim();
+    }
+
     public String getEventref()
     {
         return this.eventref;
@@ -321,6 +345,14 @@ public final class ElhNode
         if (this.eventref != null)
         {
             element.setAttribute("eventref", this.eventref);
+        }
+        if (!this.condition.isEmpty())
+        {
+            element.setAttribute("condition", this.condition);
+        }
+        if (!this.result.isEmpty())
+        {
+            element.setAttribute("result", this.result);
         }
         for (ElhNode achild : getChildren())
         {
@@ -423,6 +455,8 @@ public final class ElhNode
         newnode.setChildgrouptype(getChildgrouptype());
         newnode.setStylename(getStylename());
         newnode.setEventref(this.eventref);
+        newnode.setCondition(this.condition);
+        newnode.setResult(this.result);
         for (ElhNode child : this.children)
         {
             ElhNode childcopy = child.copy(newnode);
@@ -468,6 +502,8 @@ public final class ElhNode
         String nodetype = ct.getName();
         setName(ct.getAttributeValue("name", getName()));
         setEventref(ct.getAttributeValue("eventref"));
+        setCondition(ct.getAttributeValue("condition"));
+        setResult(ct.getAttributeValue("result"));
         if (ct.getAttribute("stylename") != null)
         {
             setStylename(ct.getAttribute("stylename").getValue());

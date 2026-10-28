@@ -140,6 +140,20 @@ class ElhNodeTest
     }
 
     @Test
+    void conditionsAndResultsSurviveSavingAndCopying() throws IOException
+    {
+        ElhNode top = makeTree();
+        ElhNode a = top.findChildnode("Person").findChildnode("a");
+        a.setCondition("fewer than 6 loans & not barred");
+        a.setResult("starts Borrower");
+        ElhNode loaded = saveAndLoad(top).findChildnode("Person").findChildnode("a");
+        assertEquals("fewer than 6 loans & not barred", loaded.getCondition());
+        assertEquals("starts Borrower", loaded.getResult());
+        assertEquals("", top.findChildnode("Person").findChildnode("b").getCondition());
+        assertEquals("starts Borrower", a.copy(a.getParent()).getResult());
+    }
+
+    @Test
     void collectingEventsLinksOnlyLeafEvents() throws IOException
     {
         Project project = Project.create(tempdir.toFile(), "Library", "Paul");
