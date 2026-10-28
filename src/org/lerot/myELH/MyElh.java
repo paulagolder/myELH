@@ -32,8 +32,11 @@ public class MyElh extends JFrame
     final StyleMaps stylemaps = new StyleMaps();
     // where the file choosers start
     private final File elhfolder = Path.of(System.getProperty("user.home"), "Documents", "elh").toFile();
+    private final JLabel projectname = new JLabel();
     private final JLabel sourcefile = new JLabel();
     private final JLabel activepath = new JLabel();
+    // while a project is active every ELH is saved into its folder
+    private Project currentproject;
     private final JPanel svgpanel;
     public DefaultMutableTreeNode activetreenode;
     public ElhNode activenode;
@@ -60,6 +63,9 @@ public class MyElh extends JFrame
         getContentPane().setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
         JPanel statusbar = new JPanel();
         statusbar.setLayout(new BoxLayout(statusbar, BoxLayout.X_AXIS));
+        statusbar.add(new JLabel("CURRENT PROJECT:"));
+        statusbar.add(this.projectname);
+        statusbar.add(Box.createHorizontalGlue());
         statusbar.add(new JLabel("ACTIVE FILE:"));
         statusbar.add(this.sourcefile);
         statusbar.add(Box.createHorizontalGlue());
@@ -105,6 +111,11 @@ public class MyElh extends JFrame
     private JMenuBar makeMenuBar()
     {
         JMenuBar jmb = new JMenuBar();
+        JMenu jmProject = new JMenu("Project");
+        addMenuItem(jmProject, "New Project", this::newProject);
+        addMenuItem(jmProject, "Open Project", this::openProject);
+        addMenuItem(jmProject, "Close Project", () -> setProject(null));
+        jmb.add(jmProject);
         JMenu jmFile = new JMenu("File");
         addMenuItem(jmFile, "Open", this::openElh);
         addMenuItem(jmFile, "New", this::newElh);
@@ -211,10 +222,90 @@ public class MyElh extends JFrame
         return tablestyles;
     }
 
+    private void newProject()
+    {
+        JTextField namefield = new JTextField(20);
+        JTextField authorfield = new JTextField(20);
+        JPanel form = new JPanel(new GridLayout(2, 2, 4, 4));
+        form.add(new JLabel("Project name:"));
+        form.add(namefield);
+        form.add(new JLabel("Author:"));
+        form.add(authorfield);
+        if (JOptionPane.showConfirmDialog(this, form, "New Project", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+        String name = namefield.getText().trim();
+        if (name.isEmpty())
+        {
+            return;
+        }
+        try
+        {
+            setProject(Project.create(this.elhfolder, name, authorfield.getText().trim()));
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not create project " + name + "\n" + e.getMessage(),
+                    "New Project failed", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void openProject()
+    {
+        java.util.List<File> folders = Project.findProjects(this.elhfolder);
+        if (folders.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this, "There are no projects in " + this.elhfolder,
+                    "Open Project", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        String[] names = folders.stream().map(File::getName).toArray(String[]::new);
+        Object chosen = JOptionPane.showInputDialog(this, "Project:", "Open Project",
+                JOptionPane.PLAIN_MESSAGE, null, names, names[0]);
+        if (chosen == null)
+        {
+            return;
+        }
+        File folder = new File(this.elhfolder, (String) chosen);
+        try
+        {
+            setProject(Project.load(folder));
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not open project " + folder + "\n" + e.getMessage(),
+                    "Open Project failed", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // an open ELH moves with the project: from now on it is saved into its folder
+    private void setProject(Project project)
+    {
+        this.currentproject = project;
+        this.projectname.setText(project == null ? "" : project.getName());
+        if (project != null && this.currentfile != null)
+        {
+            setCurrentFile(this.currentfile);
+        }
+    }
+
+    // where the ELH choosers start
+    private File startFolder()
+    {
+        return this.currentproject == null ? this.elhfolder : this.currentproject.getFolder();
+    }
+
+    // the file the open ELH is saved to, moved into the project's folder if one is active
+    private void setCurrentFile(File file)
+    {
+        this.currentfile = this.currentproject == null ? file : this.currentproject.fileFor(file);
+        this.sourcefile.setText(this.currentfile.getName());
+    }
+
     private JFileChooser elhChooser(String title)
     {
         JFileChooser fc = new JFileChooser();
-        fc.setCurrentDirectory(this.elhfolder);
+        fc.setCurrentDirectory(startFolder());
         fc.setDialogTitle(title);
         fc.setFileFilter(new FileNameExtensionFilter("ELH", "xml", "elh"));
         return fc;
@@ -228,6 +319,24 @@ public class MyElh extends JFrame
             return;
         }
         File openfile = fc.getSelectedFile();
+        if (openfile.getName().equals(Project.PROJECTFILE))
+        {
+            JOptionPane.showMessageDialog(this, openfile + " is a project file, not an ELH",
+                    "Open failed", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        if (this.currentproject != null)
+        {
+            File target = this.currentproject.fileFor(openfile);
+            if (target.exists() && !target.getAbsoluteFile().equals(openfile.getAbsoluteFile())
+                    && JOptionPane.showConfirmDialog(this,
+                    "Project " + this.currentproject.getName() + " already has " + target.getName()
+                            + ".\nSaving this ELH will overwrite it. Open anyway?",
+                    "Open ELH", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION)
+            {
+                return;
+            }
+        }
         Elh openelh = new Elh(openfile.getName());
         try
         {
@@ -238,8 +347,7 @@ public class MyElh extends JFrame
                     "Open failed", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        this.currentfile = openfile;
-        this.sourcefile.setText(this.currentfile.getName());
+        setCurrentFile(openfile);
         this.currentelh = openelh;
         this.currenttreeview.maketree(this.currentelh);
         this.activenode = null;
@@ -256,7 +364,7 @@ public class MyElh extends JFrame
         {
             return;
         }
-        this.currentfile = fc.getSelectedFile();
+        setCurrentFile(fc.getSelectedFile());
         this.currentelh = new Elh(this.currentfile.getName());
         writeElh();
         this.currenttreeview.maketree(this.currentelh);
@@ -284,7 +392,7 @@ public class MyElh extends JFrame
         {
             return;
         }
-        this.currentfile = fc.getSelectedFile();
+        setCurrentFile(fc.getSelectedFile());
         writeElh();
     }
 
@@ -414,7 +522,7 @@ public class MyElh extends JFrame
         }
         JFileChooser fc = new JFileChooser();
         fc.setDialogTitle("Save SVG file");
-        fc.setCurrentDirectory(this.elhfolder);
+        fc.setCurrentDirectory(startFolder());
         fc.setFileFilter(new FileNameExtensionFilter("svg", "svg"));
         if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION)
         {

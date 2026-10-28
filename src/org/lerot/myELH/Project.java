@@ -1,0 +1,113 @@
+package org.lerot.myELH;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.jdom2.Document;
+import org.jdom2.Element;
+import org.jdom2.JDOMException;
+import org.jdom2.input.SAXBuilder;
+import org.jdom2.output.Format;
+import org.jdom2.output.XMLOutputter;
+
+// A project is a folder holding a project.xml; while one is active every
+// ELH is saved into its folder.
+public final class Project
+{
+    static final String PROJECTFILE = "project.xml";
+    private final File folder;
+    private String name;
+    private String author;
+
+    private Project(File folder, String name, String author)
+    {
+        this.folder = folder;
+        this.name = name;
+        this.author = author;
+    }
+
+    // makes the project's folder inside parentfolder and writes its project.xml
+    public static Project create(File parentfolder, String name, String author) throws IOException
+    {
+        File folder = new File(parentfolder, name);
+        if (folder.exists())
+        {
+            throw new IOException(folder + " already exists");
+        }
+        Files.createDirectories(folder.toPath());
+        Project project = new Project(folder, name, author);
+        project.save();
+        return project;
+    }
+
+    public static Project load(File folder) throws IOException
+    {
+        Document doc;
+        try
+        {
+            doc = new SAXBuilder().build(new File(folder, PROJECTFILE));
+        } catch (JDOMException e)
+        {
+            throw new IOException(e.getMessage(), e);
+        }
+        Element root = doc.getRootElement();
+        String name = root.getChildTextTrim("name");
+        return new Project(folder, name == null || name.isEmpty() ? folder.getName() : name,
+                root.getChildTextTrim("author"));
+    }
+
+    // the folders directly inside parentfolder that hold a project.xml
+    public static List<File> findProjects(File parentfolder)
+    {
+        List<File> found = new ArrayList<>();
+        File[] subfolders = parentfolder.listFiles(File::isDirectory);
+        if (subfolders != null)
+        {
+            for (File subfolder : subfolders)
+            {
+                if (new File(subfolder, PROJECTFILE).isFile())
+                {
+                    found.add(subfolder);
+                }
+            }
+        }
+        found.sort(null);
+        return found;
+    }
+
+    public void save() throws IOException
+    {
+        Element root = new Element("project");
+        root.addContent(new Element("name").setText(this.name));
+        root.addContent(new Element("author").setText(this.author == null ? "" : this.author));
+        try (Writer out = Files.newBufferedWriter(new File(this.folder, PROJECTFILE).toPath()))
+        {
+            new XMLOutputter(Format.getPrettyFormat()).output(new Document(root), out);
+        }
+    }
+
+    public File getFolder()
+    {
+        return this.folder;
+    }
+
+    public String getName()
+    {
+        return this.name;
+    }
+
+    public String getAuthor()
+    {
+        return this.author;
+    }
+
+    // where an ELH with this file name is saved in the project
+    public File fileFor(File elhfile)
+    {
+        return new File(this.folder, elhfile.getName());
+    }
+}
