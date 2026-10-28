@@ -10,49 +10,76 @@ import org.jdom2.output.XMLOutputter;
 
 // A node in an entity life history tree. The tree only holds the data: after
 // changing it, the caller updates the screen.
-public sealed abstract class ElhNode permits Elh, Entity, EntityGroup, Event, Role, RoleGroup
+public final class ElhNode
 {
-    protected static String[] childtypes = {"entity", "event", "role"};
+    private NodeType type;
     protected ChildGrouping childgrouptype;
     private List<ElhNode> children;
     private String name;
     private ElhNode parent;
     private String stylename;
 
-    public ElhNode(String aname, ElhNode aparent)
+    public ElhNode(NodeType type, String aname, ElhNode aparent)
     {
+        this.type = type;
+        this.childgrouptype = type.defaultgrouping;
         this.name = aname;
         this.parent = aparent;
         this.children = new ArrayList<>();
     }
 
-    protected static String[] getChildtypes()
-    {
-        return childtypes;
-    }
-
     public static String getDefaultChildtype()
     {
-        return childtypes[0];
+        return NodeType.ENTITY.xmlName();
     }
 
     // a new node of the given type, or null if the type is not known
     public static ElhNode makeNode(String typename, String aname, ElhNode parent)
     {
-        return switch (typename)
+        NodeType type = NodeType.fromXml(typename);
+        if (type == null)
         {
-            case "elh" -> new Elh(aname, parent);
-            case "entity" -> new Entity(aname, parent);
-            case "role" -> new Role(aname, parent);
-            case "event" -> new Event(aname, parent);
-            case "rolegroup" -> new RoleGroup(aname, parent);
-            case "entitygroup" -> new EntityGroup(aname, parent);
-            default ->
+            System.out.println(" Unknown type " + typename);
+            return null;
+        }
+        return new ElhNode(type, aname, parent);
+    }
+
+    public NodeType getNodeType()
+    {
+        return this.type;
+    }
+
+    public void setNodeType(NodeType type)
+    {
+        this.type = type;
+    }
+
+    public boolean is(NodeType atype)
+    {
+        return this.type == atype;
+    }
+
+    // the edit panel's Save Edits. When the type changes, a grouping or
+    // style left as it was follows the new type: an event made a rolegroup
+    // gets rolegroup grouping and the rolegroup style.
+    public void applyEdits(String aname, NodeType newtype, ChildGrouping grouping, String astylename)
+    {
+        if (newtype != null && newtype != this.type)
+        {
+            if (grouping == this.childgrouptype)
             {
-                System.out.println(" Unknown type " + typename);
-                yield null;
+                grouping = newtype.defaultgrouping;
             }
-        };
+            if (astylename.equals(this.stylename) && this.type.xmlName().equals(this.stylename))
+            {
+                astylename = newtype.xmlName();
+            }
+            this.type = newtype;
+        }
+        this.name = aname;
+        this.childgrouptype = grouping;
+        this.stylename = astylename;
     }
 
     // a node for the user to fill in, named after its type
@@ -62,9 +89,9 @@ public sealed abstract class ElhNode permits Elh, Entity, EntityGroup, Event, Ro
     }
 
     // puts a new event between this node and its children
-    public void insertabovechildren()
+    public void insertabovechildren(String aname)
     {
-        Event newevent = new Event("newevent", this);
+        ElhNode newevent = new ElhNode(NodeType.EVENT, aname, this);
         newevent.moveChildrenFrom(this);
         addChild(newevent);
     }
@@ -169,16 +196,22 @@ public sealed abstract class ElhNode permits Elh, Entity, EntityGroup, Event, Ro
         if (newnode != null) addChild(newnode);
     }
 
+    public void addChild(String type, String aname)
+    {
+        ElhNode newnode = makeNode(type, aname, this);
+        if (newnode != null) addChild(newnode);
+    }
+
     public void addChild(ElhNode e)
     {
         this.children.add(e);
     }
 
-    public void addSibling()
+    public void addSibling(String aname)
     {
         ElhNode parent = getParent();
         if (parent == null) return;
-        parent.addChild(new Event("newnode", parent));
+        parent.addChild(new ElhNode(NodeType.EVENT, aname, parent));
     }
 
     // this node and everything below it, as saved in an .elh file
@@ -201,6 +234,23 @@ public sealed abstract class ElhNode permits Elh, Entity, EntityGroup, Event, Ro
         return element;
     }
 
+    // the shape of the tree below this node, ignoring names and other text:
+    // it changes when nodes are added, removed or moved
+    public String structure()
+    {
+        StringBuilder sb = new StringBuilder(getType());
+        if (!this.children.isEmpty())
+        {
+            sb.append('(');
+            for (ElhNode achild : this.children)
+            {
+                sb.append(achild.structure()).append(' ');
+            }
+            sb.append(')');
+        }
+        return sb.toString();
+    }
+
     public String xmlout()
     {
         return new XMLOutputter(Format.getPrettyFormat()).outputString(toElement());
@@ -210,7 +260,7 @@ public sealed abstract class ElhNode permits Elh, Entity, EntityGroup, Event, Ro
     // also used to look up the node's drawing style
     public String getType()
     {
-        return this.getClass().getSimpleName().toLowerCase();
+        return this.type.xmlName();
     }
 
     public ElhNode findActiveEvent(String path)
@@ -263,7 +313,7 @@ public sealed abstract class ElhNode permits Elh, Entity, EntityGroup, Event, Ro
     {
         ElhNode selnode = findChildnode(childname);
         if (selnode == null) return;
-        if (!(this instanceof Event || this instanceof Entity || this instanceof Elh)) return;
+        if (!(is(NodeType.EVENT) || is(NodeType.ENTITY) || is(NodeType.ELH))) return;
         ElhNode newnode = selnode.copy(this);
         if (newnode == null) return;
         newnode.setName("Copyof:" + newnode.getName());
@@ -273,8 +323,8 @@ public sealed abstract class ElhNode permits Elh, Entity, EntityGroup, Event, Ro
     // a copy of this node and everything below it; elh nodes are not copied
     ElhNode copy(ElhNode newparent)
     {
-        if (this instanceof Elh) return null;
-        ElhNode newnode = makeNode(getType(), getName(), newparent);
+        if (is(NodeType.ELH)) return null;
+        ElhNode newnode = new ElhNode(this.type, getName(), newparent);
         newnode.setChildgrouptype(getChildgrouptype());
         newnode.setStylename(getStylename());
         for (ElhNode child : this.children)

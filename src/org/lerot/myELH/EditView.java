@@ -10,7 +10,8 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 
-public abstract class EditView extends jswVerticalPanel implements ActionListener, MouseListener
+// The edit panel for the selected node, whatever its type
+public class EditView extends jswVerticalPanel implements ActionListener, MouseListener
 {
     private static final long serialVersionUID = 1L;
     private final jswTable namepanel;
@@ -75,12 +76,29 @@ public abstract class EditView extends jswVerticalPanel implements ActionListene
 
     public void setup(ElhNode anode)
     {
-        //  System.out.println(" in set up  " + anode.toLongString());
         this.activenode = app.activenode;
         this.namefield.setText(anode.getName());
         this.stylefield.setText(anode.getStylename());
-        // this.grouptypefield.setSelected(anode.getGrouping());
-        //  this.typefield.setSelected(anode.gettype());
+        // the top elh stays an elh; any other node can become any other type
+        this.typefield.setList(anode.is(NodeType.ELH) ? new String[]{anode.getType()} : NodeType.choiceNames());
+        this.typefield.setSelected(anode.getType());
+        this.grouptypefield.setList(groupingChoices(anode.getChildgrouptype()));
+        this.grouptypefield.setSelected(anode.getChildgrouptype().xmlName());
+        makeChildPanel();
+        makebuttonbar();
+    }
+
+    // the usual choices, plus the node's own grouping if it is not one of them (entitygroup)
+    private static String[] groupingChoices(ChildGrouping current)
+    {
+        String[] choices = ChildGrouping.choiceNames();
+        if (ChildGrouping.CHOICES.contains(current))
+        {
+            return choices;
+        }
+        String[] withcurrent = java.util.Arrays.copyOf(choices, choices.length + 1);
+        withcurrent[choices.length] = current.xmlName();
+        return withcurrent;
     }
 
     public void makebuttonbar()
@@ -104,7 +122,7 @@ public abstract class EditView extends jswVerticalPanel implements ActionListene
             this.viewbutton.setEnabled(false);
         }
         // a new event can only be put above the children of an event or entity
-        if (!(this.activenode instanceof Event || this.activenode instanceof Entity))
+        if (!(this.activenode.is(NodeType.EVENT) || this.activenode.is(NodeType.ENTITY)))
         {
             this.insertabovebutton.setEnabled(false);
         }
@@ -167,26 +185,12 @@ public abstract class EditView extends jswVerticalPanel implements ActionListene
     {
         if (comStr.equalsIgnoreCase("save edits"))
         {
-           /* if (!(this.typefield.getSelectedValue().equalsIgnoreCase(activenode.getType())))
-            {
-                elhnode newnode = elhnode.makeNode(this.typefield.getSelectedValue(), activenode.getParent());
-                newnode.moveChildrenFrom(activenode);
-                newnode.setName(this.namefield.getText().trim()+"-new");
-                newnode.setChildgrouptype(ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()));
-                newnode.setStylename(this.stylefield.getText().trim());
-                activenode.getParent().addChild(newnode);
-            }else*/
-            String path = activenode.getPath();
-            ElhNode selectedelhnode = app.currentelh.findActiveEvent(path);
-            selectedelhnode.setName(this.namefield.getText().trim());
-            selectedelhnode.setChildgrouptype(ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()));
-            selectedelhnode.setStylename(this.stylefield.getText().trim());
-            activenode.setName(this.namefield.getText().trim());
-            activenode.setChildgrouptype(ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()));
-            activenode.setStylename(this.stylefield.getText().trim());
-            app.currenttreeview.setselections(selectedelhnode);
+            activenode.applyEdits(this.namefield.getText().trim(),
+                    NodeType.fromXml(this.typefield.getSelectedValue()),
+                    ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()),
+                    this.stylefield.getText().trim());
             app.maketree();
-            app.currenttreeview.setselections(selectedelhnode);
+            app.currenttreeview.setselections(activenode);
             app.refresh();
         } else if (comStr.startsWith("VIEW:"))
         {
@@ -215,24 +219,20 @@ public abstract class EditView extends jswVerticalPanel implements ActionListene
         {
             this.popup = makePopup(this.activenode);
             this.popup.show(this, 50, 50);
-        } else if (comStr.equalsIgnoreCase("NEWROLE"))
+        } else if (comStr.equalsIgnoreCase("NEWROLE") || comStr.equalsIgnoreCase("NEWEVENT")
+                || comStr.equalsIgnoreCase("NEWENTITY"))
         {
-            activenode.addChild("role");
-            app.maketree();
-            app.refresh();
-        } else if (comStr.equalsIgnoreCase("NEWEVENT"))
-        {
-            activenode.addChild("event");
-            app.maketree();
-            app.refresh();
-        } else if (comStr.equalsIgnoreCase("NEWENTITY"))
-        {
-            activenode.addChild("entity");
+            String type = comStr.substring(3).toLowerCase();
+            String name = app.askNodeName(type);
+            if (name == null) return;
+            activenode.addChild(type, name);
             app.maketree();
             app.refresh();
         } else if (comStr.equalsIgnoreCase("INSERT ABOVE CHILDREN"))
         {
-            activenode.insertabovechildren();
+            String name = app.askNodeName("event");
+            if (name == null) return;
+            activenode.insertabovechildren(name);
             app.maketree();
             app.refresh();
         } else

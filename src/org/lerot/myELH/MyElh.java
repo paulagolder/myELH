@@ -12,9 +12,12 @@ import javax.swing.tree.TreePath;
 import java.awt.*;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.prefs.Preferences;
@@ -45,9 +48,18 @@ public class MyElh extends JFrame
     public DefaultMutableTreeNode activetreenode;
     public ElhNode activenode;
     TreeView currenttreeview;
-    Elh currentelh;
+    // the top node of the open ELH
+    ElhNode currentelh;
     jswVerticalPanel editpanel;
     private File currentfile;
+    // the open ELH's shape when it was last loaded or saved
+    private String savedstructure;
+    // the ELH screen (tree, edit panel, diagram) or the project screen
+    private static final String ELHSCREEN = "elh";
+    private static final String PROJECTSCREEN = "project";
+    private final CardLayout screens = new CardLayout();
+    private final JPanel screenpanel = new JPanel(screens);
+    private final ProjectView projectview;
     private final DiagramPanel diagrampanel;
     private LayoutStyle layoutstyle = LayoutStyle.DEFAULT;
 
@@ -61,7 +73,16 @@ public class MyElh extends JFrame
         {
             setIconImage(new ImageIcon(iconURL).getImage());
         }
-        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        // closing the window exits the same way as Project > Exit
+        setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new WindowAdapter()
+        {
+            @Override
+            public void windowClosing(WindowEvent e)
+            {
+                exitApp();
+            }
+        });
         setJMenuBar(makeMenuBar());
         setSize(w, h);
         getContentPane().setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
@@ -94,7 +115,10 @@ public class MyElh extends JFrame
         mainpanels.add(this.currenttreeview);
         mainpanels.add(this.editpanel);
         mainpanels.add(this.svgpanel);
-        add(mainpanels);
+        this.projectview = new ProjectView(this::openLatest, this::deleteLatestVersion, this::deleteAllVersions);
+        this.screenpanel.add(mainpanels, ELHSCREEN);
+        this.screenpanel.add(this.projectview, PROJECTSCREEN);
+        add(this.screenpanel);
         showEdit();
         reopenLastProject();
     }
@@ -119,20 +143,22 @@ public class MyElh extends JFrame
         JMenu jmProject = new JMenu("Project");
         addMenuItem(jmProject, "New Project", this::newProject);
         addMenuItem(jmProject, "Open Project", this::openProject);
-        addMenuItem(jmProject, "Close Project", () -> setProject(null));
+        addMenuItem(jmProject, "Project View", this::showProjectView);
+        addMenuItem(jmProject, "Close Project", this::closeProject);
+        jmProject.addSeparator();
+        addMenuItem(jmProject, "Exit", this::exitApp);
         jmb.add(jmProject);
         JMenu jmFile = new JMenu("File");
         addMenuItem(jmFile, "Open", this::openElh);
         addMenuItem(jmFile, "New", this::newElh);
         addMenuItem(jmFile, "Save", this::saveElh);
         addMenuItem(jmFile, "Save As", this::saveElhAs);
+        addMenuItem(jmFile, "Save As New Version", this::saveNewVersion);
         addMenuItem(jmFile, "Close", this::closeElh);
-        jmFile.addSeparator();
-        addMenuItem(jmFile, "Exit", () -> System.exit(0));
         jmb.add(jmFile);
         JMenu jmView = new JMenu("View");
-        addMenuItem(jmView, "View EDIT", this::showEdit);
-        addMenuItem(jmView, "View SVG", this::showSvg);
+        addMenuItem(jmView, "View EDIT", () -> { showElhScreen(); showEdit(); });
+        addMenuItem(jmView, "View SVG", () -> { showElhScreen(); showSvg(); });
         jmView.addSeparator();
         addMenuItem(jmView, "Zoom In", KeyEvent.VK_EQUALS, () -> diagrampanel.setZoom(diagrampanel.getZoom() * 1.25));
         addMenuItem(jmView, "Zoom Out", KeyEvent.VK_MINUS, () -> diagrampanel.setZoom(diagrampanel.getZoom() / 1.25));
@@ -242,7 +268,7 @@ public class MyElh extends JFrame
             return;
         }
         String name = namefield.getText().trim();
-        if (name.isEmpty())
+        if (name.isEmpty() || !closeProject())
         {
             return;
         }
@@ -268,7 +294,7 @@ public class MyElh extends JFrame
         String[] names = folders.stream().map(File::getName).toArray(String[]::new);
         Object chosen = JOptionPane.showInputDialog(this, "Project:", "Open Project",
                 JOptionPane.PLAIN_MESSAGE, null, names, names[0]);
-        if (chosen == null)
+        if (chosen == null || !closeProject())
         {
             return;
         }
@@ -299,7 +325,8 @@ public class MyElh extends JFrame
         }
     }
 
-    // an open ELH moves with the project: from now on it is saved into its folder
+    // an open ELH with no project moves into the new one: from now on it is
+    // saved into its folder. A project opens on its project view.
     private void setProject(Project project)
     {
         this.currentproject = project;
@@ -307,6 +334,7 @@ public class MyElh extends JFrame
         if (project == null)
         {
             prefs.remove(LASTPROJECT);
+            showElhScreen();
         } else
         {
             prefs.put(LASTPROJECT, project.getFolder().getAbsolutePath());
@@ -315,6 +343,121 @@ public class MyElh extends JFrame
         {
             setCurrentFile(this.currentfile);
         }
+        if (project != null)
+        {
+            showProjectView();
+        }
+    }
+
+    // saves and closes the open ELH, then closes the project; false if the
+    // ELH could not be saved, leaving everything open
+    private boolean closeProject()
+    {
+        if (this.currentproject == null)
+        {
+            return true;
+        }
+        if (this.currentelh != null)
+        {
+            if (!saveElh())
+            {
+                return false;
+            }
+            closeElh();
+        }
+        setProject(null);
+        return true;
+    }
+
+    // in a project the open ELH is saved first; elsewhere it is left unsaved, as before
+    private void exitApp()
+    {
+        if (this.currentproject != null && this.currentelh != null && !saveElh()
+                && JOptionPane.showConfirmDialog(this, "Exit without saving?", "Exit",
+                JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+        System.exit(0);
+    }
+
+    private void showProjectView()
+    {
+        if (this.currentproject == null)
+        {
+            JOptionPane.showMessageDialog(this, "No project is open", "Project View",
+                    JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        this.projectview.show(this.currentproject);
+        this.screens.show(this.screenpanel, PROJECTSCREEN);
+    }
+
+    private void showElhScreen()
+    {
+        this.screens.show(this.screenpanel, ELHSCREEN);
+    }
+
+    // chosen in the project view: the open ELH is saved before the other is opened
+    private void openLatest(File latest)
+    {
+        if (this.currentelh != null && !saveElh())
+        {
+            return;
+        }
+        if (loadElh(latest))
+        {
+            showElhScreen();
+        }
+    }
+
+    // chosen in the project view; if that version is open it is closed unsaved
+    private void deleteLatestVersion(File latest)
+    {
+        if (JOptionPane.showConfirmDialog(this, "Delete " + latest.getName() + "?", "Delete latest version",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+        if (this.currentfile != null && this.currentfile.getAbsoluteFile().equals(latest.getAbsoluteFile()))
+        {
+            closeElh();
+        }
+        deleteFiles(java.util.List.of(latest));
+    }
+
+    // chosen in the project view; if that ELH is open it is closed unsaved
+    private void deleteAllVersions(File latest)
+    {
+        String basename = ElhVersions.baseName(latest);
+        java.util.List<File> versions = ElhVersions.allVersions(this.currentproject.getFolder(), basename);
+        if (JOptionPane.showConfirmDialog(this, "Delete all " + versions.size() + " versions of " + basename + "?",
+                "Delete all versions", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE)
+                != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+        if (this.currentfile != null && ElhVersions.baseName(this.currentfile).equalsIgnoreCase(basename))
+        {
+            closeElh();
+        }
+        deleteFiles(versions);
+    }
+
+    private void deleteFiles(java.util.List<File> files)
+    {
+        for (File file : files)
+        {
+            try
+            {
+                Files.delete(file.toPath());
+            } catch (IOException e)
+            {
+                JOptionPane.showMessageDialog(this, "Could not delete " + file + "\n" + e.getMessage(),
+                        "Delete failed", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+        this.projectview.show(this.currentproject);
     }
 
     // where the ELH choosers start
@@ -323,10 +466,21 @@ public class MyElh extends JFrame
         return this.currentproject == null ? this.elhfolder : this.currentproject.getFolder();
     }
 
-    // the file the open ELH is saved to, moved into the project's folder if one is active
+    // the file the open ELH is saved to. In a project that is one of the
+    // project's versioned files: a file from anywhere else, or not yet
+    // versioned, becomes the next version of its name in the project folder.
     private void setCurrentFile(File file)
     {
-        this.currentfile = this.currentproject == null ? file : this.currentproject.fileFor(file);
+        if (this.currentproject == null)
+        {
+            this.currentfile = file;
+        } else
+        {
+            File folder = this.currentproject.getFolder();
+            boolean inproject = folder.getAbsoluteFile().equals(file.getAbsoluteFile().getParentFile());
+            this.currentfile = inproject && ElhVersions.isVersioned(file) ? file
+                    : ElhVersions.nextVersion(folder, ElhVersions.baseName(file));
+        }
         this.sourcefile.setText(this.currentfile.getName());
     }
 
@@ -346,43 +500,37 @@ public class MyElh extends JFrame
         {
             return;
         }
-        File openfile = fc.getSelectedFile();
+        loadElh(fc.getSelectedFile());
+    }
+
+    private boolean loadElh(File openfile)
+    {
         if (openfile.getName().equals(Project.PROJECTFILE))
         {
             JOptionPane.showMessageDialog(this, openfile + " is a project file, not an ELH",
                     "Open failed", JOptionPane.ERROR_MESSAGE);
-            return;
+            return false;
         }
-        if (this.currentproject != null)
-        {
-            File target = this.currentproject.fileFor(openfile);
-            if (target.exists() && !target.getAbsoluteFile().equals(openfile.getAbsoluteFile())
-                    && JOptionPane.showConfirmDialog(this,
-                    "Project " + this.currentproject.getName() + " already has " + target.getName()
-                            + ".\nSaving this ELH will overwrite it. Open anyway?",
-                    "Open ELH", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION)
-            {
-                return;
-            }
-        }
-        Elh openelh = new Elh(openfile.getName());
+        ElhNode openelh;
         try
         {
-            openelh.importELH(openfile.getAbsolutePath());
+            openelh = ElhFile.read(openfile.toPath());
         } catch (IOException e)
         {
             JOptionPane.showMessageDialog(this, "Could not open " + openfile + "\n" + e.getMessage(),
                     "Open failed", JOptionPane.ERROR_MESSAGE);
-            return;
+            return false;
         }
         setCurrentFile(openfile);
         this.currentelh = openelh;
+        this.savedstructure = openelh.structure();
         this.currenttreeview.maketree(this.currentelh);
         this.activenode = null;
         this.activetreenode = null;
         this.currenttreeview.repaint();
         showDiagram();
         getContentPane().validate();
+        return true;
     }
 
     private void newElh()
@@ -393,58 +541,88 @@ public class MyElh extends JFrame
             return;
         }
         setCurrentFile(fc.getSelectedFile());
-        this.currentelh = new Elh(this.currentfile.getName());
-        writeElh();
+        this.currentelh = new ElhNode(NodeType.ELH, ElhVersions.baseName(this.currentfile), null);
+        writeElh(false);
         this.currenttreeview.maketree(this.currentelh);
     }
 
-    private void saveElh()
+    // a new version if nodes were added, removed or moved since the last
+    // save; otherwise the current version is overwritten
+    private boolean saveElh()
     {
         if (this.currentfile == null)
         {
-            saveElhAs();
-        } else
-        {
-            writeElh();
+            return saveElhAs();
         }
+        return writeElh(true);
     }
 
-    private void saveElhAs()
+    private boolean saveElhAs()
     {
         if (this.currentelh == null)
         {
-            return;
+            return false;
         }
         JFileChooser fc = elhChooser("Save to new ELH file");
         if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION)
         {
-            return;
+            return false;
         }
         setCurrentFile(fc.getSelectedFile());
-        writeElh();
+        return writeElh(false);
     }
 
-    private void writeElh()
+    private void saveNewVersion()
     {
         if (this.currentelh == null)
         {
             return;
         }
+        if (this.currentfile == null)
+        {
+            saveElhAs();
+            return;
+        }
+        this.currentfile = ElhVersions.nextVersion(this.currentfile.getAbsoluteFile().getParentFile(),
+                ElhVersions.baseName(this.currentfile));
+        writeElh(false);
+    }
+
+    private boolean writeElh(boolean newversionifreshaped)
+    {
+        if (this.currentelh == null)
+        {
+            return false;
+        }
+        String structure = this.currentelh.structure();
+        if (newversionifreshaped && this.currentfile.exists() && !structure.equals(this.savedstructure))
+        {
+            this.currentfile = ElhVersions.nextVersion(this.currentfile.getAbsoluteFile().getParentFile(),
+                    ElhVersions.baseName(this.currentfile));
+        }
         try
         {
-            this.currentelh.makeElh(this.currentfile.getAbsolutePath());
-            this.sourcefile.setText(this.currentfile.getName());
+            ElhFile.write(this.currentelh, this.currentfile.toPath());
         } catch (IOException e)
         {
             JOptionPane.showMessageDialog(this, "Could not save " + this.currentfile + "\n" + e.getMessage(),
                     "Save failed", JOptionPane.ERROR_MESSAGE);
+            return false;
         }
+        this.savedstructure = structure;
+        this.sourcefile.setText(this.currentfile.getName());
+        if (this.currentproject != null)
+        {
+            this.projectview.show(this.currentproject);
+        }
+        return true;
     }
 
     private void closeElh()
     {
         this.currentelh = null;
         this.currentfile = null;
+        this.savedstructure = null;
         this.activenode = null;
         this.activetreenode = null;
         this.sourcefile.setText("");
@@ -499,33 +677,19 @@ public class MyElh extends JFrame
         {
             return;
         }
-        EditView panel = switch (this.activenode)
-        {
-            case Event anevent ->
-            {
-                EditViewEvent eventpanel = new EditViewEvent(this);
-                eventpanel.setup(anevent);
-                yield eventpanel;
-            }
-            case Entity anentity -> setupEditView(new EditViewEntity(this), anentity);
-            case RoleGroup arolegroup -> setupEditView(new EditViewRoleGroup(this), arolegroup);
-            case Role arole -> setupEditView(new EditViewRole(this), arole);
-            case Elh anelh -> setupEditView(new EditViewElh(this), anelh);
-            // entity groups have no edit panel
-            case EntityGroup anentitygroup -> null;
-        };
-        if (panel != null)
-        {
-            this.editpanel.add(panel, "Center");
-        }
+        EditView panel = new EditView(this);
+        panel.setup(this.activenode);
+        this.editpanel.add(panel, "Center");
         repaint();
         getContentPane().validate();
     }
 
-    private static EditView setupEditView(EditView panel, ElhNode anode)
+    // the name for a node about to be added, or null if the user cancels
+    public String askNodeName(String type)
     {
-        panel.setup(anode);
-        return panel;
+        String name = (String) JOptionPane.showInputDialog(this, "Name of the new " + type + ":",
+                "New " + type, JOptionPane.PLAIN_MESSAGE, null, null, "");
+        return name == null || name.isBlank() ? null : name.trim();
     }
 
     // redraws the diagram of the whole ELH, outlining the active node

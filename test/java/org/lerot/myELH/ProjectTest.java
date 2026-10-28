@@ -39,12 +39,4 @@ class ProjectTest
         List<File> found = Project.findProjects(elhfolder.toFile());
         assertEquals(List.of(elhfolder.resolve("Library").toFile()), found);
     }
-
-    @Test
-    void elhsFromElsewhereAreSavedInTheProjectFolder() throws IOException
-    {
-        Project project = Project.create(elhfolder.toFile(), "Library", "Paul");
-        File saved = project.fileFor(new File("/somewhere/else/book.xml"));
-        assertEquals(elhfolder.resolve("Library").resolve("book.xml").toFile(), saved);
-    }
 }

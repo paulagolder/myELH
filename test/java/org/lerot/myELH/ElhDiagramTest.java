@@ -17,18 +17,18 @@ class ElhDiagramTest
     Path tempdir;
 
     // an elh with an entity holding events a, b and c, where b has two children
-    private Elh makeTree()
+    private ElhNode makeTree()
     {
-        Elh top = new Elh("top");
-        Entity person = new Entity("Person", top);
+        ElhNode top = new ElhNode(NodeType.ELH, "top", null);
+        ElhNode person = new ElhNode(NodeType.ENTITY, "Person", top);
         top.addChild(person);
         for (String name : new String[]{"a", "b", "c"})
         {
-            person.addChild(new Event(name, person));
+            person.addChild(new ElhNode(NodeType.EVENT, name, person));
         }
         ElhNode b = person.findChildnode("b");
-        b.addChild(new Event("b1", b));
-        b.addChild(new Event("b2 with a much longer name", b));
+        b.addChild(new ElhNode(NodeType.EVENT, "b1", b));
+        b.addChild(new ElhNode(NodeType.EVENT, "b2 with a much longer name", b));
         return top;
     }
 
@@ -67,7 +67,7 @@ class ElhDiagramTest
     @Test
     void aLongNameWithNoSpacesMakesAWiderBox()
     {
-        Elh top = makeTree();
+        ElhNode top = makeTree();
         ElhNode a = top.findChildnode("Person").findChildnode("a");
         a.setName("Aquitedeliberatelyunbreakablename");
         ElhDiagram diagram = screenDiagram(top);
@@ -87,7 +87,7 @@ class ElhDiagramTest
     @Test
     void clickingABoxFindsItsNode()
     {
-        Elh top = makeTree();
+        ElhNode top = makeTree();
         ElhDiagram diagram = screenDiagram(top);
         ElhNode person = top.findChildnode("Person");
         ElhDrawNode box = diagram.findNode(person);
@@ -100,11 +100,11 @@ class ElhDiagramTest
     @Test
     void onlyTheFirstLevelsAreDrawn()
     {
-        Elh top = new Elh("top");
+        ElhNode top = new ElhNode(NodeType.ELH, "top", null);
         ElhNode node = top;
         for (int depth = 1; depth <= ElhDiagram.MAXDEPTH + 2; depth++)
         {
-            Event child = new Event("level " + depth, node);
+            ElhNode child = new ElhNode(NodeType.EVENT, "level " + depth, node);
             node.addChild(child);
             node = child;
         }

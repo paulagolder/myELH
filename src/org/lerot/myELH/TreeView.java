@@ -47,7 +47,7 @@ public class TreeView extends JPanel implements ActionListener, MouseListener
         setVisible(true);
     }
 
-    public void maketree(Elh anelh)
+    public void maketree(ElhNode anelh)
     {
         if (anelh == null)
         {
@@ -249,17 +249,23 @@ public class TreeView extends JPanel implements ActionListener, MouseListener
             selectednode.moveright();
         } else if (comStr.startsWith("NEWCHILD"))
         {
-            selectednode.addChild(ElhNode.getDefaultChildtype());
+            String name = app.askNodeName(ElhNode.getDefaultChildtype());
+            if (name == null) return;
+            selectednode.addChild(ElhNode.getDefaultChildtype(), name);
         } else if (comStr.startsWith("NEWSIBLING"))
         {
-            selectednode.addSibling();
+            if (selectednode.getParent() == null) return;
+            String name = app.askNodeName("event");
+            if (name == null) return;
+            selectednode.addSibling(name);
         } else if (comStr.startsWith("DELETE"))
         {
             if (selectednode.getParent() == null)
             {
                 // deleting the top node: if it only holds another elh, that becomes the top
-                if (selectednode.countChildren() == 1 && selectednode.getChildren().getFirst() instanceof Elh inner)
+                if (selectednode.countChildren() == 1 && selectednode.getChildren().getFirst().is(NodeType.ELH))
                 {
+                    ElhNode inner = selectednode.getChildren().getFirst();
                     inner.setParent(null);
                     app.currentelh = inner;
                     app.activenode = inner;

@@ -16,34 +16,32 @@ class ElhNodeTest
     Path tempdir;
 
     // an elh with one entity holding events a, b and c
-    private Elh makeTree()
+    private ElhNode makeTree()
     {
-        Elh top = new Elh("top");
-        Entity person = new Entity("Person", top);
+        ElhNode top = new ElhNode(NodeType.ELH, "top", null);
+        ElhNode person = new ElhNode(NodeType.ENTITY, "Person", top);
         top.addChild(person);
         for (String name : new String[]{"a", "b", "c"})
         {
-            person.addChild(new Event(name, person));
+            person.addChild(new ElhNode(NodeType.EVENT, name, person));
         }
         return top;
     }
 
-    private Elh saveAndLoad(Elh top) throws IOException
+    private ElhNode saveAndLoad(ElhNode top) throws IOException
     {
         Path file = tempdir.resolve("test.elh");
-        top.makeElh(file.toString());
-        Elh loaded = new Elh("loaded");
-        loaded.importELH(file.toString());
-        return loaded;
+        ElhFile.write(top, file);
+        return ElhFile.read(file);
     }
 
     @Test
     void saveAndLoadKeepsTheTree() throws IOException
     {
-        Elh loaded = saveAndLoad(makeTree());
+        ElhNode loaded = saveAndLoad(makeTree());
         assertEquals("top", loaded.getName());
         ElhNode person = loaded.findChildnode("Person");
-        assertInstanceOf(Entity.class, person);
+        assertEquals(NodeType.ENTITY, person.getNodeType());
         assertEquals(3, person.countChildren());
         assertEquals("c", person.getChildren().get(2).getName());
     }
@@ -52,7 +50,7 @@ class ElhNodeTest
     void saveWritesTheTreeWithoutAnExtraWrapper() throws IOException
     {
         Path file = tempdir.resolve("test.elh");
-        makeTree().makeElh(file.toString());
+        ElhFile.write(makeTree(), file);
         String xml = Files.readString(file);
         assertFalse(xml.contains("new elh"));
         assertEquals(1, xml.split("<elh ").length - 1);
@@ -70,10 +68,9 @@ class ElhNodeTest
                 </elh>
                 </elh>
                 """);
-        Elh loaded = new Elh("loaded");
-        loaded.importELH(file.toString());
+        ElhNode loaded = ElhFile.read(file);
         assertEquals("Library", loaded.getName());
-        assertInstanceOf(Entity.class, loaded.findChildnode("Person"));
+        assertEquals(NodeType.ENTITY, loaded.findChildnode("Person").getNodeType());
     }
 
     @Test
@@ -81,41 +78,79 @@ class ElhNodeTest
     {
         Path file = tempdir.resolve("broken.elh");
         Files.writeString(file, "<elh name=\"unfinished\"");
-        assertThrows(IOException.class, () -> new Elh("loaded").importELH(file.toString()));
+        assertThrows(IOException.class, () -> ElhFile.read(file));
     }
 
     @Test
     void anElhInsideAnElhSurvivesSaving() throws IOException
     {
-        Elh top = new Elh("outer");
+        ElhNode top = new ElhNode(NodeType.ELH, "outer", null);
         top.setChildgrouptype(ChildGrouping.SEQUENCE);
         top.setStylename("elh");
-        Elh inner = new Elh("new elh", top);
+        ElhNode inner = new ElhNode(NodeType.ELH, "new elh", top);
         inner.setChildgrouptype(ChildGrouping.SEQUENCE);
         inner.setStylename("elh");
         top.addChild(inner);
-        Elh loaded = saveAndLoad(top);
+        ElhNode loaded = saveAndLoad(top);
         assertEquals("outer", loaded.getName());
-        assertInstanceOf(Elh.class, loaded.findChildnode("new elh"));
+        assertEquals(NodeType.ELH, loaded.findChildnode("new elh").getNodeType());
     }
 
     @Test
     void namesWithXmlCharactersSurviveSaving() throws IOException
     {
-        Elh top = makeTree();
+        ElhNode top = makeTree();
         String awkward = "Tom & \"Jerry\" <cat>";
         top.findChildnode("Person").setName(awkward);
-        Elh loaded = saveAndLoad(top);
+        ElhNode loaded = saveAndLoad(top);
         assertNotNull(loaded.findChildnode(awkward));
     }
 
     @Test
     void entitygroupsSurviveSaving() throws IOException
     {
-        Elh top = makeTree();
-        top.addChild(new EntityGroup("group", top));
-        Elh loaded = saveAndLoad(top);
-        assertInstanceOf(EntityGroup.class, loaded.findChildnode("group"));
+        ElhNode top = makeTree();
+        top.addChild(new ElhNode(NodeType.ENTITYGROUP, "group", top));
+        ElhNode loaded = saveAndLoad(top);
+        assertEquals(NodeType.ENTITYGROUP, loaded.findChildnode("group").getNodeType());
+    }
+
+    @Test
+    void olderFilesWithAnEntitiesTopStillOpenAsAnElh() throws IOException
+    {
+        Path file = tempdir.resolve("newpaper.xml");
+        Files.writeString(file, """
+                <entities name="new elh">
+                <entity name="Library Member" type="Entity" stylename="" />
+                </entities>
+                """);
+        ElhNode loaded = ElhFile.read(file);
+        assertEquals(NodeType.ELH, loaded.getNodeType());
+        assertNotNull(loaded.findChildnode("Library Member"));
+    }
+
+    @Test
+    void savingEditsCanChangeTheType()
+    {
+        ElhNode b = makeTree().findChildnode("Person").findChildnode("b");
+        b.setStylename("event");
+        b.applyEdits("Membership", NodeType.ROLEGROUP, b.getChildgrouptype(), "event");
+        assertEquals(NodeType.ROLEGROUP, b.getNodeType());
+        assertEquals("Membership", b.getName());
+        // grouping and style left as they were follow the new type
+        assertEquals(ChildGrouping.ROLEGROUP, b.getChildgrouptype());
+        assertEquals("rolegroup", b.getStylename());
+    }
+
+    @Test
+    void groupingAndStyleChosenWithANewTypeAreKept()
+    {
+        ElhNode b = makeTree().findChildnode("Person").findChildnode("b");
+        b.setStylename("event");
+        b.applyEdits("b", NodeType.ROLE, ChildGrouping.OPTION, "special");
+        assertEquals(NodeType.ROLE, b.getNodeType());
+        assertEquals(ChildGrouping.OPTION, b.getChildgrouptype());
+        assertEquals("special", b.getStylename());
     }
 
     @Test
@@ -138,7 +173,7 @@ class ElhNodeTest
     @Test
     void moveupWithNoGrandparentDoesNothing()
     {
-        Elh top = makeTree();
+        ElhNode top = makeTree();
         top.findChildnode("Person").moveup();
         assertEquals(1, top.countChildren());
     }
@@ -147,15 +182,26 @@ class ElhNodeTest
     void addSiblingAddsToTheSameParent()
     {
         ElhNode person = makeTree().findChildnode("Person");
-        person.findChildnode("a").addSibling();
+        person.findChildnode("a").addSibling("Renews");
         assertEquals(4, person.countChildren());
         assertSame(person, person.getChildren().get(3).getParent());
+        assertEquals("Renews", person.getChildren().get(3).getName());
+    }
+
+    @Test
+    void addChildUsesTheGivenName()
+    {
+        ElhNode person = makeTree().findChildnode("Person");
+        person.addChild("role", "Borrower");
+        ElhNode added = person.getChildren().getLast();
+        assertEquals("Borrower", added.getName());
+        assertEquals("role", added.getType());
     }
 
     @Test
     void moveChildrenFromReparentsTheChildren()
     {
-        Elh top = makeTree();
+        ElhNode top = makeTree();
         ElhNode person = top.findChildnode("Person");
         top.moveChildrenFrom(person);
         top.removeChild(person);
@@ -178,10 +224,11 @@ class ElhNodeTest
     void insertAboveChildrenPutsANewEventBetween()
     {
         ElhNode person = makeTree().findChildnode("Person");
-        person.insertabovechildren();
+        person.insertabovechildren("Lifetime");
         assertEquals(1, person.countChildren());
         ElhNode newevent = person.getChildren().getFirst();
-        assertInstanceOf(Event.class, newevent);
+        assertEquals(NodeType.EVENT, newevent.getNodeType());
+        assertEquals("Lifetime", newevent.getName());
         assertSame(person, newevent.getParent());
         assertEquals(3, newevent.countChildren());
         assertSame(newevent, newevent.findChildnode("a").getParent());
@@ -191,7 +238,7 @@ class ElhNodeTest
     void duplicateAddsACopyOfTheChild()
     {
         ElhNode person = makeTree().findChildnode("Person");
-        person.findChildnode("b").addChild(new Event("b1", person.findChildnode("b")));
+        person.findChildnode("b").addChild(new ElhNode(NodeType.EVENT, "b1", person.findChildnode("b")));
         person.duplicate("b");
         assertEquals(4, person.countChildren());
         ElhNode copy = person.findChildnode("Copyof:b");
@@ -203,7 +250,7 @@ class ElhNodeTest
     @Test
     void movingTheTopNodeDoesNothing()
     {
-        Elh top = makeTree();
+        ElhNode top = makeTree();
         assertDoesNotThrow(top::moveleft);
         assertDoesNotThrow(top::moveright);
         assertDoesNotThrow(top::moveup);
@@ -212,12 +259,12 @@ class ElhNodeTest
     @Test
     void copyKeepsTypeAndGivesChildrenTheCopyAsParent()
     {
-        Elh top = makeTree();
-        Role arole = new Role("r", top);
+        ElhNode top = makeTree();
+        ElhNode arole = new ElhNode(NodeType.ROLE, "r", top);
         arole.setStylename("special");
-        arole.addChild(new Event("e", arole));
+        arole.addChild(new ElhNode(NodeType.EVENT, "e", arole));
         ElhNode copy = arole.copy(top);
-        assertInstanceOf(Role.class, copy);
+        assertEquals(NodeType.ROLE, copy.getNodeType());
         assertEquals("special", copy.getStylename());
         assertSame(top, copy.getParent());
         assertSame(copy, copy.getChildren().getFirst().getParent());

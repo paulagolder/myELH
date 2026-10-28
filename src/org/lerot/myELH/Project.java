@@ -104,10 +104,4 @@ public final class Project
     {
         return this.author;
     }
-
-    // where an ELH with this file name is saved in the project
-    public File fileFor(File elhfile)
-    {
-        return new File(this.folder, elhfile.getName());
-    }
 }
