@@ -313,6 +313,11 @@ public final class Project
         return this.author;
     }
 
+    public String toString()
+    {
+        return this.name;
+    }
+
     // a base name for a new object's files that no other object uses. Files
     // already in the folder under that name (old ELH files, or those of a
     // removed object) are never overwritten: new versions are numbered after
@@ -401,21 +406,49 @@ public final class Project
         {
             return entity.getTop();
         }
+        ElhNode top = readEntity(entity);
+        entity.loaded(top, entity.isInline() ? null : entityVersions(entity).getLast());
+        return top;
+    }
+
+    // an entity's life history, for looking at only
+    public record LifeHistory(ProjectEntity entity, ElhNode top)
+    {
+    }
+
+    // The life history of every entity, for the screens that look across
+    // them all. An entity already loaded gives its tree in memory; any other
+    // is read afresh but left unloaded, so it is still only opened when it is
+    // selected. One that cannot be read is left out.
+    public List<LifeHistory> lifeHistories()
+    {
+        List<LifeHistory> found = new ArrayList<>();
+        for (ProjectEntity entity : this.entities)
+        {
+            try
+            {
+                found.add(new LifeHistory(entity, entity.isLoaded() ? entity.getTop() : readEntity(entity)));
+            } catch (IOException e)
+            {
+                // left out
+            }
+        }
+        return found;
+    }
+
+    private ElhNode readEntity(ProjectEntity entity) throws IOException
+    {
         if (entity.isInline())
         {
-            entity.loaded(MyelhFile.entityFromElement(entity.getInline()), null);
-        } else
-        {
-            List<File> versions = entityVersions(entity);
-            if (versions.isEmpty())
-            {
-                throw new IOException("There is no file for " + entity.getName() + " ("
-                        + entity.getFile() + "_v<N>" + ENTITYEXTENSION + ") in " + this.folder);
-            }
-            File latest = versions.getLast();
-            entity.loaded(MyelhFile.readEntity(latest.toPath(), entity.getSavedName()), latest);
+            return MyelhFile.entityFromElement(entity.getInline());
         }
-        return entity.getTop();
+        List<File> versions = entityVersions(entity);
+        if (versions.isEmpty())
+        {
+            throw new IOException("There is no file for " + entity.getName() + " ("
+                    + entity.getFile() + "_v<N>" + ENTITYEXTENSION + ") in " + this.folder);
+        }
+        return MyelhFile.readEntity(versions.getLast().toPath(), entity.getSavedName());
     }
 
     // Saves the entity's life history: inline, into project.xml; otherwise

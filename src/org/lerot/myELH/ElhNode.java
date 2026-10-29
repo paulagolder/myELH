@@ -553,15 +553,4 @@ public final class ElhNode
             this.addChild(acnode);
         }
     }
-
-    public static String makepath(ElhNode node)
-    {
-        String treepath = "";
-        for (ElhNode pnode = node; pnode != null; pnode = pnode.getParent())
-        {
-            String nodeInfo = pnode.getName();
-            treepath = nodeInfo + "/" + treepath;
-        }
-        return treepath;
-    }
 }

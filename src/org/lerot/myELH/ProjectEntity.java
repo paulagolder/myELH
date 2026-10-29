@@ -92,6 +92,15 @@ public final class ProjectEntity
         this.savedstructure = top.structure();
     }
 
+    // forgets its life history, so that it is read again when next needed
+    void unload()
+    {
+        this.top = null;
+        this.loadedfrom = null;
+        this.savedxml = null;
+        this.savedstructure = null;
+    }
+
     public boolean isModified()
     {
         return this.top != null && !this.top.xmlout().equals(this.savedxml);

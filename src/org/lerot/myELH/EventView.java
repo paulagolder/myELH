@@ -17,9 +17,10 @@ import java.util.Set;
 // The events screen: the project's events on the left and the selected
 // event's edit panel beside them. An event has an Action, what happens in the
 // world. Its participants are not stored with the event but found in the
-// project's ELHs: every node linked to it. Each participant has its own
-// Condition and Result (its CORD Action), kept on its node in its ELH; the
-// event can happen when every Condition holds, and then every Result happens.
+// project's entities: every node linked to it. Each participant has its own
+// Condition and Result (its CORD Action), kept on its node in its entity's
+// life history; the event can happen when every Condition holds, and then
+// every Result happens. Listing participants reads every entity.
 public class EventView extends JPanel
 {
     private static final long serialVersionUID = 1L;
@@ -35,7 +36,7 @@ public class EventView extends JPanel
     private static final int CONDITIONCOLUMN = 2;
     private static final int RESULTCOLUMN = 3;
     private final DefaultTableModel participantmodel = new DefaultTableModel(
-            new Object[]{"ELH", "Wording", "Condition", "Result", "Where"}, 0)
+            new Object[]{"Entity", "Wording", "Condition", "Result", "Where"}, 0)
     {
         private static final long serialVersionUID = 1L;
 
@@ -51,8 +52,8 @@ public class EventView extends JPanel
     private final List<Participant> participants = new ArrayList<>();
     private final JPanel editpanel = new JPanel(new BorderLayout(4, 4));
 
-    // a node linked to the event, in one of the project's ELHs
-    private record Participant(ProjectElh elh, ElhNode node)
+    // a node linked to the event, in one of the project's entities
+    private record Participant(ProjectEntity entity, ElhNode node)
     {
     }
 
@@ -116,7 +117,7 @@ public class EventView extends JPanel
         this.editpanel.add(form, BorderLayout.NORTH);
         JPanel participantpanel = new JPanel(new BorderLayout());
         participantpanel.setOpaque(false);
-        participantpanel.add(new JLabel("PARTICIPANTS (the ELH nodes linked to this event):"), BorderLayout.NORTH);
+        participantpanel.add(new JLabel("PARTICIPANTS (the entity nodes linked to this event):"), BorderLayout.NORTH);
         this.participanttable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         this.participanttable.addMouseListener(new MouseAdapter()
         {
@@ -187,6 +188,17 @@ public class EventView extends JPanel
         showSelected();
     }
 
+    // selects the event, listing every event if it is not listed
+    public void selectEvent(ProjectEvent event)
+    {
+        if (this.filter != null && !this.filter.contains(event.getId()))
+        {
+            this.filter = null;
+        }
+        refresh();
+        select(event.getId());
+    }
+
     private void select(String id)
     {
         for (int i = 0; i < this.listmodel.size(); i++)
@@ -240,6 +252,10 @@ public class EventView extends JPanel
         ProjectEvent event = selectedEvent();
         this.participantmodel.setRowCount(0);
         this.participants.clear();
+        if (event != null && !EventActions.loadEvent(this, this.app.getProject(), event))
+        {
+            event = null;
+        }
         this.namefield.setText(event == null ? "" : event.getName());
         this.actionfield.setText(event == null ? "" : event.getAction());
         this.namefield.setEnabled(event != null);
@@ -250,14 +266,15 @@ public class EventView extends JPanel
             this.transactionfield.setText("");
             return;
         }
-        for (ProjectElh elh : this.app.projectElhs())
+        for (Project.LifeHistory history : this.app.lifeHistories())
         {
+            ProjectEntity entity = history.entity();
             List<ElhNode> linked = new ArrayList<>();
-            elh.top().findLinked(event.getId(), linked);
+            history.top().findLinked(event.getId(), linked);
             for (ElhNode node : linked)
             {
-                this.participants.add(new Participant(elh, node));
-                this.participantmodel.addRow(new Object[]{elh.name(), node.getName(), node.getCondition(),
+                this.participants.add(new Participant(entity, node));
+                this.participantmodel.addRow(new Object[]{entity.getName(), node.getName(), node.getCondition(),
                         node.getResult(), node.getPath()});
             }
         }
@@ -271,7 +288,7 @@ public class EventView extends JPanel
         StringBuilder text = new StringBuilder();
         if (this.participants.isEmpty())
         {
-            text.append("No ELH takes part in ").append(event.getName()).append(" yet.");
+            text.append("No entity takes part in ").append(event.getName()).append(" yet.");
         } else
         {
             text.append(event.getName()).append(" can happen when all of these hold:\n");
@@ -291,11 +308,11 @@ public class EventView extends JPanel
         this.transactionfield.setCaretPosition(0);
     }
 
-    // the ELH, with its own wording of the event where that differs
+    // the entity, with its own wording of the event where that differs
     private static String describe(ProjectEvent event, Participant participant)
     {
         String wording = participant.node().getName();
-        return participant.elh().name() + (wording.equalsIgnoreCase(event.getName()) ? "" : " (" + wording + ")");
+        return participant.entity().getName() + (wording.equalsIgnoreCase(event.getName()) ? "" : " (" + wording + ")");
     }
 
     private static String orNone(String text)
@@ -319,22 +336,21 @@ public class EventView extends JPanel
         }
         event.setName(name);
         event.setAction(this.actionfield.getText().trim());
-        EventActions.save(this, project);
+        EventActions.saveEvent(this, project, event);
         saveParticipants();
         this.eventlist.repaint();
         showSelected();
     }
 
-    // conditions and results changed in the table go onto their nodes. The
-    // ELH being edited is changed in memory and saved with it; any other is
-    // rewritten in place, as a condition or result is not a change of shape.
+    // conditions and results changed in the table go onto their nodes, and
+    // the entities changed are saved
     private void saveParticipants()
     {
         if (this.participanttable.isEditing())
         {
             this.participanttable.getCellEditor().stopCellEditing();
         }
-        java.util.Set<ProjectElh> changed = new java.util.LinkedHashSet<>();
+        java.util.Set<ProjectEntity> changed = new java.util.LinkedHashSet<>();
         for (int row = 0; row < this.participants.size(); row++)
         {
             Participant participant = this.participants.get(row);
@@ -343,26 +359,20 @@ public class EventView extends JPanel
             String result = String.valueOf(this.participantmodel.getValueAt(row, RESULTCOLUMN)).trim();
             if (!condition.equals(node.getCondition()) || !result.equals(node.getResult()))
             {
-                node.setCondition(condition);
-                node.setResult(result);
-                changed.add(participant.elh());
+                // the change goes on the node in the opened entity
+                ElhNode opened = this.app.openAt(participant.entity(), node);
+                if (opened == null)
+                {
+                    continue;
+                }
+                opened.setCondition(condition);
+                opened.setResult(result);
+                changed.add(participant.entity());
             }
         }
-        for (ProjectElh elh : changed)
+        for (ProjectEntity entity : changed)
         {
-            if (elh.top() == this.app.currentelh)
-            {
-                this.app.refresh();
-                continue;
-            }
-            try
-            {
-                ElhFile.write(elh.top(), elh.file().toPath());
-            } catch (java.io.IOException e)
-            {
-                JOptionPane.showMessageDialog(this, "Could not save " + elh.file() + "\n" + e.getMessage(),
-                        "Save failed", JOptionPane.ERROR_MESSAGE);
-            }
+            this.app.saveEntity(entity);
         }
     }
 
@@ -376,7 +386,7 @@ public class EventView extends JPanel
         if (row >= 0)
         {
             Participant participant = this.participants.get(row);
-            this.app.goToNode(participant.elh(), participant.node());
+            this.app.goToNode(participant.entity(), participant.node());
         }
     }
 
@@ -399,7 +409,7 @@ public class EventView extends JPanel
         ProjectEvent event = selectedEvent();
         Project project = this.app.getProject();
         if (event == null || project == null) return;
-        long usedin = this.participants.stream().map(p -> p.elh().name()).distinct().count();
+        long usedin = this.participants.stream().map(Participant::entity).distinct().count();
         if (EventActions.deleteEvent(this, project, event, (int) usedin))
         {
             refresh();

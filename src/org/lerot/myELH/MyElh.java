@@ -7,8 +7,6 @@ import org.lerot.mywidgets.jswVerticalPanel;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.TreePath;
 import java.awt.*;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
@@ -19,17 +17,20 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collection;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
-import java.util.TreeMap;
 import java.util.prefs.Preferences;
+
+import org.jdom2.Element;
 
 import static org.lerot.myELH.StyleMaps.getPrintStyles;
 import static org.lerot.myELH.StyleMaps.getScreenStyles;
 
-// The main window: the tree of the open ELH on the left, and either the
-// edit panel for the selected node or the diagram on the right.
+// The main window. A project manages entities and events; the Entities tab
+// shows them in the project tree on the left, and on the right either the
+// edit panel for what is selected or the diagram of the selected entity's
+// life history. An entity's or event's file is only read when it is selected.
 public class MyElh extends JFrame
 {
     private static final long serialVersionUID = 1L;
@@ -37,28 +38,26 @@ public class MyElh extends JFrame
     private static final String version = Objects.requireNonNullElse(
             MyElh.class.getPackage().getImplementationVersion(), "(development)");
     final StyleMaps stylemaps = new StyleMaps();
-    // where the file choosers start
+    // where projects are kept
     private final File elhfolder = Path.of(System.getProperty("user.home"), "Documents", "elh").toFile();
     private final JLabel projectname = new JLabel();
     private final JLabel sourcefile = new JLabel();
     private final JLabel activepath = new JLabel();
-    // "ACTIVE ENTITY:" or, on the events tab, "ACTIVE EVENT:"
+    // "ACTIVE ENTITY:" or "ACTIVE EVENT:"
     private final JLabel activelabel = new JLabel();
-    // while a project is active every ELH is saved into its folder
     private Project currentproject;
     // remembers the active project between runs (~/.java/.userPrefs on Linux)
     private static final Preferences prefs = Preferences.userNodeForPackage(MyElh.class);
     private static final String LASTPROJECT = "lastproject";
     private final JPanel svgpanel;
-    public DefaultMutableTreeNode activetreenode;
+    // the entity whose life history is being edited and drawn
+    ProjectEntity activeentity;
+    // the selected node of that life history, or null
     public ElhNode activenode;
+    // the event selected in the project tree, or null
+    private ProjectEvent activeevent;
     TreeView currenttreeview;
-    // the top node of the open ELH
-    ElhNode currentelh;
     jswVerticalPanel editpanel;
-    private File currentfile;
-    // the open ELH's shape when it was last loaded or saved
-    private String savedstructure;
     // the two dimensions of the model, entities and events, each with its own
     // tab and menus; the project tab is the way into both
     private static final int PROJECTTAB = 0;
@@ -98,7 +97,7 @@ public class MyElh extends JFrame
         statusbar.add(new JLabel("CURRENT PROJECT:"));
         statusbar.add(this.projectname);
         statusbar.add(Box.createHorizontalGlue());
-        statusbar.add(new JLabel("ACTIVE FILE:"));
+        statusbar.add(new JLabel("KEPT IN:"));
         statusbar.add(this.sourcefile);
         statusbar.add(Box.createHorizontalGlue());
         statusbar.add(this.activelabel);
@@ -122,8 +121,7 @@ public class MyElh extends JFrame
         mainpanels.add(this.currenttreeview);
         mainpanels.add(this.editpanel);
         mainpanels.add(this.svgpanel);
-        this.projectview = new ProjectView(this::openLatest, this::deleteLatestVersion, this::deleteAllVersions,
-                this::collectEvents, this::projectElhs);
+        this.projectview = new ProjectView(this);
         this.eventview = new EventView(this);
         this.tabs.addTab("Project", this.projectview);
         this.tabs.addTab("Entities", mainpanels);
@@ -148,7 +146,10 @@ public class MyElh extends JFrame
             this.projectview.show(this.currentproject);
         } else if (this.currenttab == EVENTTAB)
         {
-            if (previoustab == ENTITYTAB)
+            if (previoustab == ENTITYTAB && this.activeevent != null)
+            {
+                this.eventview.selectEvent(this.activeevent);
+            } else if (previoustab == ENTITYTAB)
             {
                 this.eventview.focusOn(this.activenode);
             } else
@@ -164,30 +165,61 @@ public class MyElh extends JFrame
         getRootPane().revalidate();
     }
 
-    // selects a node of the open ELH linked to the event, unless the active node already is one
+    // selects a node linked to the event, in the active entity if it has
+    // one, unless the active node already is one
     private void selectLinkedNode(ProjectEvent event)
     {
-        if (event == null || this.currentelh == null) return;
-        java.util.List<ElhNode> linked = new java.util.ArrayList<>();
-        this.currentelh.findLinked(event.getId(), linked);
-        if (!linked.isEmpty() && !linked.contains(this.activenode))
+        if (event == null || this.activenode != null && event.getId().equals(this.activenode.getEventref()))
         {
-            selectNode(linked.getFirst());
+            return;
+        }
+        List<ProjectEntity> lookin = new ArrayList<>();
+        if (this.activeentity != null)
+        {
+            lookin.add(this.activeentity);
+        }
+        if (this.currentproject != null)
+        {
+            this.currentproject.getEntities().stream()
+                    .filter(e -> e.isLoaded() && e != this.activeentity).forEach(lookin::add);
+        }
+        for (ProjectEntity entity : lookin)
+        {
+            List<ElhNode> linked = new ArrayList<>();
+            entity.getTop().findLinked(event.getId(), linked);
+            if (!linked.isEmpty())
+            {
+                showNode(entity, linked.getFirst());
+                return;
+            }
         }
     }
 
     private void showStatus()
     {
-        if (this.currenttab == EVENTTAB)
+        if (this.currenttab == EVENTTAB || this.currenttab == ENTITYTAB && this.activeevent != null)
         {
+            ProjectEvent event = this.currenttab == EVENTTAB ? this.eventview.selectedEvent() : this.activeevent;
             this.activelabel.setText("ACTIVE EVENT:");
-            ProjectEvent event = this.eventview.selectedEvent();
             this.activepath.setText(event == null ? "" : event.getName());
+            this.sourcefile.setText(event == null ? "" : keptIn(event));
         } else
         {
             this.activelabel.setText("ACTIVE ENTITY:");
             this.activepath.setText(this.activenode == null ? "" : this.activenode.getPath());
+            this.sourcefile.setText(this.activeentity == null ? ""
+                    : this.activeentity.isInline() ? Project.PROJECTFILE : this.activeentity.describeStorage());
         }
+    }
+
+    private String keptIn(ProjectEvent event)
+    {
+        if (event.isInline())
+        {
+            return Project.PROJECTFILE;
+        }
+        List<File> versions = this.currentproject.eventVersions(event);
+        return versions.isEmpty() ? event.getFile() + " (no file)" : versions.getLast().getName();
     }
 
     // from the events screen
@@ -199,57 +231,59 @@ public class MyElh extends JFrame
         }
     }
 
-    // the project's ELHs, each at its latest version, except that the one
-    // being edited is taken as it is in memory
-    Collection<ProjectElh> projectElhs()
+    // the life history of every entity, for the screens that look across them all
+    List<Project.LifeHistory> lifeHistories()
     {
-        Map<String, ProjectElh> elhs = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        if (this.currentproject == null)
-        {
-            return elhs.values();
-        }
-        for (Map.Entry<String, File> entry : ElhVersions.latestVersions(this.currentproject.getFolder()).entrySet())
-        {
-            try
-            {
-                elhs.put(entry.getKey(), new ProjectElh(entry.getKey(), entry.getValue(),
-                        ElhFile.read(entry.getValue().toPath())));
-            } catch (IOException e)
-            {
-                // an unreadable file is left out
-            }
-        }
-        if (this.currentelh != null && this.currentfile != null)
-        {
-            String name = ElhVersions.baseName(this.currentfile);
-            elhs.put(name, new ProjectElh(name, this.currentfile, this.currentelh));
-        }
-        return elhs.values();
+        return this.currentproject == null ? List.of() : this.currentproject.lifeHistories();
     }
 
-    // from the events screen: opens the ELH if it is not the one being
-    // edited (saving that first), and selects the node on the entities tab
-    void goToNode(ProjectElh elh, ElhNode node)
+    // Opens the entity, reading it if need be, and gives the node at the
+    // same place in its life history as node, which may be from a copy read
+    // only to be looked at. Null, after saying why, if it cannot be read.
+    ElhNode openAt(ProjectEntity entity, ElhNode node)
     {
-        ElhNode target = node;
-        if (elh.top() != this.currentelh)
+        ElhNode top = node;
+        while (top.getParent() != null)
         {
-            java.util.List<Integer> where = node.indexPath();
-            if (this.currentelh != null && !saveElh())
-            {
-                return;
-            }
-            if (!loadElh(elh.file()))
-            {
-                return;
-            }
-            target = this.currentelh.nodeAtIndexPath(where);
+            top = top.getParent();
+        }
+        if (entity.isLoaded() && top == entity.getTop())
+        {
+            return node;
+        }
+        List<Integer> where = node.indexPath();
+        try
+        {
+            return this.currentproject.loadEntity(entity).nodeAtIndexPath(where);
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not read entity " + entity.getName() + "\n" + e.getMessage(),
+                    "Entity", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+    }
+
+    // from the events screen: selects the node on the entities tab
+    void goToNode(ProjectEntity entity, ElhNode node)
+    {
+        ElhNode opened = openAt(entity, node);
+        if (opened == null)
+        {
+            return;
         }
         this.tabs.setSelectedIndex(ENTITYTAB);
-        if (target != null)
-        {
-            selectNode(target);
-        }
+        showNode(entity, opened);
+    }
+
+    // makes the node of the entity's life history the active one
+    private void showNode(ProjectEntity entity, ElhNode node)
+    {
+        this.activeentity = entity;
+        this.activenode = node;
+        this.activeevent = null;
+        maketree();
+        this.currenttreeview.expand(entity);
+        refresh();
     }
 
     public static void main(String[] args)
@@ -275,6 +309,9 @@ public class MyElh extends JFrame
         addMenuItem(jmProject, "Open Project", this::openProject);
         addMenuItem(jmProject, "Close Project", this::closeProject);
         jmProject.addSeparator();
+        addMenuItem(jmProject, "Entities", () -> showProjectView(ProjectView.ENTITIESTAB));
+        addMenuItem(jmProject, "Events", () -> showProjectView(ProjectView.EVENTSTAB));
+        jmProject.addSeparator();
         addMenuItem(jmProject, "Exit", this::exitApp);
         jmb.add(jmProject);
         if (tab == ENTITYTAB)
@@ -285,9 +322,14 @@ public class MyElh extends JFrame
             JMenu jmEvent = new JMenu("Event");
             addMenuItem(jmEvent, "New Event", this.eventview::newEvent);
             addMenuItem(jmEvent, "Delete Event", this.eventview::deleteEvent);
+            addMenuItem(jmEvent, "Move to Own File / into project.xml", () ->
+            {
+                ProjectEvent event = this.eventview.selectedEvent();
+                if (event != null) moveEvent(event);
+            });
             jmEvent.addSeparator();
             addMenuItem(jmEvent, "Show All Events", this.eventview::showAll);
-            addMenuItem(jmEvent, "Collect Events from ELHs", this::collectEvents);
+            addMenuItem(jmEvent, "Collect Events from Entities", this::collectEvents);
             jmb.add(jmEvent);
             // to be filled once the events screen has a diagram
             jmb.add(new JMenu("View"));
@@ -304,14 +346,17 @@ public class MyElh extends JFrame
 
     private void addEntityMenus(JMenuBar jmb)
     {
-        JMenu jmFile = new JMenu("Entity");
-        addMenuItem(jmFile, "Open", this::openElh);
-        addMenuItem(jmFile, "New", this::newElh);
-        addMenuItem(jmFile, "Save", this::saveElh);
-        addMenuItem(jmFile, "Save As", this::saveElhAs);
-        addMenuItem(jmFile, "Save As New Version", this::saveNewVersion);
-        addMenuItem(jmFile, "Close", this::closeElh);
-        jmb.add(jmFile);
+        JMenu jmEntity = new JMenu("Entity");
+        addMenuItem(jmEntity, "New Entity", this::newEntity);
+        addMenuItem(jmEntity, "Import Entity...", this::importEntity);
+        jmEntity.addSeparator();
+        addMenuItem(jmEntity, "Save", KeyEvent.VK_S, () -> saveEntity(this.activeentity));
+        addMenuItem(jmEntity, "Save As New Version", this::saveNewVersion);
+        addMenuItem(jmEntity, "Save All", this::saveAll);
+        jmEntity.addSeparator();
+        addMenuItem(jmEntity, "Move to Own File / into project.xml", () -> moveEntity(this.activeentity));
+        addMenuItem(jmEntity, "Remove from Project", () -> removeEntity(this.activeentity));
+        jmb.add(jmEntity);
         JMenu jmView = new JMenu("View");
         addMenuItem(jmView, "View EDIT", this::showEdit);
         addMenuItem(jmView, "View SVG", this::showSvg);
@@ -403,6 +448,8 @@ public class MyElh extends JFrame
         return tablestyles;
     }
 
+    // ---- projects ----
+
     private void newProject()
     {
         JTextField namefield = new JTextField(20);
@@ -434,7 +481,7 @@ public class MyElh extends JFrame
 
     private void openProject()
     {
-        java.util.List<File> folders = Project.findProjects(this.elhfolder);
+        List<File> folders = Project.findProjects(this.elhfolder);
         if (folders.isEmpty())
         {
             JOptionPane.showMessageDialog(this, "There are no projects in " + this.elhfolder,
@@ -475,28 +522,39 @@ public class MyElh extends JFrame
         }
     }
 
-    // an open ELH with no project moves into the new one: from now on it is
-    // saved into its folder. A project opens on its project view.
+    // a project opens on its project view
     private void setProject(Project project)
     {
         this.currentproject = project;
+        this.activeentity = null;
+        this.activenode = null;
+        this.activeevent = null;
         this.projectname.setText(project == null ? "" : project.getName());
         if (project == null)
         {
             prefs.remove(LASTPROJECT);
-            showElhScreen();
         } else
         {
             prefs.put(LASTPROJECT, project.getFolder().getAbsolutePath());
         }
         enableProjectTabs();
-        if (project != null && this.currentfile != null)
+        maketree();
+        refresh();
+        if (project == null)
         {
-            setCurrentFile(this.currentfile);
+            showElhScreen();
+            return;
         }
-        if (project != null)
+        showProjectView(ProjectView.ENTITIESTAB);
+        if (!project.getConversionNotes().isEmpty())
         {
-            showProjectView();
+            // after the window is up, if the project was opened on starting
+            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this,
+                    "This project was saved by an earlier version of myELH and has been converted:\n\n"
+                            + String.join("\n", project.getConversionNotes())
+                            + "\n\nThe old ELH files are left as they were, and the old project file is kept as "
+                            + Project.PROJECTFILE + ".bak.",
+                    "Project converted", JOptionPane.INFORMATION_MESSAGE));
         }
     }
 
@@ -507,47 +565,48 @@ public class MyElh extends JFrame
         this.tabs.setEnabledAt(EVENTTAB, this.currentproject != null);
     }
 
-    // saves and closes the open ELH, then closes the project; false if the
-    // ELH could not be saved, leaving everything open
+    // saves every changed entity and closes the project; false if one could
+    // not be saved and the user chose to keep the project open
     private boolean closeProject()
     {
         if (this.currentproject == null)
         {
             return true;
         }
-        if (this.currentelh != null)
+        if (!saveAllOrAsk("Close the project without saving?"))
         {
-            if (!saveElh())
-            {
-                return false;
-            }
-            closeElh();
+            return false;
         }
         setProject(null);
         return true;
     }
 
-    // in a project the open ELH is saved first; elsewhere it is left unsaved, as before
     private void exitApp()
     {
-        if (this.currentproject != null && this.currentelh != null && !saveElh()
-                && JOptionPane.showConfirmDialog(this, "Exit without saving?", "Exit",
-                JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION)
+        if (this.currentproject != null && !saveAllOrAsk("Exit without saving?"))
         {
             return;
         }
         System.exit(0);
     }
 
-    private void showProjectView()
+    // true if every changed entity was saved, or the user chose to go on without
+    private boolean saveAllOrAsk(String question)
+    {
+        return saveAll() || JOptionPane.showConfirmDialog(this, question, "Save",
+                JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION;
+    }
+
+    private void showProjectView(int subtab)
     {
         if (this.currentproject == null)
         {
-            JOptionPane.showMessageDialog(this, "No project is open", "Project View",
+            JOptionPane.showMessageDialog(this, "No project is open", "Project",
                     JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         this.projectview.show(this.currentproject);
+        this.projectview.showTab(subtab);
         this.tabs.setSelectedIndex(PROJECTTAB);
     }
 
@@ -556,107 +615,425 @@ public class MyElh extends JFrame
         this.tabs.setSelectedIndex(ENTITYTAB);
     }
 
-    // chosen in the project view: the open ELH is saved before the other is opened
-    private void openLatest(File latest)
+    private boolean requireProject()
     {
-        if (this.currentelh != null && !saveElh())
+        if (this.currentproject == null)
         {
-            return;
+            JOptionPane.showMessageDialog(this, "Open or create a project first (Project menu)", "No project",
+                    JOptionPane.INFORMATION_MESSAGE);
+            return false;
         }
-        if (loadElh(latest))
-        {
-            showElhScreen();
-        }
-    }
-
-    // chosen in the project view; if that version is open it is closed unsaved
-    private void deleteLatestVersion(File latest)
-    {
-        if (JOptionPane.showConfirmDialog(this, "Delete " + latest.getName() + "?", "Delete latest version",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION)
-        {
-            return;
-        }
-        if (this.currentfile != null && this.currentfile.getAbsoluteFile().equals(latest.getAbsoluteFile()))
-        {
-            closeElh();
-        }
-        deleteFiles(java.util.List.of(latest));
-    }
-
-    // chosen in the project view; if that ELH is open it is closed unsaved
-    private void deleteAllVersions(File latest)
-    {
-        String basename = ElhVersions.baseName(latest);
-        java.util.List<File> versions = ElhVersions.allVersions(this.currentproject.getFolder(), basename);
-        if (JOptionPane.showConfirmDialog(this, "Delete all " + versions.size() + " versions of " + basename + "?",
-                "Delete all versions", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE)
-                != JOptionPane.OK_OPTION)
-        {
-            return;
-        }
-        if (this.currentfile != null && ElhVersions.baseName(this.currentfile).equalsIgnoreCase(basename))
-        {
-            closeElh();
-        }
-        deleteFiles(versions);
-    }
-
-    // chosen in the project view: links every unlinked leaf event in the
-    // latest version of each ELH to the project event of the same name,
-    // adding events to the project as needed. The files are rewritten in
-    // place; the open ELH is saved first and reopened after.
-    private void collectEvents()
-    {
-        if (JOptionPane.showConfirmDialog(this,
-                "Link the unlinked events in the latest version of each ELH to project events\n"
-                        + "of the same name, adding events to the project as needed?\n"
-                        + "Those ELH files are rewritten.",
-                "Collect events", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION)
-        {
-            return;
-        }
-        if (this.currentelh != null && !saveElh())
-        {
-            return;
-        }
-        boolean reopen = false;
-        for (File latest : ElhVersions.latestVersions(this.currentproject.getFolder()).values())
-        {
-            try
-            {
-                ElhNode top = ElhFile.read(latest.toPath());
-                if (top.linkLeafEvents(this.currentproject))
-                {
-                    ElhFile.write(top, latest.toPath());
-                    reopen |= latest.getAbsoluteFile().equals(
-                            this.currentfile == null ? null : this.currentfile.getAbsoluteFile());
-                }
-            } catch (IOException e)
-            {
-                JOptionPane.showMessageDialog(this, "Could not link the events in " + latest + "\n" + e.getMessage(),
-                        "Collect events", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-        try
-        {
-            this.currentproject.save();
-        } catch (IOException e)
-        {
-            JOptionPane.showMessageDialog(this, "Could not save the project\n" + e.getMessage(),
-                    "Collect events", JOptionPane.ERROR_MESSAGE);
-        }
-        if (reopen)
-        {
-            loadElh(this.currentfile);
-        }
-        this.projectview.show(this.currentproject);
-        this.eventview.refresh();
+        return true;
     }
 
     public Project getProject()
     {
         return this.currentproject;
+    }
+
+    // ---- selections in the project tree ----
+
+    // an entity selected: its life history is read now if it has not been
+    void entitySelected(ProjectEntity entity)
+    {
+        boolean newlyloaded = !entity.isLoaded();
+        try
+        {
+            this.currentproject.loadEntity(entity);
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not read entity " + entity.getName() + "\n" + e.getMessage(),
+                    "Entity", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        this.activeentity = entity;
+        this.activenode = entity.getTop();
+        this.activeevent = null;
+        if (newlyloaded)
+        {
+            maketree();
+            this.currenttreeview.expand(entity);
+        }
+        updateview();
+    }
+
+    // from the project screen: shows the entity on the entities tab
+    void goToEntity(ProjectEntity entity)
+    {
+        this.tabs.setSelectedIndex(ENTITYTAB);
+        entitySelected(entity);
+    }
+
+    // a node of a life history selected
+    void nodeSelected(ElhNode node, ProjectEntity entity)
+    {
+        this.activeentity = entity;
+        this.activenode = node;
+        this.activeevent = null;
+        updateview();
+    }
+
+    // an event selected: its details are read now if they have not been
+    void eventSelectedInTree(ProjectEvent event)
+    {
+        if (!EventActions.loadEvent(this, this.currentproject, event))
+        {
+            return;
+        }
+        this.activeevent = event;
+        this.activenode = null;
+        showEdit();
+        updateview();
+    }
+
+    // the project or a heading selected
+    void nothingSelected()
+    {
+        this.activenode = null;
+        this.activeevent = null;
+        updateview();
+    }
+
+    void showEventInTab(ProjectEvent event)
+    {
+        this.activeevent = event;
+        this.tabs.setSelectedIndex(EVENTTAB);
+        this.eventview.selectEvent(event);
+    }
+
+    // ---- entities ----
+
+    void newEntity()
+    {
+        if (!requireProject()) return;
+        String name = askNodeName("entity");
+        if (name == null) return;
+        try
+        {
+            ProjectEntity entity = this.currentproject.addEntity(name);
+            selectEntity(entity);
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not add entity " + name + "\n" + e.getMessage(),
+                    "New Entity", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // reads the entities in an .elh file, of this or an earlier version of
+    // myELH, and adds them to the project, kept inline
+    void importEntity()
+    {
+        if (!requireProject()) return;
+        JFileChooser fc = new JFileChooser();
+        fc.setCurrentDirectory(this.currentproject.getFolder());
+        fc.setDialogTitle("Import entities from an ELH file");
+        fc.setFileFilter(new FileNameExtensionFilter("ELH", "xml", "elh"));
+        if (fc.showOpenDialog(this) != JFileChooser.APPROVE_OPTION)
+        {
+            return;
+        }
+        File file = fc.getSelectedFile();
+        List<ElhNode> found = new ArrayList<>();
+        try
+        {
+            Element root = MyelhFile.readRoot(file.toPath());
+            if (root.getName().equals(MyelhFile.WRAPPER))
+            {
+                MyelhFile.entityElements(root).forEach(e -> found.add(MyelhFile.entityFromElement(e)));
+            } else
+            {
+                ElhNode top = ElhFile.read(file.toPath());
+                found.addAll(top.getChildren().isEmpty()
+                        ? List.of(new ElhNode(NodeType.ENTITY, ElhVersions.baseName(file), null))
+                        : List.copyOf(top.getChildren()));
+            }
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not read " + file + "\n" + e.getMessage(),
+                    "Import Entity", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        List<String> report = new ArrayList<>();
+        ProjectEntity first = null;
+        for (ElhNode top : found)
+        {
+            int dropped = keepOwnEventLinks(top);
+            try
+            {
+                ProjectEntity entity = this.currentproject.addEntity(top);
+                first = first == null ? entity : first;
+                report.add("Added " + entity.getName()
+                        + (dropped == 0 ? "" : " (" + dropped + " event link" + (dropped == 1 ? "" : "s")
+                        + " to another project's events removed)"));
+            } catch (IOException e)
+            {
+                report.add("Left out " + top.getName() + ": " + e.getMessage());
+            }
+        }
+        if (first != null)
+        {
+            selectEntity(first);
+        }
+        JOptionPane.showMessageDialog(this, report.isEmpty() ? file.getName() + " holds no entities"
+                : String.join("\n", report), "Import Entity", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    // an imported life history may come from another project: a link is kept
+    // only if this project has an event with that id and the node's name.
+    // Returns how many were removed; Collect Events can relink them by name.
+    private int keepOwnEventLinks(ElhNode node)
+    {
+        int dropped = 0;
+        if (node.getEventref() != null)
+        {
+            ProjectEvent event = this.currentproject.findEvent(node.getEventref());
+            if (event == null || !event.getName().equalsIgnoreCase(node.getName()))
+            {
+                node.setEventref(null);
+                dropped++;
+            }
+        }
+        for (ElhNode child : node.getChildren())
+        {
+            dropped += keepOwnEventLinks(child);
+        }
+        return dropped;
+    }
+
+    // shows the entity on the entities tab, selected
+    private void selectEntity(ProjectEntity entity)
+    {
+        this.tabs.setSelectedIndex(ENTITYTAB);
+        this.activeentity = entity;
+        this.activenode = entity.getTop();
+        this.activeevent = null;
+        maketree();
+        this.currenttreeview.expand(entity);
+        refresh();
+        this.projectview.show(this.currentproject);
+    }
+
+    // saves an entity, inline or as a version of its file; false if it could not be
+    boolean saveEntity(ProjectEntity entity)
+    {
+        if (entity == null || this.currentproject == null)
+        {
+            return true;
+        }
+        try
+        {
+            this.currentproject.saveEntity(entity);
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not save " + entity.getName() + "\n" + e.getMessage(),
+                    "Save failed", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+        afterEntityChange();
+        return true;
+    }
+
+    private void saveNewVersion()
+    {
+        if (this.activeentity == null) return;
+        try
+        {
+            this.currentproject.saveEntityAsNewVersion(this.activeentity);
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not save " + this.activeentity.getName() + "\n" + e.getMessage(),
+                    "Save failed", JOptionPane.ERROR_MESSAGE);
+        }
+        afterEntityChange();
+    }
+
+    // saves every entity changed since it was read or saved; false if one could not be
+    boolean saveAll()
+    {
+        boolean saved = true;
+        if (this.currentproject != null)
+        {
+            for (ProjectEntity entity : this.currentproject.getEntities())
+            {
+                if (entity.isModified())
+                {
+                    saved &= saveEntity(entity);
+                }
+            }
+        }
+        return saved;
+    }
+
+    // between its own file and project.xml
+    void moveEntity(ProjectEntity entity)
+    {
+        if (entity == null || this.currentproject == null) return;
+        String question = entity.isInline()
+                ? "Move " + entity.getName() + " into a file of its own?\nIts life history is saved as it now is."
+                : "Move " + entity.getName() + " into " + Project.PROJECTFILE
+                + "?\nIts life history is saved as it now is; its files are left in the project folder.";
+        if (JOptionPane.showConfirmDialog(this, question, "Move entity", JOptionPane.OK_CANCEL_OPTION)
+                != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+        try
+        {
+            if (entity.isInline())
+            {
+                this.currentproject.moveEntityToFile(entity);
+            } else
+            {
+                this.currentproject.moveEntityInline(entity);
+            }
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not move " + entity.getName() + "\n" + e.getMessage(),
+                    "Move entity", JOptionPane.ERROR_MESSAGE);
+        }
+        afterEntityChange();
+    }
+
+    // its files are left in the project folder
+    void removeEntity(ProjectEntity entity)
+    {
+        if (entity == null || this.currentproject == null) return;
+        String question = "Remove " + entity.getName() + " from the project?"
+                + (entity.isModified() ? "\nIts unsaved changes will be lost." : "")
+                + (entity.isInline() ? "" : "\nIts files are left in the project folder.");
+        if (JOptionPane.showConfirmDialog(this, question, "Remove entity", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+        try
+        {
+            this.currentproject.removeEntity(entity);
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not save the project\n" + e.getMessage(),
+                    "Remove entity", JOptionPane.ERROR_MESSAGE);
+        }
+        if (this.activeentity == entity)
+        {
+            this.activeentity = null;
+            this.activenode = null;
+        }
+        afterEntityChange();
+    }
+
+    // deletes the latest version of a file entity; it is read again from the
+    // version before, losing any unsaved changes
+    void deleteLatestVersion(ProjectEntity entity)
+    {
+        List<File> versions = this.currentproject.entityVersions(entity);
+        if (versions.size() < 2)
+        {
+            JOptionPane.showMessageDialog(this, entity.getName() + " has no earlier version to go back to.\n"
+                    + "Use Remove from Project to take it out of the project.", "Delete latest version",
+                    JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        File latest = versions.getLast();
+        if (JOptionPane.showConfirmDialog(this, "Delete " + latest.getName() + "?"
+                        + (entity.isModified() ? "\nThe unsaved changes to " + entity.getName() + " will be lost." : ""),
+                "Delete latest version", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE)
+                != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+        try
+        {
+            Files.delete(latest.toPath());
+        } catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not delete " + latest + "\n" + e.getMessage(),
+                    "Delete failed", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        entity.unload();
+        if (this.activeentity == entity)
+        {
+            this.activeentity = null;
+            this.activenode = null;
+        }
+        afterEntityChange();
+    }
+
+    private void afterEntityChange()
+    {
+        maketree();
+        refresh();
+        if (this.currentproject != null)
+        {
+            this.projectview.show(this.currentproject);
+        }
+    }
+
+    // ---- events ----
+
+    void newEvent()
+    {
+        if (!requireProject()) return;
+        ProjectEvent event = EventActions.addEvent(this, this.currentproject);
+        if (event != null)
+        {
+            maketree();
+            this.currenttreeview.select(event);
+            eventSelectedInTree(event);
+            this.eventview.refresh();
+        }
+    }
+
+    // between its own file and project.xml
+    void moveEvent(ProjectEvent event)
+    {
+        if (this.currentproject != null && EventActions.moveEvent(this, this.currentproject, event))
+        {
+            maketree();
+            refresh();
+            this.projectview.show(this.currentproject);
+            this.eventview.refresh();
+        }
+    }
+
+    // links every unlinked leaf event in every entity to the project event
+    // of the same name, adding events to the project as needed. The entities
+    // changed are saved.
+    void collectEvents()
+    {
+        if (!requireProject()) return;
+        if (JOptionPane.showConfirmDialog(this,
+                "Link the unlinked events of every entity to project events\n"
+                        + "of the same name, adding events to the project as needed?\n"
+                        + "The entities changed are saved.",
+                "Collect events", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+        for (ProjectEntity entity : this.currentproject.getEntities())
+        {
+            boolean wasloaded = entity.isLoaded();
+            try
+            {
+                if (this.currentproject.loadEntity(entity).linkLeafEvents(this.currentproject))
+                {
+                    saveEntity(entity);
+                }
+            } catch (IOException e)
+            {
+                JOptionPane.showMessageDialog(this, "Could not read entity " + entity.getName() + "\n"
+                        + e.getMessage(), "Collect events", JOptionPane.ERROR_MESSAGE);
+            }
+            // one that was not open before is closed again
+            if (!wasloaded && !entity.isModified())
+            {
+                entity.unload();
+            }
+        }
+        EventActions.save(this, this.currentproject);
+        afterEntityChange();
+        this.eventview.refresh();
     }
 
     // asks for a new leaf event and adds it with adder, linked to its project
@@ -687,14 +1064,7 @@ public class MyElh extends JFrame
             return null;
         }
         ProjectEvent event = this.currentproject.addEvent(chosen.toString().trim());
-        try
-        {
-            this.currentproject.save();
-        } catch (IOException e)
-        {
-            JOptionPane.showMessageDialog(this, "Could not save the project\n" + e.getMessage(),
-                    "New event", JOptionPane.ERROR_MESSAGE);
-        }
+        EventActions.save(this, this.currentproject);
         ElhNode node = adder.apply(event.getName());
         if (node != null)
         {
@@ -703,192 +1073,7 @@ public class MyElh extends JFrame
         return node;
     }
 
-    private void deleteFiles(java.util.List<File> files)
-    {
-        for (File file : files)
-        {
-            try
-            {
-                Files.delete(file.toPath());
-            } catch (IOException e)
-            {
-                JOptionPane.showMessageDialog(this, "Could not delete " + file + "\n" + e.getMessage(),
-                        "Delete failed", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-        this.projectview.show(this.currentproject);
-    }
-
-    // where the ELH choosers start
-    private File startFolder()
-    {
-        return this.currentproject == null ? this.elhfolder : this.currentproject.getFolder();
-    }
-
-    // the file the open ELH is saved to. In a project that is one of the
-    // project's versioned files: a file from anywhere else, or not yet
-    // versioned, becomes the next version of its name in the project folder.
-    private void setCurrentFile(File file)
-    {
-        if (this.currentproject == null)
-        {
-            this.currentfile = file;
-        } else
-        {
-            File folder = this.currentproject.getFolder();
-            boolean inproject = folder.getAbsoluteFile().equals(file.getAbsoluteFile().getParentFile());
-            this.currentfile = inproject && ElhVersions.isVersioned(file) ? file
-                    : ElhVersions.nextVersion(folder, ElhVersions.baseName(file));
-        }
-        this.sourcefile.setText(this.currentfile.getName());
-    }
-
-    private JFileChooser elhChooser(String title)
-    {
-        JFileChooser fc = new JFileChooser();
-        fc.setCurrentDirectory(startFolder());
-        fc.setDialogTitle(title);
-        fc.setFileFilter(new FileNameExtensionFilter("ELH", "xml", "elh"));
-        return fc;
-    }
-
-    private void openElh()
-    {
-        JFileChooser fc = elhChooser("Open ELH file");
-        if (fc.showOpenDialog(this) != JFileChooser.APPROVE_OPTION)
-        {
-            return;
-        }
-        loadElh(fc.getSelectedFile());
-    }
-
-    private boolean loadElh(File openfile)
-    {
-        if (openfile.getName().equals(Project.PROJECTFILE))
-        {
-            JOptionPane.showMessageDialog(this, openfile + " is a project file, not an ELH",
-                    "Open failed", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        ElhNode openelh;
-        try
-        {
-            openelh = ElhFile.read(openfile.toPath());
-        } catch (IOException e)
-        {
-            JOptionPane.showMessageDialog(this, "Could not open " + openfile + "\n" + e.getMessage(),
-                    "Open failed", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        setCurrentFile(openfile);
-        this.currentelh = openelh;
-        this.savedstructure = openelh.structure();
-        this.currenttreeview.maketree(this.currentelh);
-        this.activenode = null;
-        this.activetreenode = null;
-        this.currenttreeview.repaint();
-        showDiagram();
-        getContentPane().validate();
-        return true;
-    }
-
-    private void newElh()
-    {
-        JFileChooser fc = elhChooser("Specify a new ELH file");
-        if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION)
-        {
-            return;
-        }
-        setCurrentFile(fc.getSelectedFile());
-        this.currentelh = new ElhNode(NodeType.ELH, ElhVersions.baseName(this.currentfile), null);
-        writeElh(false);
-        this.currenttreeview.maketree(this.currentelh);
-    }
-
-    // a new version if nodes were added, removed or moved since the last
-    // save; otherwise the current version is overwritten
-    private boolean saveElh()
-    {
-        if (this.currentfile == null)
-        {
-            return saveElhAs();
-        }
-        return writeElh(true);
-    }
-
-    private boolean saveElhAs()
-    {
-        if (this.currentelh == null)
-        {
-            return false;
-        }
-        JFileChooser fc = elhChooser("Save to new ELH file");
-        if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION)
-        {
-            return false;
-        }
-        setCurrentFile(fc.getSelectedFile());
-        return writeElh(false);
-    }
-
-    private void saveNewVersion()
-    {
-        if (this.currentelh == null)
-        {
-            return;
-        }
-        if (this.currentfile == null)
-        {
-            saveElhAs();
-            return;
-        }
-        this.currentfile = ElhVersions.nextVersion(this.currentfile.getAbsoluteFile().getParentFile(),
-                ElhVersions.baseName(this.currentfile));
-        writeElh(false);
-    }
-
-    private boolean writeElh(boolean newversionifreshaped)
-    {
-        if (this.currentelh == null)
-        {
-            return false;
-        }
-        String structure = this.currentelh.structure();
-        if (newversionifreshaped && this.currentfile.exists() && !structure.equals(this.savedstructure))
-        {
-            this.currentfile = ElhVersions.nextVersion(this.currentfile.getAbsoluteFile().getParentFile(),
-                    ElhVersions.baseName(this.currentfile));
-        }
-        try
-        {
-            ElhFile.write(this.currentelh, this.currentfile.toPath());
-        } catch (IOException e)
-        {
-            JOptionPane.showMessageDialog(this, "Could not save " + this.currentfile + "\n" + e.getMessage(),
-                    "Save failed", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        this.savedstructure = structure;
-        this.sourcefile.setText(this.currentfile.getName());
-        if (this.currentproject != null)
-        {
-            this.projectview.show(this.currentproject);
-        }
-        return true;
-    }
-
-    private void closeElh()
-    {
-        this.currentelh = null;
-        this.currentfile = null;
-        this.savedstructure = null;
-        this.activenode = null;
-        this.activetreenode = null;
-        this.sourcefile.setText("");
-        this.activepath.setText("");
-        this.currenttreeview.cleartree();
-        refresh();
-    }
+    // ---- the right-hand side ----
 
     private void showEdit()
     {
@@ -910,37 +1095,40 @@ public class MyElh extends JFrame
 
     public void refresh()
     {
-        selectActiveTreenode();
         showEditView();
         showDiagram();
+        selectActive();
+        showStatus();
         repaint();
         getContentPane().validate();
-        selectActiveTreenode();
     }
 
-    private void selectActiveTreenode()
+    // selects what is active in the tree
+    private void selectActive()
     {
-        if (this.activetreenode != null)
+        if (this.activeevent != null)
         {
-            TreePath treepath = new TreePath(this.activetreenode.getPath());
-            this.currenttreeview.thistree.setSelectionPath(treepath);
-            this.currenttreeview.thistree.scrollPathToVisible(treepath);
+            this.currenttreeview.select(this.activeevent);
+        } else if (this.activenode != null)
+        {
+            this.currenttreeview.select(this.activenode);
         }
     }
 
     public void showEditView()
     {
         this.editpanel.removeAll();
-        this.activepath.setText(this.activenode == null ? "" : this.activenode.getPath());
-        if (this.activenode == null)
+        if (this.activeevent != null)
         {
-            return;
+            this.editpanel.add(new EventDetailsPanel(this, this.currentproject, this.activeevent), "Center");
+        } else if (this.activenode != null)
+        {
+            EditView panel = new EditView(this);
+            panel.setup(this.activenode);
+            this.editpanel.add(panel, "Center");
         }
-        EditView panel = new EditView(this);
-        panel.setup(this.activenode);
-        this.editpanel.add(panel, "Center");
-        repaint();
-        getContentPane().validate();
+        this.editpanel.revalidate();
+        this.editpanel.repaint();
     }
 
     // the name for a node about to be added, or null if the user cancels
@@ -951,18 +1139,20 @@ public class MyElh extends JFrame
         return name == null || name.isBlank() ? null : name.trim();
     }
 
-    // redraws the diagram of the whole ELH, outlining the active node
+    // redraws the diagram of the active entity's life history, outlining the active node
     private void showDiagram()
     {
-        ElhDiagram diagram = this.currentelh == null ? null
-                : new ElhDiagram(this.currentelh, stylemaps.getStyleMap("screen"), layoutstyle);
+        ElhDiagram diagram = this.activeentity == null || !this.activeentity.isLoaded() ? null
+                : new ElhDiagram(this.activeentity.getTop(), stylemaps.getStyleMap("screen"), layoutstyle);
         this.diagrampanel.setDiagram(diagram, this.activenode);
     }
 
     // a box clicked in the diagram: select its node in the tree
     private void selectNode(ElhNode anode)
     {
-        this.currenttreeview.setselections(anode);
+        this.activenode = anode;
+        this.activeevent = null;
+        updateview();
     }
 
     // a box double-clicked in the diagram: select its node and switch to its edit panel
@@ -974,13 +1164,13 @@ public class MyElh extends JFrame
 
     private void svgexport()
     {
-        if (this.currentelh == null)
+        if (this.activeentity == null || !this.activeentity.isLoaded())
         {
             return;
         }
         JFileChooser fc = new JFileChooser();
         fc.setDialogTitle("Save SVG file");
-        fc.setCurrentDirectory(startFolder());
+        fc.setCurrentDirectory(this.currentproject == null ? this.elhfolder : this.currentproject.getFolder());
         fc.setFileFilter(new FileNameExtensionFilter("svg", "svg"));
         if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION)
         {
@@ -990,7 +1180,8 @@ public class MyElh extends JFrame
         {
             // exported with the screen styles, as it always has been; the
             // "print" style map is kept but not used
-            SvgExport.write(this.currentelh, stylemaps.getStyleMap("screen"), layoutstyle, fc.getSelectedFile().toPath());
+            SvgExport.write(this.activeentity.getTop(), stylemaps.getStyleMap("screen"), layoutstyle,
+                    fc.getSelectedFile().toPath());
         } catch (IOException e)
         {
             JOptionPane.showMessageDialog(this, "Could not save " + fc.getSelectedFile() + "\n" + e.getMessage(),
@@ -998,21 +1189,16 @@ public class MyElh extends JFrame
         }
     }
 
-    // after the tree selection changes
+    // after the selection changes
     public void updateview()
     {
-        if (this.currentelh != null)
-        {
-            this.currenttreeview.expandPath(this.activetreenode);
-            showEditView();
-            showDiagram();
-        }
-        repaint();
-        getContentPane().validate();
+        refresh();
     }
 
+    // rebuilds the project tree, keeping what is active selected
     public void maketree()
     {
-        this.currenttreeview.maketree(this.currentelh);
+        this.currenttreeview.maketree(this.currentproject);
+        selectActive();
     }
 }
