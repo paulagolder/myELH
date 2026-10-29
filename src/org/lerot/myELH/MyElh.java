@@ -1,7 +1,6 @@
 package org.lerot.myELH;
 
 import org.lerot.mywidgets.jswStyle;
-import org.lerot.mywidgets.jswStyles;
 import org.lerot.mywidgets.jswTheme;
 import org.lerot.mywidgets.jswVerticalPanel;
 
@@ -43,7 +42,7 @@ public class MyElh extends JFrame
     private final JLabel projectname = new JLabel();
     private final JLabel sourcefile = new JLabel();
     private final JLabel activepath = new JLabel();
-    // "ACTIVE ENTITY:" or "ACTIVE EVENT:"
+    // "Entity" or "Event"
     private final JLabel activelabel = new JLabel();
     private Project currentproject;
     // remembers the active project between runs (~/.java/.userPrefs on Linux)
@@ -92,14 +91,16 @@ public class MyElh extends JFrame
         getContentPane().setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
         JPanel statusbar = new JPanel();
         statusbar.setLayout(new BoxLayout(statusbar, BoxLayout.X_AXIS));
-        statusbar.add(new JLabel("CURRENT PROJECT:"));
-        statusbar.add(this.projectname);
+        // quiet captions, each followed by its value in bold
+        statusbar.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
+        statusbar.add(caption(new JLabel("Project")));
+        statusbar.add(value(this.projectname));
         statusbar.add(Box.createHorizontalGlue());
-        statusbar.add(new JLabel("KEPT IN:"));
-        statusbar.add(this.sourcefile);
+        statusbar.add(caption(new JLabel("Kept in")));
+        statusbar.add(value(this.sourcefile));
         statusbar.add(Box.createHorizontalGlue());
-        statusbar.add(this.activelabel);
-        statusbar.add(this.activepath);
+        statusbar.add(caption(this.activelabel));
+        statusbar.add(value(this.activepath));
         statusbar.setBackground(Color.decode(jswTheme.NAVAREA));
         add(statusbar);
         this.currenttreeview = new TreeView(this, TreeView.Mode.ENTITIES, new TreeView.Listener()
@@ -143,6 +144,19 @@ public class MyElh extends JFrame
         reopenLastProject();
         setJMenuBar(makeMenuBar(this.currenttab));
         showStatus();
+    }
+
+    private static JLabel caption(JLabel label)
+    {
+        label.setForeground(Color.DARK_GRAY);
+        label.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 6));
+        return label;
+    }
+
+    private static JLabel value(JLabel label)
+    {
+        label.setFont(label.getFont().deriveFont(Font.BOLD));
+        return label;
     }
 
     // linked browsing: the tab switched to follows what was active in the other
@@ -208,12 +222,12 @@ public class MyElh extends JFrame
         if (this.currenttab == EVENTTAB)
         {
             ProjectEvent event = this.eventview.selectedEvent();
-            this.activelabel.setText("ACTIVE EVENT:");
+            this.activelabel.setText("Event");
             this.activepath.setText(event == null ? "" : event.getName());
             this.sourcefile.setText(event == null ? "" : keptIn(event));
         } else
         {
-            this.activelabel.setText("ACTIVE ENTITY:");
+            this.activelabel.setText("Entity");
             this.activepath.setText(this.activenode == null ? "" : this.activenode.getPath());
             this.sourcefile.setText(this.activeentity == null ? ""
                     : this.activeentity.isInline() ? Project.PROJECTFILE : this.activeentity.describeStorage());
@@ -399,58 +413,6 @@ public class MyElh extends JFrame
         item.setAccelerator(KeyStroke.getKeyStroke(key, InputEvent.CTRL_DOWN_MASK));
         item.addActionListener(e -> action.run());
         menu.add(item);
-    }
-
-    public static jswStyles tablestyles()
-    {
-        jswStyles tablestyles = new jswStyles();
-        tablestyles.name = "defaulttable";
-        jswStyle tablestyle = tablestyles.makeStyle("table");
-        tablestyle.putAttribute("borderwidth", 1);
-        tablestyle.putAttribute("bordercolor", jswTheme.BORDER);
-        jswStyle rowstyle0 = tablestyles.makeStyle("row_0");
-        rowstyle0.putAttribute("fontsize", jswTheme.HEADING);
-        rowstyle0.putAttribute("fontStyle", Font.BOLD + Font.ITALIC);
-        rowstyle0.putAttribute("foregroundColor", "#0e56f2");
-        jswStyle colstyle0 = tablestyles.makeStyle("col_0");
-        colstyle0.putAttribute("horizontalAlignment", "RIGHT");
-        colstyle0.putAttribute("minwidth", 30);
-        colstyle0.putAttribute("fontsize", jswTheme.HEADING);
-        colstyle0.putAttribute("foregroundcolor", "gray");
-        jswStyle colstyle = tablestyles.makeStyle("col");
-        colstyle.putAttribute("horizontalAlignment", "RIGHT");
-        colstyle.putAttribute("width", 30);
-        jswStyle cellstyle = tablestyles.makeStyle("cell");
-        cellstyle.putAttribute("foregroundcolor", "black");
-        cellstyle.putAttribute("borderWidth", "1");
-        cellstyle.putAttribute("borderColor", jswTheme.CELLBORDER);
-        cellstyle.putAttribute("fontsize", jswTheme.HEADING);
-        return tablestyles;
-    }
-
-    public static jswStyles tablestyles2()
-    {
-        jswStyles tablestyles = new jswStyles();
-        tablestyles.name = "defaulttable";
-        jswStyle tablestyle = tablestyles.makeStyle("table");
-        tablestyle.putAttribute("borderwidth", 1);
-        tablestyle.putAttribute("bordercolor", jswTheme.BORDER);
-        jswStyle rowstyle0 = tablestyles.makeStyle("row_0");
-        rowstyle0.putAttribute("fontsize", jswTheme.HEADING);
-        jswStyle colstyle0 = tablestyles.makeStyle("col_0");
-        colstyle0.putAttribute("horizontalAlignment", "RIGHT");
-        colstyle0.putAttribute("minwidth", 30);
-        colstyle0.putAttribute("fontsize", jswTheme.HEADING);
-        colstyle0.putAttribute("foregroundcolor", "gray");
-        jswStyle colstyle = tablestyles.makeStyle("col");
-        colstyle.putAttribute("horizontalAlignment", "RIGHT");
-        colstyle.putAttribute("width", 30);
-        jswStyle cellstyle = tablestyles.makeStyle("cell");
-        cellstyle.putAttribute("foregroundcolor", "black");
-        cellstyle.putAttribute("borderWidth", "1");
-        cellstyle.putAttribute("borderColor", jswTheme.CELLBORDER);
-        cellstyle.putAttribute("fontsize", jswTheme.HEADING);
-        return tablestyles;
     }
 
     // ---- projects ----

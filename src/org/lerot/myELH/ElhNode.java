@@ -187,9 +187,15 @@ public final class ElhNode
         ElhNode delnode = findChildnode(childname);
         if (delnode != null)
         {
-            delnode.deleteChildren();
-            removeChild(delnode);
+            deleteChild(delnode);
         }
+    }
+
+    // removes the child and everything below it
+    public void deleteChild(ElhNode delnode)
+    {
+        delnode.deleteChildren();
+        removeChild(delnode);
     }
 
     void removeChild(ElhNode delnode)
@@ -435,8 +441,19 @@ public final class ElhNode
     public void duplicate(String childname)
     {
         ElhNode selnode = findChildnode(childname);
-        if (selnode == null) return;
-        if (!(is(NodeType.EVENT) || is(NodeType.ENTITY) || is(NodeType.ELH))) return;
+        if (selnode != null) duplicateChild(selnode);
+    }
+
+    // only the children of events, entities and elhs can be duplicated
+    public boolean canDuplicateChildren()
+    {
+        return is(NodeType.EVENT) || is(NodeType.ENTITY) || is(NodeType.ELH);
+    }
+
+    // adds a copy of the child, and everything below it, as a further child
+    public void duplicateChild(ElhNode selnode)
+    {
+        if (!canDuplicateChildren()) return;
         ElhNode newnode = selnode.copy(this);
         if (newnode == null) return;
         newnode.setName("Copyof:" + newnode.getName());

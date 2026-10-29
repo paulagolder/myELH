@@ -1,121 +1,161 @@
 package org.lerot.myELH;
 
-import org.lerot.mywidgets.*;
+import org.lerot.mywidgets.jswStyle;
+import org.lerot.mywidgets.jswTheme;
 
 import javax.swing.*;
-import javax.swing.border.LineBorder;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
+import java.util.ArrayList;
+import java.util.List;
 
-// The edit panel for the selected node, whatever its type
-public class EditView extends jswVerticalPanel implements ActionListener, MouseListener
+// The edit panel for the selected node of a life history, whatever its
+// type: its details above, its children in a table, and what can be done
+// below. An action (a leaf event node) also has the event it is part of and
+// its condition and result.
+public class EditView extends JPanel
 {
     private static final long serialVersionUID = 1L;
-    private final jswTable namepanel;
-    protected jswTextBox namefield;
-    protected jswTable childpanel;
-    protected jswDropDownBox typefield;
-    protected jswTextBox stylefield;
-    protected jswButton viewbutton;
-    protected jswDropDownBox grouptypefield;
-    protected JPanel bottompanel;
-    // the project event a leaf event stands for; only there for a leaf event
-    // while a project is open
-    private jswDropDownBox eventfield;
     private static final String NOEVENT = "(not yet in an event)";
-    // a leaf event's part in its event: only there for a leaf event
-    private jswTextBox conditionfield;
-    private jswTextBox resultfield;
-    ElhNode activenode;
-    private jswButton insertbutton;
-    private jswButton editbutton;
-    private jswButton insertabovebutton;
-    private JPopupMenu popup;
+    // the child selected when the panel was last made, selected again when
+    // it is remade after a change (moving a child up, say)
+    private static ElhNode lastselectedchild;
     protected final MyElh app;
+    ElhNode activenode;
+    private final JLabel title = new JLabel();
+    private final JLabel subtitle = new JLabel();
+    private final JTextField namefield = new JTextField(20);
+    private final JComboBox<String> typefield = new JComboBox<>();
+    private final JComboBox<String> groupingfield = new JComboBox<>();
+    private final JTextField stylefield = new JTextField(20);
+    // only there for an action
+    private JComboBox<Object> eventfield;
+    private JTextArea conditionfield;
+    private JTextArea resultfield;
+    private final DefaultTableModel childmodel = new DefaultTableModel(
+            new Object[]{"Child", "Type", "Grouping", "Event"}, 0)
+    {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public boolean isCellEditable(int row, int column)
+        {
+            return false;
+        }
+    };
+    private final JTable childtable = new JTable(this.childmodel);
+    private final List<JButton> childbuttons = new ArrayList<>();
+    private JButton upbutton;
+    private JButton downbutton;
+    private JButton duplicatebutton;
 
     public EditView(MyElh app)
     {
-        super("editview", true, true);
+        super(new BorderLayout(4, 6));
         this.app = app;
-        // setInsets(10, 10, 10, 10);
-        setBorder(jswStyle.makeLineBorder());
-        jswTheme.tint(this, jswTheme.EDITAREA);
-        jswHorizontalPanel namebar = new jswHorizontalPanel();
-        this.namepanel = new jswTable(this, "namepanel", MyElh.tablestyles());
-        this.namefield = new jswTextBox(this, "namefield", 200, "namefield");
-        jswLabel namelabel = new jswLabel("NAME:");
-        this.namepanel.addCell(namelabel, 0, 0);
-        this.namepanel.addCell((jswPanel) this.namefield, 0, 1);
-        jswLabel typelabel = new jswLabel("TYPE:");
-        String[] typelist = {"entitygroup"};
-        this.typefield = new jswDropDownBox(null, "type");
-        this.typefield.setEnabled(false);
-        this.typefield.setList(typelist);
-        this.typefield.setEnabled(true);
-        this.typefield.setSelected(typelist[0]);
-        this.namepanel.addCell(typelabel, 1, 0);
-        this.namepanel.addCell((jswPanel) this.typefield, 1, 1);
-        jswLabel grouptypelabel = new jswLabel("CHILDTYPE:");
-        String[] grouptypeStrings = {"Group"};
-        this.grouptypefield = new jswDropDownBox(null, "grouptype");
-        this.grouptypefield.setEnabled(false);
-        this.grouptypefield.setList(grouptypeStrings);
-        //   this.grouptypefield.setSelected(0);
-        this.grouptypefield.setEnabled(true);
-        this.namepanel.addCell(grouptypelabel, 2, 0);
-        this.namepanel.addCell((jswPanel) this.grouptypefield, 2, 1);
-        jswLabel stylelabel = new jswLabel("STYLE:");
-        this.stylefield = new jswTextBox(this, "stylefield", 200, "stylefield");
-        this.namepanel.addCell(stylelabel, 3, 0);
-        this.namepanel.addCell((jswPanel) this.stylefield, 3, 1);
-        namebar.add(" MIDDLE", this.namepanel);
-        add(namebar);
-        jswHorizontalPanel childbar = new jswHorizontalPanel();
-        this.childpanel = new jswTable(this, "childtable", MyElh.tablestyles2());
-        childbar.add(" MIDDLE ", this.childpanel);
-        add(childbar);
-        this.bottompanel = new jswHorizontalPanel();
-        add(" BOTTOM ", this.bottompanel);
+        setBorder(BorderFactory.createCompoundBorder(jswStyle.makeLineBorder(),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)));
+        setBackground(Color.decode(jswTheme.EDITAREA));
     }
 
     public void setup(ElhNode anode)
     {
-        this.activenode = app.activenode;
-        this.namefield.setText(anode.getName());
-        this.stylefield.setText(anode.getStylename());
-        // the top elh stays an elh; any other node can become any other type
-        this.typefield.setList(anode.is(NodeType.ELH) ? new String[]{anode.getType()} : NodeType.choiceNames());
-        this.typefield.setSelected(anode.getType());
-        this.grouptypefield.setList(groupingChoices(anode.getChildgrouptype()));
-        this.grouptypefield.setSelected(anode.getChildgrouptype().xmlName());
-        Project project = app.getProject();
-        if (project != null && anode.isLeafEvent())
+        this.activenode = anode;
+        Project project = this.app.getProject();
+        JPanel top = new JPanel(new BorderLayout(0, 6));
+        top.setOpaque(false);
+        top.add(makeHeading(anode, project), BorderLayout.NORTH);
+        top.add(makeForm(anode, project), BorderLayout.CENTER);
+        add(top, BorderLayout.NORTH);
+        add(makeChildPanel(anode, project), BorderLayout.CENTER);
+        add(makeButtons(anode), BorderLayout.SOUTH);
+    }
+
+    // the node's name, with what it is and where it is
+    private JPanel makeHeading(ElhNode anode, Project project)
+    {
+        JPanel heading = new JPanel(new GridLayout(2, 1));
+        heading.setOpaque(false);
+        this.title.setText(anode.getName());
+        this.title.setFont(this.title.getFont().deriveFont(Font.BOLD, this.title.getFont().getSize2D() * 1.3f));
+        String kind = anode.isLeafEvent() ? "action" : anode.getType();
+        ElhNode parent = anode.getParent();
+        String where = parent == null ? "the top of its life history" : "in " + parent.getPath();
+        this.subtitle.setText(kind + ", " + where);
+        this.subtitle.setForeground(Color.GRAY);
+        heading.add(this.title);
+        heading.add(this.subtitle);
+        if (project != null && project.isUnlinked(anode))
         {
-            java.util.List<String> names = new java.util.ArrayList<>(java.util.List.of(NOEVENT));
-            project.getEvents().forEach(e -> names.add(e.getName()));
-            this.eventfield = new jswDropDownBox(null, "event");
-            this.eventfield.setList(names.toArray(String[]::new));
-            ProjectEvent linked = anode.getEventref() == null ? null : project.findEvent(anode.getEventref());
-            this.eventfield.setSelected(linked == null ? NOEVENT : linked.getName());
-            this.namepanel.addCell(new jswLabel("PART OF EVENT:"), 4, 0);
-            this.namepanel.addCell((jswPanel) this.eventfield, 4, 1);
+            this.subtitle.setText(this.subtitle.getText() + "   " + TreeView.FLAG.strip() + " not yet part of an event");
+            this.subtitle.setForeground(TreeView.FLAGGED);
         }
+        return heading;
+    }
+
+    private JPanel makeForm(ElhNode anode, Project project)
+    {
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setOpaque(false);
+        int row = 0;
+        this.namefield.setText(anode.getName());
+        addRow(form, row++, "NAME:", this.namefield);
+        // the top elh stays an elh; any other node can become any other type
+        for (String type : anode.is(NodeType.ELH) ? new String[]{anode.getType()} : NodeType.choiceNames())
+        {
+            this.typefield.addItem(type);
+        }
+        this.typefield.setSelectedItem(anode.getType());
+        addRow(form, row++, "TYPE:", this.typefield);
+        for (String grouping : groupingChoices(anode.getChildgrouptype()))
+        {
+            this.groupingfield.addItem(grouping);
+        }
+        this.groupingfield.setSelectedItem(anode.getChildgrouptype().xmlName());
+        addRow(form, row++, "CHILD GROUPING:", this.groupingfield);
+        this.stylefield.setText(anode.getStylename());
+        addRow(form, row++, "STYLE:", this.stylefield);
         if (anode.isLeafEvent())
         {
-            this.conditionfield = new jswTextBox(this, "conditionfield", 200, "conditionfield");
-            this.conditionfield.setText(anode.getCondition());
-            this.resultfield = new jswTextBox(this, "resultfield", 200, "resultfield");
-            this.resultfield.setText(anode.getResult());
-            this.namepanel.addCell(new jswLabel("CONDITION:"), 5, 0);
-            this.namepanel.addCell((jswPanel) this.conditionfield, 5, 1);
-            this.namepanel.addCell(new jswLabel("RESULT:"), 6, 0);
-            this.namepanel.addCell((jswPanel) this.resultfield, 6, 1);
+            if (project != null)
+            {
+                this.eventfield = new JComboBox<>();
+                this.eventfield.addItem(NOEVENT);
+                project.getEvents().forEach(this.eventfield::addItem);
+                ProjectEvent linked = anode.getEventref() == null ? null : project.findEvent(anode.getEventref());
+                this.eventfield.setSelectedItem(linked == null ? NOEVENT : linked);
+                addRow(form, row++, "PART OF EVENT:", this.eventfield);
+            }
+            this.conditionfield = textArea(anode.getCondition());
+            addRow(form, row++, "CONDITION:", new JScrollPane(this.conditionfield));
+            this.resultfield = textArea(anode.getResult());
+            addRow(form, row++, "RESULT:", new JScrollPane(this.resultfield));
         }
-        makeChildPanel();
-        makebuttonbar();
+        return form;
+    }
+
+    private static JTextArea textArea(String text)
+    {
+        JTextArea area = new JTextArea(text, 2, 30);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        return area;
+    }
+
+    private static void addRow(JPanel form, int row, String label, JComponent field)
+    {
+        GridBagConstraints c = new GridBagConstraints();
+        c.insets = new Insets(2, 2, 2, 6);
+        c.anchor = GridBagConstraints.NORTHWEST;
+        c.gridx = 0;
+        c.gridy = row;
+        form.add(new JLabel(label), c);
+        c.gridx = 1;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        form.add(field, c);
     }
 
     // the usual choices, plus the node's own grouping if it is not one of them (entitygroup)
@@ -131,213 +171,216 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
         return withcurrent;
     }
 
-    public void makebuttonbar()
+    // the node's children, and what can be done to the one selected
+    private JPanel makeChildPanel(ElhNode anode, Project project)
     {
-        jswHorizontalPanel buttonbar = new jswHorizontalPanel();
-        this.insertbutton = new jswButton(this, "NEW CHILD", "NEWCHILD");
-        //this.insertbutton.setParentnode(this.activenode);
-        //  this.insertbutton.addMouseListener(this);
-        buttonbar.add(this.insertbutton);
-        this.insertabovebutton = new jswButton(this, "INSERT ABOVE CHILDREN");
-        buttonbar.add(this.insertabovebutton);
-        this.viewbutton = new jswButton(this, "VIEW PARENT");
-        buttonbar.add(this.viewbutton);
-        this.editbutton = new jswButton(this, "Save Edits");
-        buttonbar.add(this.editbutton);
-        buttonbar.setMinimumSize(new Dimension(600, 30));
-        buttonbar.setPreferredSize(new Dimension(500, 30));
-        this.bottompanel.add(" MIDDLE  ", buttonbar);
-        if (this.activenode.getParent() == null)
+        JPanel panel = new JPanel(new BorderLayout(0, 2));
+        panel.setOpaque(false);
+        panel.add(new JLabel(anode.countChildren() == 0 ? "CHILDREN: none" : "CHILDREN:"), BorderLayout.NORTH);
+        if (anode.countChildren() == 0)
         {
-            this.viewbutton.setEnabled(false);
+            return panel;
         }
+        for (ElhNode child : anode.getChildren())
+        {
+            String event = "";
+            if (child.isLeafEvent() && project != null)
+            {
+                ProjectEvent linked = child.getEventref() == null ? null : project.findEvent(child.getEventref());
+                event = linked == null ? TreeView.FLAG.strip() + " none yet" : linked.getName();
+            }
+            this.childmodel.addRow(new Object[]{child.getName(), child.isLeafEvent() ? "action" : child.getType(),
+                    child.getChildgrouptype().xmlName(), event});
+        }
+        this.childtable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        this.childtable.setFillsViewportHeight(true);
+        this.childtable.getSelectionModel().addListSelectionListener(e -> enableChildButtons());
+        this.childtable.addMouseListener(new MouseAdapter()
+        {
+            @Override
+            public void mouseClicked(MouseEvent e)
+            {
+                if (e.getClickCount() == 2) openChild();
+            }
+        });
+        JScrollPane scroll = new JScrollPane(this.childtable);
+        scroll.setPreferredSize(new Dimension(300, 110));
+        panel.add(scroll, BorderLayout.CENTER);
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+        buttons.setOpaque(false);
+        this.childbuttons.add(addButton(buttons, "Open", this::openChild));
+        this.upbutton = addButton(buttons, "Move Up", () -> moveChild(true));
+        this.downbutton = addButton(buttons, "Move Down", () -> moveChild(false));
+        this.duplicatebutton = addButton(buttons, "Duplicate", this::duplicateChild);
+        this.childbuttons.add(addButton(buttons, "Delete", this::deleteChild));
+        panel.add(buttons, BorderLayout.SOUTH);
+        int row = anode.getChildren().indexOf(lastselectedchild);
+        if (row >= 0)
+        {
+            this.childtable.setRowSelectionInterval(row, row);
+        }
+        enableChildButtons();
+        return panel;
+    }
+
+    private JPanel makeButtons(ElhNode anode)
+    {
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+        buttons.setOpaque(false);
+        JButton save = addButton(buttons, "Save Edits", this::saveEdits);
+        save.setFont(save.getFont().deriveFont(Font.BOLD));
+        JButton newchild = addButton(buttons, "New Child ▾", null);
+        newchild.addActionListener(e -> makeNewChildMenu().show(newchild, 0, newchild.getHeight()));
+        JButton insertabove = addButton(buttons, "Insert Above Children", this::insertAbove);
         // a new event can only be put above the children of an event or entity
-        if (!(this.activenode.is(NodeType.EVENT) || this.activenode.is(NodeType.ENTITY)))
-        {
-            this.insertabovebutton.setEnabled(false);
-        }
+        insertabove.setEnabled(anode.is(NodeType.EVENT) || anode.is(NodeType.ENTITY));
+        JButton viewparent = addButton(buttons, "View Parent", () -> this.app.currenttreeview.actions("VIEW PARENT", anode));
+        viewparent.setEnabled(anode.getParent() != null);
+        return buttons;
     }
 
-    public void actionPerformed(ActionEvent ae)
+    private static JButton addButton(JPanel buttons, String label, Runnable action)
     {
-        String comStr = ae.getActionCommand();
-        actions(comStr, this.activenode);
+        JButton button = new JButton(label);
+        if (action != null)
+        {
+            button.addActionListener(e -> action.run());
+        }
+        buttons.add(button);
+        return button;
     }
 
-    public void makeChildPanel()
+    private ElhNode selectedChild()
     {
-        this.childpanel.setVisible(false);
-        this.childpanel.removeAll();
-        int count = activenode.countChildren();
-        if (count < 1) return;
-        int n = 0;
-        for (ElhNode asubevent : activenode.getChildren())
-        {
-            addChildrow(asubevent, n, count);
-            n++;
-        }
-        this.childpanel.setVisible(true);
+        int row = this.childtable.getSelectedRow();
+        return row < 0 ? null : this.activenode.getChildren().get(row);
     }
 
-    public void addChildrow(ElhNode child, int n, int count)
+    private void enableChildButtons()
     {
-        String childname = child.getName();
-        jswLabel sname = new jswLabel(childname);
-        jswLabel stype = new jswLabel(child.getType());
-        jswButton up = new jswButton(this, "UP");
-        if (n == 0)
-        {
-            up.setEnabled(false);
-        }
-        jswButton down = new jswButton(this, "DOWN");
-        if (n >= count - 1)
-        {
-            down.setEnabled(false);
-        }
-        jswButton delete = new jswButton(this, "DELETE");
-        jswButton view = new jswButton(this, "VIEW");
-        jswButton duplicate = new jswButton(this, "DUPLICATE");
-        delete.setActionCommand("DELETE:" + childname);
-        up.setActionCommand("UP:" + childname);
-        down.setActionCommand("DOWN:" + childname);
-        view.setActionCommand("VIEW:" + childname);
-        duplicate.setActionCommand("DUPLICATE:" + childname);
-        this.childpanel.addCell(sname, n, 1);
-        this.childpanel.addCell(stype, n, 2);
-        this.childpanel.addCell((jswPanel) up, n, 3);
-        this.childpanel.addCell((jswPanel) down, n, 4);
-        this.childpanel.addCell((jswPanel) view, n, 5);
-        this.childpanel.addCell((jswPanel) duplicate, n, 6);
-        this.childpanel.addCell((jswPanel) delete, n, 7);
+        int row = this.childtable.getSelectedRow();
+        boolean selected = row >= 0;
+        this.childbuttons.forEach(b -> b.setEnabled(selected));
+        this.upbutton.setEnabled(selected && row > 0);
+        this.downbutton.setEnabled(selected && row < this.childmodel.getRowCount() - 1);
+        this.duplicatebutton.setEnabled(selected && this.activenode.canDuplicateChildren());
+        lastselectedchild = selectedChild();
     }
 
-    public void actions(String comStr, ElhNode activenode)
+    // the tree and the panels are remade after a change
+    private void changed()
     {
-        if (comStr.equalsIgnoreCase("save edits"))
+        this.app.maketree();
+        this.app.refresh();
+    }
+
+    private void openChild()
+    {
+        ElhNode child = selectedChild();
+        if (child == null) return;
+        this.app.currenttreeview.setselections(child);
+        this.app.refresh();
+    }
+
+    private void moveChild(boolean up)
+    {
+        ElhNode child = selectedChild();
+        if (child == null) return;
+        if (up)
         {
-            activenode.applyEdits(this.namefield.getText().trim(),
-                    NodeType.fromXml(this.typefield.getSelectedValue()),
-                    ChildGrouping.fromXml(this.grouptypefield.getSelectedValue()),
-                    this.stylefield.getText().trim());
-            if (this.eventfield != null)
-            {
-                ProjectEvent chosen = app.getProject().findEventByName(this.eventfield.getSelectedValue());
-                activenode.setEventref(chosen == null ? null : chosen.getId());
-            }
-            if (this.conditionfield != null)
-            {
-                activenode.setCondition(this.conditionfield.getText());
-                activenode.setResult(this.resultfield.getText());
-            }
-            // only events stand for project events
-            if (!activenode.is(NodeType.EVENT))
-            {
-                activenode.setEventref(null);
-            }
-            app.maketree();
-            app.currenttreeview.setselections(activenode);
-            app.refresh();
-        } else if (comStr.startsWith("VIEW:"))
-        {
-            String path = comStr.substring(5);
-            ElhNode targetnode = activenode.findChildnode(path);
-            this.activenode = targetnode;
-            app.currenttreeview.setselections(targetnode);
-            app.refresh();
-        } else if (comStr.startsWith("UP:"))
-        {
-            String path = comStr.substring(3);
-            ElhNode targetnode = activenode.findChildnode(path);
-            app.currenttreeview.actions("LEFT", targetnode);
-        } else if (comStr.startsWith("DELETE:"))
-        {
-            String path = comStr.substring(7);
-            this.activenode.deleteChild(path);
-            app.maketree();
-            app.refresh();
-        } else if (comStr.startsWith("DOWN:"))
-        {
-            String path = comStr.substring(5);
-            ElhNode targetnode = activenode.findChildnode(path);
-            app.currenttreeview.actions("RIGHT", targetnode);
-        } else if (comStr.startsWith("NEWCHILD"))
-        {
-            this.popup = makePopup(this.activenode);
-            this.popup.show(this, 50, 50);
-        } else if (comStr.equalsIgnoreCase("NEWROLE") || comStr.equalsIgnoreCase("NEWEVENT")
-                || comStr.equalsIgnoreCase("NEWENTITY"))
-        {
-            String type = comStr.substring(3).toLowerCase();
-            if (type.equals(NodeType.EVENT.xmlName()))
-            {
-                if (app.addAction(name -> activenode.addChild(type, name)) == null) return;
-            } else
-            {
-                String name = app.askNodeName(type);
-                if (name == null) return;
-                activenode.addChild(type, name);
-            }
-            app.maketree();
-            app.refresh();
-        } else if (comStr.equalsIgnoreCase("INSERT ABOVE CHILDREN"))
-        {
-            String name = app.askNodeName("event");
-            if (name == null) return;
-            activenode.insertabovechildren(name);
-            app.maketree();
-            app.refresh();
+            child.moveleft();
         } else
         {
-            app.currenttreeview.actions(comStr, activenode);
+            child.moveright();
         }
+        changed();
     }
 
-    @Override
-    public void mouseReleased(MouseEvent mouseEvent)
+    private void duplicateChild()
     {
+        ElhNode child = selectedChild();
+        if (child == null) return;
+        this.activenode.duplicateChild(child);
+        changed();
     }
 
-    @Override
-    public void mouseEntered(MouseEvent mouseEvent)
+    private void deleteChild()
     {
-    }
-
-    @Override
-    public void mouseExited(MouseEvent mouseEvent)
-    {
-    }
-
-    @Override
-    public void mouseClicked(MouseEvent mouseEvent)
-    {
-    }
-
-    public void mousePressed(MouseEvent me)
-    {
-        if (me.isPopupTrigger())
+        ElhNode child = selectedChild();
+        if (child == null) return;
+        if (child.countChildren() > 0 && JOptionPane.showConfirmDialog(this, "Delete " + child.getName()
+                        + " and everything below it?", "Delete", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION)
         {
-            this.popup = makePopup(this.activenode);
-            this.popup.show((JComponent) me.getSource(), me.getX(), me.getY());
+            return;
         }
+        this.activenode.deleteChild(child);
+        lastselectedchild = null;
+        changed();
     }
 
-    JPopupMenu makePopup(ElhNode currentnode)
+    private void saveEdits()
     {
-        JPopupMenu popup = new JPopupMenu();
-        jswLabel ml = new jswLabel("Create new node");
-        popup.add(ml);
-        JMenuItem mi = new JMenuItem("Entity");
-        mi.addActionListener(this);
-        mi.setActionCommand("newentity");
-        popup.add(mi);
-        mi = new JMenuItem("Role");
-        mi.addActionListener(this);
-        mi.setActionCommand("newrole");
-        popup.add(mi);
-        mi = new JMenuItem("Action");
-        mi.addActionListener(this);
-        mi.setActionCommand("newevent");
-        popup.add(mi);
-        return popup;
+        ElhNode node = this.activenode;
+        node.applyEdits(this.namefield.getText().trim(),
+                NodeType.fromXml((String) this.typefield.getSelectedItem()),
+                ChildGrouping.fromXml((String) this.groupingfield.getSelectedItem()),
+                this.stylefield.getText().trim());
+        if (this.eventfield != null)
+        {
+            node.setEventref(this.eventfield.getSelectedItem() instanceof ProjectEvent event ? event.getId() : null);
+        }
+        if (this.conditionfield != null)
+        {
+            node.setCondition(this.conditionfield.getText());
+            node.setResult(this.resultfield.getText());
+        }
+        // only events stand for project events
+        if (!node.is(NodeType.EVENT))
+        {
+            node.setEventref(null);
+        }
+        this.app.maketree();
+        this.app.currenttreeview.setselections(node);
+        this.app.refresh();
+    }
+
+    private JPopupMenu makeNewChildMenu()
+    {
+        JPopupMenu menu = new JPopupMenu();
+        addNewChildItem(menu, "Entity", NodeType.ENTITY);
+        addNewChildItem(menu, "Role", NodeType.ROLE);
+        addNewChildItem(menu, "Action", NodeType.EVENT);
+        return menu;
+    }
+
+    private void addNewChildItem(JPopupMenu menu, String label, NodeType type)
+    {
+        JMenuItem item = new JMenuItem(label);
+        item.addActionListener(e -> newChild(type));
+        menu.add(item);
+    }
+
+    private void newChild(NodeType type)
+    {
+        ElhNode node = this.activenode;
+        if (type == NodeType.EVENT)
+        {
+            if (this.app.addAction(name -> node.addChild(type.xmlName(), name)) == null) return;
+        } else
+        {
+            String name = this.app.askNodeName(type.xmlName());
+            if (name == null) return;
+            node.addChild(type.xmlName(), name);
+        }
+        changed();
+    }
+
+    private void insertAbove()
+    {
+        String name = this.app.askNodeName("event");
+        if (name == null) return;
+        this.activenode.insertabovechildren(name);
+        changed();
     }
 }
