@@ -24,11 +24,11 @@ class ElhDiagramTest
         top.addChild(person);
         for (String name : new String[]{"a", "b", "c"})
         {
-            person.addChild(new ElhNode(NodeType.EVENT, name, person));
+            person.addChild(new ElhNode(NodeType.ACTION, name, person));
         }
         ElhNode b = person.findChildnode("b");
-        b.addChild(new ElhNode(NodeType.EVENT, "b1", b));
-        b.addChild(new ElhNode(NodeType.EVENT, "b2 with a much longer name", b));
+        b.addChild(new ElhNode(NodeType.ACTION, "b1", b));
+        b.addChild(new ElhNode(NodeType.ACTION, "b2 with a much longer name", b));
         return top;
     }
 
@@ -104,7 +104,7 @@ class ElhDiagramTest
         ElhNode node = top;
         for (int depth = 1; depth <= ElhDiagram.MAXDEPTH + 2; depth++)
         {
-            ElhNode child = new ElhNode(NodeType.EVENT, "level " + depth, node);
+            ElhNode child = new ElhNode(NodeType.ACTION, "level " + depth, node);
             node.addChild(child);
             node = child;
         }

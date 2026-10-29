@@ -14,7 +14,7 @@ import java.util.List;
 // The Events window: the events tree on the left, and on the right what is
 // selected there. An event happens in the world and triggers an action in
 // each of two or more entities; it has a Description. Its actions are not
-// stored with it but found in the entities' life histories: the leaf event
+// stored with it but found in the entities' life histories: the leaf action
 // nodes linked to it. Each action has its own Condition and Result (its
 // CORD Action); the event can happen when every Condition holds, and then
 // every Result happens. Actions not yet part of an event are listed at the
@@ -99,7 +99,7 @@ public class EventView extends JPanel
         JPanel panel = styled(new JPanel(new BorderLayout()));
         JTextArea help = new JTextArea("""
                 An event happens in the world and triggers an action in each of
-                two or more entities: the leaf event nodes of their life histories.
+                two or more entities: the leaf action nodes of their life histories.
 
                 Select an event to see and edit it. Actions not yet part of an
                 event are listed under "Not in an event yet"; select one or more

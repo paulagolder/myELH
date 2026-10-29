@@ -434,13 +434,13 @@ public final class Project
         return found;
     }
 
-    // ---- actions: the leaf event nodes of the life histories ----
+    // ---- actions: the leaf action nodes of the life histories ----
 
     // an action that is not part of any of the project's events, including
     // one still linked to an event since deleted
     public boolean isUnlinked(ElhNode node)
     {
-        return node.isLeafEvent() && (node.getEventref() == null || findEvent(node.getEventref()) == null);
+        return node.isLeafAction() && (node.getEventref() == null || findEvent(node.getEventref()) == null);
     }
 
     // every action of every entity, read without opening the entities

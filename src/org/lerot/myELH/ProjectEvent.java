@@ -2,7 +2,7 @@ package org.lerot.myELH;
 
 // An event in a project's catalogue: something that happens in the world
 // and triggers an action in each of two or more entities. Each action is a
-// leaf event node of an entity's life history that refers to the event by
+// leaf action node of an entity's life history that refers to the event by
 // id, in its own wording if need be (a Member "Borrows", a Book "Is
 // borrowed"). Its id and name are always in project.xml; its details are
 // kept either inline there or in its own versioned files

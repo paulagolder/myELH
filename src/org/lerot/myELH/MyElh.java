@@ -171,7 +171,7 @@ public class MyElh extends JFrame
         {
             // the active action, under its event or among those not yet in one
             if (previoustab == ENTITYTAB && this.activeentity != null && this.activenode != null
-                    && this.activenode.isLeafEvent())
+                    && this.activenode.isLeafAction())
             {
                 this.eventview.selectAction(new EntityAction(this.activeentity, this.activenode));
             } else
@@ -1008,7 +1008,7 @@ public class MyElh extends JFrame
         return done;
     }
 
-    // Asks for the name of a new action (a leaf event node) and adds it with
+    // Asks for the name of a new action (a leaf action node) and adds it with
     // adder. The project's events are offered for it to be part of; it need
     // not be part of one yet, and no event is made for it. The new node, or
     // null if the user cancels.

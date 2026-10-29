@@ -72,7 +72,7 @@ class ElhVersionsTest
         String before = elh.structure();
         elh.getChildren().getFirst().setName("Borrower");
         assertEquals(before, elh.structure());
-        elh.getChildren().getFirst().addChild("event");
+        elh.getChildren().getFirst().addChild("action");
         assertNotEquals(before, elh.structure());
     }
 }

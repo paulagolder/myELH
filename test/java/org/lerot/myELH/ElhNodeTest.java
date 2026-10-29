@@ -25,7 +25,7 @@ class ElhNodeTest
         top.addChild(person);
         for (String name : new String[]{"a", "b", "c"})
         {
-            person.addChild(new ElhNode(NodeType.EVENT, name, person));
+            person.addChild(new ElhNode(NodeType.ACTION, name, person));
         }
         return top;
     }
@@ -160,7 +160,7 @@ class ElhNodeTest
     {
         ElhNode top = makeTree();
         ElhNode b = top.findChildnode("Person").findChildnode("b");
-        b.addChild(new ElhNode(NodeType.EVENT, "b1", b));
+        b.addChild(new ElhNode(NodeType.ACTION, "b1", b));
         List<ElhNode> actions = new ArrayList<>();
         top.collectActions(actions);
         // a and c are leaves, b now groups b1; Person is an entity
@@ -173,9 +173,9 @@ class ElhNodeTest
         Project project = Project.create(tempdir.toFile(), "Library", "Paul");
         String borrow = project.addEvent("Borrow").getId();
         ElhNode member = new ElhNode(NodeType.ELH, "member", null);
-        member.addChild(NodeType.EVENT.xmlName(), "Borrows").setEventref(borrow);
+        member.addChild(NodeType.ACTION.xmlName(), "Borrows").setEventref(borrow);
         ElhNode book = new ElhNode(NodeType.ELH, "book", null);
-        book.addChild(NodeType.EVENT.xmlName(), "Is borrowed").setEventref(borrow);
+        book.addChild(NodeType.ACTION.xmlName(), "Is borrowed").setEventref(borrow);
         java.util.Map<String, java.util.List<String>> found = new java.util.HashMap<>();
         member.collectEventrefs(found);
         book.collectEventrefs(found);
@@ -218,6 +218,30 @@ class ElhNodeTest
         // grouping and style left as they were follow the new type
         assertEquals(ChildGrouping.ROLEGROUP, b.getChildgrouptype());
         assertEquals("rolegroup", b.getStylename());
+    }
+
+    @Test
+    void anActionsStyleFollowsANewTypeToo()
+    {
+        ElhNode b = makeTree().findChildnode("Person").findChildnode("b");
+        b.setStylename("action");
+        b.applyEdits("Membership", NodeType.ROLE, b.getChildgrouptype(), "action");
+        assertEquals("role", b.getStylename());
+    }
+
+    @Test
+    void anOldFilesEventNodesAreReadAsActionsAndSavedAsActions() throws IOException
+    {
+        Path file = tempdir.resolve("old.elh");
+        Files.writeString(file, """
+                <elh name="Library"><entity name="Person"><event name="Joins" /></entity></elh>
+                """);
+        ElhNode top = ElhFile.read(file);
+        ElhNode joins = top.findChildnode("Person").findChildnode("Joins");
+        assertEquals(NodeType.ACTION, joins.getNodeType());
+        assertTrue(joins.isLeafAction());
+        assertTrue(top.xmlout().contains("<action name=\"Joins\""));
+        assertFalse(top.xmlout().contains("<event"));
     }
 
     @Test
@@ -305,7 +329,7 @@ class ElhNodeTest
         person.insertabovechildren("Lifetime");
         assertEquals(1, person.countChildren());
         ElhNode newevent = person.getChildren().getFirst();
-        assertEquals(NodeType.EVENT, newevent.getNodeType());
+        assertEquals(NodeType.ACTION, newevent.getNodeType());
         assertEquals("Lifetime", newevent.getName());
         assertSame(person, newevent.getParent());
         assertEquals(3, newevent.countChildren());
@@ -316,7 +340,7 @@ class ElhNodeTest
     void duplicateAddsACopyOfTheChild()
     {
         ElhNode person = makeTree().findChildnode("Person");
-        person.findChildnode("b").addChild(new ElhNode(NodeType.EVENT, "b1", person.findChildnode("b")));
+        person.findChildnode("b").addChild(new ElhNode(NodeType.ACTION, "b1", person.findChildnode("b")));
         person.duplicate("b");
         assertEquals(4, person.countChildren());
         ElhNode copy = person.findChildnode("Copyof:b");
@@ -340,7 +364,7 @@ class ElhNodeTest
         ElhNode top = makeTree();
         ElhNode arole = new ElhNode(NodeType.ROLE, "r", top);
         arole.setStylename("special");
-        arole.addChild(new ElhNode(NodeType.EVENT, "e", arole));
+        arole.addChild(new ElhNode(NodeType.ACTION, "e", arole));
         ElhNode copy = arole.copy(top);
         assertEquals(NodeType.ROLE, copy.getNodeType());
         assertEquals("special", copy.getStylename());

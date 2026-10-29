@@ -13,7 +13,7 @@ import java.util.List;
 
 // The edit panel for the selected node of a life history, whatever its
 // type: its details above, its children in a table, and what can be done
-// below. An action (a leaf event node) also has the event it is part of and
+// below. An action (a leaf action node) also has the event it is part of and
 // its condition and result.
 public class EditView extends JPanel
 {
@@ -80,7 +80,7 @@ public class EditView extends JPanel
         heading.setOpaque(false);
         this.title.setText(anode.getName());
         this.title.setFont(this.title.getFont().deriveFont(Font.BOLD, this.title.getFont().getSize2D() * 1.3f));
-        String kind = anode.isLeafEvent() ? "action" : anode.getType();
+        String kind = anode.getType();
         ElhNode parent = anode.getParent();
         String where = parent == null ? "the top of its life history" : "in " + parent.getPath();
         this.subtitle.setText(kind + ", " + where);
@@ -117,7 +117,7 @@ public class EditView extends JPanel
         addRow(form, row++, "CHILD GROUPING:", this.groupingfield);
         this.stylefield.setText(anode.getStylename());
         addRow(form, row++, "STYLE:", this.stylefield);
-        if (anode.isLeafEvent())
+        if (anode.isLeafAction())
         {
             if (project != null)
             {
@@ -184,12 +184,12 @@ public class EditView extends JPanel
         for (ElhNode child : anode.getChildren())
         {
             String event = "";
-            if (child.isLeafEvent() && project != null)
+            if (child.isLeafAction() && project != null)
             {
                 ProjectEvent linked = child.getEventref() == null ? null : project.findEvent(child.getEventref());
                 event = linked == null ? TreeView.FLAG.strip() + " none yet" : linked.getName();
             }
-            this.childmodel.addRow(new Object[]{child.getName(), child.isLeafEvent() ? "action" : child.getType(),
+            this.childmodel.addRow(new Object[]{child.getName(), child.getType(),
                     child.getChildgrouptype().xmlName(), event});
         }
         this.childtable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -232,8 +232,8 @@ public class EditView extends JPanel
         JButton newchild = addButton(buttons, "New Child ▾", null);
         newchild.addActionListener(e -> makeNewChildMenu().show(newchild, 0, newchild.getHeight()));
         JButton insertabove = addButton(buttons, "Insert Above Children", this::insertAbove);
-        // a new event can only be put above the children of an event or entity
-        insertabove.setEnabled(anode.is(NodeType.EVENT) || anode.is(NodeType.ENTITY));
+        // a new action can only be put above the children of an action or entity
+        insertabove.setEnabled(anode.is(NodeType.ACTION) || anode.is(NodeType.ENTITY));
         JButton viewparent = addButton(buttons, "View Parent", () -> this.app.currenttreeview.actions("VIEW PARENT", anode));
         viewparent.setEnabled(anode.getParent() != null);
         return buttons;
@@ -335,8 +335,8 @@ public class EditView extends JPanel
             node.setCondition(this.conditionfield.getText());
             node.setResult(this.resultfield.getText());
         }
-        // only events stand for project events
-        if (!node.is(NodeType.EVENT))
+        // only actions can be part of an event
+        if (!node.is(NodeType.ACTION))
         {
             node.setEventref(null);
         }
@@ -350,7 +350,7 @@ public class EditView extends JPanel
         JPopupMenu menu = new JPopupMenu();
         addNewChildItem(menu, "Entity", NodeType.ENTITY);
         addNewChildItem(menu, "Role", NodeType.ROLE);
-        addNewChildItem(menu, "Action", NodeType.EVENT);
+        addNewChildItem(menu, "Action", NodeType.ACTION);
         return menu;
     }
 
@@ -364,7 +364,7 @@ public class EditView extends JPanel
     private void newChild(NodeType type)
     {
         ElhNode node = this.activenode;
-        if (type == NodeType.EVENT)
+        if (type == NodeType.ACTION)
         {
             if (this.app.addAction(name -> node.addChild(type.xmlName(), name)) == null) return;
         } else
@@ -378,7 +378,7 @@ public class EditView extends JPanel
 
     private void insertAbove()
     {
-        String name = this.app.askNodeName("event");
+        String name = this.app.askNodeName("action");
         if (name == null) return;
         this.activenode.insertabovechildren(name);
         changed();

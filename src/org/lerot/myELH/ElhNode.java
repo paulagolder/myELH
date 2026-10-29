@@ -19,9 +19,9 @@ public final class ElhNode
     private String name;
     private ElhNode parent;
     private String stylename;
-    // the id of the project event a leaf event stands for, or null
+    // the id of the project event a leaf action is part of, or null
     private String eventref;
-    // for a leaf event, the object's own part in the event (its CORD Action):
+    // for a leaf action, the object's own part in the event (its CORD Action):
     // what must be true of it beforehand, and what the event does to it
     private String condition = "";
     private String result = "";
@@ -78,7 +78,7 @@ public final class ElhNode
             {
                 grouping = newtype.defaultgrouping;
             }
-            if (astylename.equals(this.stylename) && this.type.xmlName().equals(this.stylename))
+            if (astylename.equals(this.stylename) && this.type.isDefaultStyle(this.stylename))
             {
                 astylename = newtype.xmlName();
             }
@@ -95,12 +95,12 @@ public final class ElhNode
         return makeNode(typename, "new " + typename, parent);
     }
 
-    // puts a new event between this node and its children
+    // puts a new action node between this node and its children
     public void insertabovechildren(String aname)
     {
-        ElhNode newevent = new ElhNode(NodeType.EVENT, aname, this);
-        newevent.moveChildrenFrom(this);
-        addChild(newevent);
+        ElhNode newaction = new ElhNode(NodeType.ACTION, aname, this);
+        newaction.moveChildrenFrom(this);
+        addChild(newaction);
     }
 
     public String toLongString()
@@ -222,20 +222,21 @@ public final class ElhNode
         this.children.add(e);
     }
 
-    // the new event, or null if this node is the top and so has no siblings
+    // the new action, or null if this node is the top and so has no siblings
     public ElhNode addSibling(String aname)
     {
         ElhNode parent = getParent();
         if (parent == null) return null;
-        ElhNode sibling = new ElhNode(NodeType.EVENT, aname, parent);
+        ElhNode sibling = new ElhNode(NodeType.ACTION, aname, parent);
         parent.addChild(sibling);
         return sibling;
     }
 
-    // a leaf event is an action; event nodes with children only group them
-    public boolean isLeafEvent()
+    // a leaf action node is an action, an entity's part in an event; action
+    // nodes with children only group the actions below them
+    public boolean isLeafAction()
     {
-        return is(NodeType.EVENT) && this.children.isEmpty();
+        return is(NodeType.ACTION) && this.children.isEmpty();
     }
 
     public String getCondition()
@@ -321,7 +322,7 @@ public final class ElhNode
     // every action in this tree, in order
     public void collectActions(List<ElhNode> found)
     {
-        if (isLeafEvent())
+        if (isLeafAction())
         {
             found.add(this);
         }
@@ -447,7 +448,7 @@ public final class ElhNode
     // only the children of events, entities and elhs can be duplicated
     public boolean canDuplicateChildren()
     {
-        return is(NodeType.EVENT) || is(NodeType.ENTITY) || is(NodeType.ELH);
+        return is(NodeType.ACTION) || is(NodeType.ENTITY) || is(NodeType.ELH);
     }
 
     // adds a copy of the child, and everything below it, as a further child

@@ -40,7 +40,7 @@ class ProjectEntitiesTest
     {
         Project project = newProject();
         ProjectEntity person = project.addEntity("Person");
-        person.getTop().addChild("event", "Joins");
+        person.getTop().addChild("action", "Joins");
         project.saveEntity(person);
         String xml = Files.readString(folder(project).resolve(Project.PROJECTFILE));
         assertTrue(xml.contains("<entity name=\"Person\" />"), "listed without a file");
@@ -57,7 +57,7 @@ class ProjectEntitiesTest
     {
         Project project = newProject();
         ProjectEntity person = project.addEntity("Person");
-        person.getTop().addChild("event", "Joins");
+        person.getTop().addChild("action", "Joins");
         project.addEvent("Borrow");
         project.save();
         assertEquals(0, reload(project).loadEntity(reload(project).findEntity("Person")).countChildren());
@@ -68,7 +68,7 @@ class ProjectEntitiesTest
     {
         Project project = newProject();
         ProjectEntity person = project.addEntity("Person");
-        person.getTop().addChild("event", "Joins");
+        person.getTop().addChild("action", "Joins");
         File file = project.moveEntityToFile(person);
         assertEquals("Person_v1.elh", file.getName());
         Element root = MyelhFile.readRoot(file.toPath());
@@ -90,7 +90,7 @@ class ProjectEntitiesTest
         project.moveEntityToFile(person);
         person.getTop().setName("Human");
         assertEquals("Person_v1.elh", project.saveEntity(person).getName(), "a rename overwrites");
-        person.getTop().addChild("event", "Joins");
+        person.getTop().addChild("action", "Joins");
         assertEquals("Person_v2.elh", project.saveEntity(person).getName(), "a new node makes a new version");
         assertEquals("Person_v3.elh", project.saveEntityAsNewVersion(person).getName());
         assertEquals("Human", reload(project).getEntities().getFirst().getName());
@@ -188,13 +188,13 @@ class ProjectEntitiesTest
         ProjectEvent borrow = project.addEvent("Borrow");
         ProjectEvent lost = project.addEvent("Lost");
         ProjectEntity member = project.addEntity("Member");
-        member.getTop().addChild("event", "Borrows").setEventref(borrow.getId());
-        member.getTop().addChild("event", "Joins");
+        member.getTop().addChild("action", "Borrows").setEventref(borrow.getId());
+        member.getTop().addChild("action", "Joins");
         project.saveEntity(member);
         ProjectEntity book = project.addEntity("Book");
-        book.getTop().addChild("event", "Is borrowed").setEventref(borrow.getId());
+        book.getTop().addChild("action", "Is borrowed").setEventref(borrow.getId());
         // linked to an event that is then deleted
-        book.getTop().addChild("event", "Goes missing").setEventref(lost.getId());
+        book.getTop().addChild("action", "Goes missing").setEventref(lost.getId());
         project.saveEntity(book);
         project.removeEvent(lost);
         project.save();
@@ -216,7 +216,7 @@ class ProjectEntitiesTest
         Project project = newProject();
         ProjectEvent joins = project.addEvent("Joins");
         ProjectEntity member = project.addEntity("Member");
-        member.getTop().addChild("event", "Joins").setEventref(joins.getId());
+        member.getTop().addChild("action", "Joins").setEventref(joins.getId());
         project.saveEntity(member);
         assertTrue(project.isLonely(joins, project.allActions()));
         assertTrue(project.isLonely(project.addEvent("Unused"), project.allActions()));
