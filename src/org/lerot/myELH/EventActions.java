@@ -52,7 +52,7 @@ final class EventActions
         return event;
     }
 
-    // only the catalogue name changes; each ELH keeps its own wording
+    // only the event's name changes; each action keeps its own wording
     static boolean renameEvent(Component parent, Project project, ProjectEvent event)
     {
         String name = askEventName(parent, project, "New name for " + event.getName() + ":", event.getName(), event);
@@ -65,31 +65,32 @@ final class EventActions
         return true;
     }
 
-    static boolean editAction(Component parent, Project project, ProjectEvent event)
+    static boolean editDescription(Component parent, Project project, ProjectEvent event)
     {
         if (!loadEvent(parent, project, event))
         {
             return false;
         }
-        JTextArea text = new JTextArea(event.getAction(), 6, 40);
+        JTextArea text = new JTextArea(event.getDescription(), 6, 40);
         text.setLineWrap(true);
         text.setWrapStyleWord(true);
-        if (JOptionPane.showConfirmDialog(parent, new JScrollPane(text), "Action of " + event.getName(),
+        if (JOptionPane.showConfirmDialog(parent, new JScrollPane(text), "Description of " + event.getName(),
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION)
         {
             return false;
         }
-        event.setAction(text.getText().trim());
+        event.setDescription(text.getText().trim());
         saveEvent(parent, project, event);
         return true;
     }
 
-    // ELH nodes linked to a deleted event keep its id, which then links to nothing
+    // actions linked to a deleted event keep its id, which then links to
+    // nothing: they are flagged as not in an event
     static boolean deleteEvent(Component parent, Project project, ProjectEvent event, int usedin)
     {
         String message = "Delete event " + event.getName() + "?"
-                + (usedin == 0 ? "" : "\nIt is used in " + usedin + (usedin == 1 ? " entity" : " entities")
-                + "; their nodes will no longer be linked to a project event.");
+                + (usedin == 0 ? "" : "\nIt triggers actions in " + usedin + (usedin == 1 ? " entity" : " entities")
+                + "; they will be flagged as not in an event.");
         if (JOptionPane.showConfirmDialog(parent, message, "Delete event", JOptionPane.OK_CANCEL_OPTION,
                 JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION)
         {

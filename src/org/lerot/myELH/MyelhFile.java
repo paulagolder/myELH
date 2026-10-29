@@ -85,11 +85,20 @@ public final class MyelhFile
     }
 
     // an <event> directly inside a wrapper is an event's details, not a life
-    // history: it has an id, and no child nodes other than its action
+    // history: it has an id, and no child nodes other than its description
+    // (called its action in files saved before actions were the entities' part)
     static boolean isEventDetails(Element element)
     {
         return element.getName().equals(EVENT) && element.getAttribute("id") != null
-                && element.getChildren().stream().allMatch(c -> c.getName().equals("action"));
+                && element.getChildren().stream().allMatch(c -> c.getName().equals("description")
+                || c.getName().equals("action"));
+    }
+
+    // an event's description from its details, in either form
+    static String eventDescription(Element details)
+    {
+        String text = details.getChildTextTrim("description");
+        return text != null ? text : details.getChildTextTrim("action");
     }
 
     // the life history element with this name, or the only one if none has it
@@ -141,15 +150,15 @@ public final class MyelhFile
         return entityFromElement(element);
     }
 
-    // an event's details: <event id="e2" name="Borrow"><action>...</action></event>
+    // an event's details: <event id="e2" name="Borrow"><description>...</description></event>
     public static Element eventElement(ProjectEvent event)
     {
         Element element = new Element(EVENT);
         element.setAttribute("id", event.getId());
         element.setAttribute("name", event.getName());
-        if (!event.getAction().isEmpty())
+        if (!event.getDescription().isEmpty())
         {
-            element.addContent(new Element("action").setText(event.getAction()));
+            element.addContent(new Element("description").setText(event.getDescription()));
         }
         return element;
     }

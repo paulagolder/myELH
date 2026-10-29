@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import org.jdom2.Element;
 
@@ -130,7 +131,7 @@ class ProjectEntitiesTest
     {
         Project project = newProject();
         ProjectEvent borrow = project.addEvent("Borrow");
-        borrow.setAction("A member takes a book away");
+        borrow.setDescription("A member takes a book away");
         project.save();
         File file = project.moveEventToFile(borrow);
         assertEquals("Borrow_v1.event", file.getName());
@@ -138,26 +139,87 @@ class ProjectEntitiesTest
         Project loaded = reload(project);
         ProjectEvent again = loaded.findEvent(borrow.getId());
         assertFalse(again.isLoaded());
-        assertEquals("", again.getAction(), "not read yet");
+        assertEquals("", again.getDescription(), "not read yet");
         loaded.loadEvent(again);
-        assertEquals("A member takes a book away", again.getAction());
-        again.setAction("Takes a book home");
+        assertEquals("A member takes a book away", again.getDescription());
+        again.setDescription("Takes a book home");
         loaded.saveEvent(again);
         Project third = reload(project);
         ProjectEvent third_borrow = third.findEvent(borrow.getId());
         third.loadEvent(third_borrow);
-        assertEquals("Takes a book home", third_borrow.getAction());
+        assertEquals("Takes a book home", third_borrow.getDescription());
     }
 
     @Test
     void inlineEventDetailsAreKeptInTheMyelhSection() throws IOException
     {
         Project project = newProject();
-        project.addEvent("Borrow").setAction("takes a book");
+        project.addEvent("Borrow").setDescription("takes a book");
         project.save();
         String xml = Files.readString(folder(project).resolve(Project.PROJECTFILE));
-        assertTrue(xml.contains("<myelh>") && xml.contains("<action>takes a book</action>"));
-        assertEquals("takes a book", reload(project).findEventByName("Borrow").getAction());
+        assertTrue(xml.contains("<myelh>") && xml.contains("<description>takes a book</description>"));
+        assertEquals("takes a book", reload(project).findEventByName("Borrow").getDescription());
+    }
+
+    @Test
+    void anEventDescriptionSavedAsAnActionIsStillRead() throws IOException
+    {
+        Path folder = elhfolder.resolve("Mid");
+        Files.createDirectories(folder);
+        Files.writeString(folder.resolve(Project.PROJECTFILE), """
+                <project><name>Mid</name><author>Paul</author><entities />
+                <events nextid="3"><event id="e1" name="Borrow" /><event id="e2" name="Return" file="Return" /></events>
+                <myelh><event id="e1" name="Borrow"><action>takes a book</action></event></myelh>
+                </project>
+                """);
+        Files.writeString(folder.resolve("Return_v1.event"),
+                "<myelh><event id=\"e2\" name=\"Return\"><action>brings it back</action></event></myelh>");
+        Project project = Project.load(folder.toFile());
+        assertEquals("takes a book", project.findEvent("e1").getDescription());
+        ProjectEvent returned = project.findEvent("e2");
+        project.loadEvent(returned);
+        assertEquals("brings it back", returned.getDescription());
+    }
+
+    @Test
+    void actionsAreFoundInEveryEntityAndFlaggedUntilPartOfAnEvent() throws IOException
+    {
+        Project project = newProject();
+        ProjectEvent borrow = project.addEvent("Borrow");
+        ProjectEvent lost = project.addEvent("Lost");
+        ProjectEntity member = project.addEntity("Member");
+        member.getTop().addChild("event", "Borrows").setEventref(borrow.getId());
+        member.getTop().addChild("event", "Joins");
+        project.saveEntity(member);
+        ProjectEntity book = project.addEntity("Book");
+        book.getTop().addChild("event", "Is borrowed").setEventref(borrow.getId());
+        // linked to an event that is then deleted
+        book.getTop().addChild("event", "Goes missing").setEventref(lost.getId());
+        project.saveEntity(book);
+        project.removeEvent(lost);
+        project.save();
+        Project loaded = reload(project);
+        List<EntityAction> all = loaded.allActions();
+        assertEquals(4, all.size());
+        assertTrue(loaded.getEntities().stream().noneMatch(ProjectEntity::isLoaded), "read without opening");
+        ProjectEvent again = loaded.findEvent(borrow.getId());
+        assertEquals(List.of("Member: Borrows", "Book: Is borrowed"),
+                loaded.actionsOf(again, all).stream().map(EntityAction::toString).toList());
+        assertFalse(loaded.isLonely(again, all), "Borrow triggers two actions");
+        assertEquals(List.of("Member: Joins", "Book: Goes missing"),
+                loaded.unlinkedActions(all).stream().map(EntityAction::toString).toList());
+    }
+
+    @Test
+    void anEventWithFewerThanTwoActionsIsLonely() throws IOException
+    {
+        Project project = newProject();
+        ProjectEvent joins = project.addEvent("Joins");
+        ProjectEntity member = project.addEntity("Member");
+        member.getTop().addChild("event", "Joins").setEventref(joins.getId());
+        project.saveEntity(member);
+        assertTrue(project.isLonely(joins, project.allActions()));
+        assertTrue(project.isLonely(project.addEvent("Unused"), project.allActions()));
     }
 
     // an old project: a project.xml with no entity list, and ELH files
@@ -200,7 +262,7 @@ class ProjectEntitiesTest
         assertEquals(oldv2, Files.readString(folder.resolve("library_v2.elh")), "old files are left alone");
         assertTrue(Files.exists(folder.resolve("project.xml.bak")));
         assertNotNull(project.findEntity("empty"), "an empty ELH becomes an empty entity of its name");
-        assertEquals("signs up", project.findEvent("e1").getAction(), "events are kept");
+        assertEquals("signs up", project.findEvent("e1").getDescription(), "events are kept");
     }
 
     @Test

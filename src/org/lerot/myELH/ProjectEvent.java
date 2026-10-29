@@ -1,32 +1,34 @@
 package org.lerot.myELH;
 
-// An event in a project's catalogue. Several entities can share it: their
-// leaf event nodes refer to it by id, each in its own wording if need be (a
-// Member "Borrows", a Book "Is borrowed"). Its id and name are always in
-// project.xml; its details are kept either inline there or in its own
-// versioned files (<file>_v<N>.event), read only when first needed.
+// An event in a project's catalogue: something that happens in the world
+// and triggers an action in each of two or more entities. Each action is a
+// leaf event node of an entity's life history that refers to the event by
+// id, in its own wording if need be (a Member "Borrows", a Book "Is
+// borrowed"). Its id and name are always in project.xml; its details are
+// kept either inline there or in its own versioned files
+// (<file>_v<N>.event), read only when first needed.
 public final class ProjectEvent
 {
     private final String id;
     private String name;
     // what happens in the world when the event occurs
-    private String action;
+    private String description;
     // the base name of its files, or null if it is kept inline
     private String file;
     // false while its details are still in its file, unread
     private boolean loaded;
 
-    ProjectEvent(String id, String name, String action)
+    ProjectEvent(String id, String name, String description)
     {
-        this(id, name, action, null);
+        this(id, name, description, null);
     }
 
     // an event kept in its own file is not loaded until its details are read
-    ProjectEvent(String id, String name, String action, String file)
+    ProjectEvent(String id, String name, String description, String file)
     {
         this.id = id;
         this.name = name;
-        this.action = action == null ? "" : action;
+        this.description = description == null ? "" : description;
         this.file = file;
         this.loaded = file == null;
     }
@@ -46,15 +48,15 @@ public final class ProjectEvent
         this.name = name;
     }
 
-    // its action; empty until its details are loaded (Project.loadEvent)
-    public String getAction()
+    // its description; empty until its details are loaded (Project.loadEvent)
+    public String getDescription()
     {
-        return this.action;
+        return this.description;
     }
 
-    void setAction(String action)
+    void setDescription(String description)
     {
-        this.action = action == null ? "" : action;
+        this.description = description == null ? "" : description;
     }
 
     public String getFile()

@@ -6,6 +6,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -154,20 +156,15 @@ class ElhNodeTest
     }
 
     @Test
-    void collectingEventsLinksOnlyLeafEvents() throws IOException
+    void onlyLeafEventsAreActions()
     {
-        Project project = Project.create(tempdir.toFile(), "Library", "Paul");
         ElhNode top = makeTree();
         ElhNode b = top.findChildnode("Person").findChildnode("b");
         b.addChild(new ElhNode(NodeType.EVENT, "b1", b));
-        assertTrue(top.linkLeafEvents(project));
+        List<ElhNode> actions = new ArrayList<>();
+        top.collectActions(actions);
         // a and c are leaves, b now groups b1; Person is an entity
-        assertEquals(3, project.getEvents().size());
-        assertNull(b.getEventref());
-        assertNull(top.findChildnode("Person").getEventref());
-        assertEquals(project.findEventByName("b1").getId(), b.findChildnode("b1").getEventref());
-        // a second collect has nothing left to link
-        assertFalse(top.linkLeafEvents(project));
+        assertEquals(List.of("a", "b1", "c"), actions.stream().map(ElhNode::getName).toList());
     }
 
     @Test

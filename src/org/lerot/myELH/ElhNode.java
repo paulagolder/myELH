@@ -312,21 +312,17 @@ public final class ElhNode
         return anode;
     }
 
-    // links each unlinked leaf event to the project event of the same name,
-    // adding events to the project as needed; true if any node was linked
-    public boolean linkLeafEvents(Project project)
+    // every action in this tree, in order
+    public void collectActions(List<ElhNode> found)
     {
-        boolean linked = false;
-        if (isLeafEvent() && this.eventref == null)
+        if (isLeafEvent())
         {
-            this.eventref = project.addEvent(this.name).getId();
-            linked = true;
+            found.add(this);
         }
         for (ElhNode achild : this.children)
         {
-            linked |= achild.linkLeafEvents(project);
+            achild.collectActions(found);
         }
-        return linked;
     }
 
     // this node and everything below it, as saved in an .elh file

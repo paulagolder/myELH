@@ -20,6 +20,8 @@ public class DiagramPanel extends JComponent
     private static final int SELECTEDWIDTH = 4;
     private ElhDiagram diagram;
     private ElhNode selected;
+    // which boxes carry a flag: actions not yet part of an event
+    private java.util.function.Predicate<ElhNode> flagged = n -> false;
     private double zoom = 1.0;
 
     public DiagramPanel(Consumer<ElhNode> onselect, Consumer<ElhNode> onopen)
@@ -71,8 +73,15 @@ public class DiagramPanel extends JComponent
     // shows a new diagram (or nothing, if null), outlining the selected node's box
     public void setDiagram(ElhDiagram diagram, ElhNode selected)
     {
+        setDiagram(diagram, selected, n -> false);
+    }
+
+    // as above, flagging the boxes of the nodes flagged picks out
+    public void setDiagram(ElhDiagram diagram, ElhNode selected, java.util.function.Predicate<ElhNode> flagged)
+    {
         this.diagram = diagram;
         this.selected = selected;
+        this.flagged = flagged;
         revalidate();
         repaint();
     }
@@ -108,6 +117,28 @@ public class DiagramPanel extends JComponent
                 (int) Math.ceil((diagram.getHeight() + 2) * zoom));
     }
 
+    // a dashed orange outline and a small flag on each flagged box; on
+    // screen only, as a reminder, so not in an exported SVG
+    private void drawFlags(Graphics2D g2d, ElhDrawNode box)
+    {
+        if (this.flagged.test(box.source))
+        {
+            g2d.setColor(TreeView.FLAGGED);
+            g2d.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10, new float[]{5, 3}, 0));
+            g2d.drawRect((int) Math.round(box.bounds.x) - 3, (int) Math.round(box.bounds.y) - 3,
+                    (int) Math.round(box.bounds.width) + 6, (int) Math.round(box.bounds.height) + 6);
+            int x = (int) Math.round(box.bounds.x + box.bounds.width) + 2;
+            int y = (int) Math.round(box.bounds.y) - 10;
+            g2d.setStroke(new BasicStroke(1.5f));
+            g2d.drawLine(x, y, x, y + 14);
+            g2d.fillPolygon(new int[]{x, x + 9, x}, new int[]{y, y + 3, y + 7}, 3);
+        }
+        for (ElhDrawNode child : box.getChildren())
+        {
+            drawFlags(g2d, child);
+        }
+    }
+
     protected void paintComponent(Graphics g)
     {
         g.setColor(getBackground());
@@ -120,6 +151,7 @@ public class DiagramPanel extends JComponent
             g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             g2d.scale(zoom, zoom);
             diagram.draw(g2d);
+            drawFlags(g2d, diagram.top);
             ElhDrawNode selectedbox = selected == null ? null : diagram.findNode(selected);
             if (selectedbox != null)
             {

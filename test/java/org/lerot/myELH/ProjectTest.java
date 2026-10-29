@@ -30,13 +30,13 @@ class ProjectTest
     {
         Project project = Project.create(elhfolder.toFile(), "Library", "Paul");
         ProjectEvent borrow = project.addEvent("Borrow");
-        borrow.setAction("A member takes a book away");
+        borrow.setDescription("A member takes a book away");
         project.addEvent("Return");
         project.save();
         Project loaded = Project.load(elhfolder.resolve("Library").toFile());
         assertEquals(2, loaded.getEvents().size());
         assertEquals("Borrow", loaded.findEvent(borrow.getId()).getName());
-        assertEquals("A member takes a book away", loaded.findEventByName("borrow").getAction());
+        assertEquals("A member takes a book away", loaded.findEventByName("borrow").getDescription());
     }
 
     @Test
@@ -49,7 +49,7 @@ class ProjectTest
                 <events nextid="2"><event id="e1" name="Borrow"><description>takes a book</description></event></events>
                 </project>
                 """);
-        assertEquals("takes a book", Project.load(folder.toFile()).findEvent("e1").getAction());
+        assertEquals("takes a book", Project.load(folder.toFile()).findEvent("e1").getDescription());
     }
 
     @Test

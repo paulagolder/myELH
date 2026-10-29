@@ -54,8 +54,6 @@ public class MyElh extends JFrame
     ProjectEntity activeentity;
     // the selected node of that life history, or null
     public ElhNode activenode;
-    // the event selected in the project tree, or null
-    private ProjectEvent activeevent;
     TreeView currenttreeview;
     jswVerticalPanel editpanel;
     // the two dimensions of the model, entities and events, each with its own
@@ -104,7 +102,18 @@ public class MyElh extends JFrame
         statusbar.add(this.activepath);
         statusbar.setBackground(Color.decode(jswTheme.NAVAREA));
         add(statusbar);
-        this.currenttreeview = new TreeView(this);
+        this.currenttreeview = new TreeView(this, TreeView.Mode.ENTITIES, new TreeView.Listener()
+        {
+            public void selected(Object shown)
+            {
+                entityTreeSelected(shown);
+            }
+
+            public void popup(Object shown, JPopupMenu menu)
+            {
+                entityTreePopup(shown, menu);
+            }
+        });
         this.editpanel = new jswVerticalPanel("editpanel", false, false);
         this.editpanel.setBorder(jswStyle.makeLineBorder());
         this.editpanel.setLayout(new BorderLayout());
@@ -146,12 +155,11 @@ public class MyElh extends JFrame
             this.projectview.show(this.currentproject);
         } else if (this.currenttab == EVENTTAB)
         {
-            if (previoustab == ENTITYTAB && this.activeevent != null)
+            // the active action, under its event or among those not yet in one
+            if (previoustab == ENTITYTAB && this.activeentity != null && this.activenode != null
+                    && this.activenode.isLeafEvent())
             {
-                this.eventview.selectEvent(this.activeevent);
-            } else if (previoustab == ENTITYTAB)
-            {
-                this.eventview.focusOn(this.activenode);
+                this.eventview.selectAction(new EntityAction(this.activeentity, this.activenode));
             } else
             {
                 this.eventview.refresh();
@@ -197,9 +205,9 @@ public class MyElh extends JFrame
 
     private void showStatus()
     {
-        if (this.currenttab == EVENTTAB || this.currenttab == ENTITYTAB && this.activeevent != null)
+        if (this.currenttab == EVENTTAB)
         {
-            ProjectEvent event = this.currenttab == EVENTTAB ? this.eventview.selectedEvent() : this.activeevent;
+            ProjectEvent event = this.eventview.selectedEvent();
             this.activelabel.setText("ACTIVE EVENT:");
             this.activepath.setText(event == null ? "" : event.getName());
             this.sourcefile.setText(event == null ? "" : keptIn(event));
@@ -280,7 +288,6 @@ public class MyElh extends JFrame
     {
         this.activeentity = entity;
         this.activenode = node;
-        this.activeevent = null;
         maketree();
         this.currenttreeview.expand(entity);
         refresh();
@@ -321,15 +328,13 @@ public class MyElh extends JFrame
         {
             JMenu jmEvent = new JMenu("Event");
             addMenuItem(jmEvent, "New Event", this.eventview::newEvent);
+            addMenuItem(jmEvent, "New Event from Selected Actions", this.eventview::newEventFromSelected);
             addMenuItem(jmEvent, "Delete Event", this.eventview::deleteEvent);
             addMenuItem(jmEvent, "Move to Own File / into project.xml", () ->
             {
                 ProjectEvent event = this.eventview.selectedEvent();
                 if (event != null) moveEvent(event);
             });
-            jmEvent.addSeparator();
-            addMenuItem(jmEvent, "Show All Events", this.eventview::showAll);
-            addMenuItem(jmEvent, "Collect Events from Entities", this::collectEvents);
             jmb.add(jmEvent);
             // to be filled once the events screen has a diagram
             jmb.add(new JMenu("View"));
@@ -528,7 +533,6 @@ public class MyElh extends JFrame
         this.currentproject = project;
         this.activeentity = null;
         this.activenode = null;
-        this.activeevent = null;
         this.projectname.setText(project == null ? "" : project.getName());
         if (project == null)
         {
@@ -539,6 +543,7 @@ public class MyElh extends JFrame
         }
         enableProjectTabs();
         maketree();
+        this.eventview.refresh();
         refresh();
         if (project == null)
         {
@@ -648,7 +653,6 @@ public class MyElh extends JFrame
         }
         this.activeentity = entity;
         this.activenode = entity.getTop();
-        this.activeevent = null;
         if (newlyloaded)
         {
             maketree();
@@ -669,36 +673,65 @@ public class MyElh extends JFrame
     {
         this.activeentity = entity;
         this.activenode = node;
-        this.activeevent = null;
         updateview();
     }
 
-    // an event selected: its details are read now if they have not been
-    void eventSelectedInTree(ProjectEvent event)
-    {
-        if (!EventActions.loadEvent(this, this.currentproject, event))
-        {
-            return;
-        }
-        this.activeevent = event;
-        this.activenode = null;
-        showEdit();
-        updateview();
-    }
 
     // the project or a heading selected
     void nothingSelected()
     {
         this.activenode = null;
-        this.activeevent = null;
         updateview();
+    }
+
+    private void entityTreeSelected(Object shown)
+    {
+        switch (shown)
+        {
+            case ProjectEntity entity -> entitySelected(entity);
+            case ElhNode node -> nodeSelected(node, this.currenttreeview.ownerOf(node));
+            case null, default -> nothingSelected();
+        }
+    }
+
+    private void entityTreePopup(Object shown, JPopupMenu menu)
+    {
+        switch (shown)
+        {
+            case ProjectEntity entity ->
+            {
+                TreeView.addItem(menu, "Save Entity", e -> saveEntity(entity));
+                TreeView.addItem(menu, entity.isInline() ? "Move to Own File" : "Move into project.xml",
+                        e -> moveEntity(entity));
+                TreeView.addItem(menu, "Remove from Project", e -> removeEntity(entity));
+            }
+            case TreeView.Heading heading ->
+            {
+                TreeView.addItem(menu, "New Entity", e -> newEntity());
+                TreeView.addItem(menu, "Import Entity...", e -> importEntity());
+            }
+            default ->
+            {
+            }
+        }
     }
 
     void showEventInTab(ProjectEvent event)
     {
-        this.activeevent = event;
         this.tabs.setSelectedIndex(EVENTTAB);
         this.eventview.selectEvent(event);
+    }
+
+    // after events are added, changed or removed, or actions linked to them
+    void eventsChanged()
+    {
+        maketree();
+        refresh();
+        if (this.currentproject != null)
+        {
+            this.projectview.show(this.currentproject);
+        }
+        this.eventview.refresh();
     }
 
     // ---- entities ----
@@ -806,7 +839,6 @@ public class MyElh extends JFrame
         this.tabs.setSelectedIndex(ENTITYTAB);
         this.activeentity = entity;
         this.activenode = entity.getTop();
-        this.activeevent = null;
         maketree();
         this.currenttreeview.expand(entity);
         refresh();
@@ -975,14 +1007,8 @@ public class MyElh extends JFrame
     void newEvent()
     {
         if (!requireProject()) return;
-        ProjectEvent event = EventActions.addEvent(this, this.currentproject);
-        if (event != null)
-        {
-            maketree();
-            this.currenttreeview.select(event);
-            eventSelectedInTree(event);
-            this.eventview.refresh();
-        }
+        this.tabs.setSelectedIndex(EVENTTAB);
+        this.eventview.newEvent();
     }
 
     // between its own file and project.xml
@@ -990,88 +1016,68 @@ public class MyElh extends JFrame
     {
         if (this.currentproject != null && EventActions.moveEvent(this, this.currentproject, event))
         {
-            maketree();
-            refresh();
-            this.projectview.show(this.currentproject);
-            this.eventview.refresh();
+            eventsChanged();
         }
     }
 
-    // links every unlinked leaf event in every entity to the project event
-    // of the same name, adding events to the project as needed. The entities
-    // changed are saved.
-    void collectEvents()
+    // Makes each action part of the event, or of none if event is null.
+    // The entities are opened if need be, and saved. False if one could not
+    // be read or saved.
+    boolean linkActions(List<EntityAction> actions, ProjectEvent event)
     {
-        if (!requireProject()) return;
-        if (JOptionPane.showConfirmDialog(this,
-                "Link the unlinked events of every entity to project events\n"
-                        + "of the same name, adding events to the project as needed?\n"
-                        + "The entities changed are saved.",
-                "Collect events", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION)
+        java.util.Set<ProjectEntity> changed = new java.util.LinkedHashSet<>();
+        boolean done = true;
+        for (EntityAction action : actions)
         {
-            return;
+            ElhNode opened = openAt(action.entity(), action.node());
+            if (opened == null)
+            {
+                done = false;
+                continue;
+            }
+            opened.setEventref(event == null ? null : event.getId());
+            changed.add(action.entity());
         }
-        for (ProjectEntity entity : this.currentproject.getEntities())
+        for (ProjectEntity entity : changed)
         {
-            boolean wasloaded = entity.isLoaded();
-            try
-            {
-                if (this.currentproject.loadEntity(entity).linkLeafEvents(this.currentproject))
-                {
-                    saveEntity(entity);
-                }
-            } catch (IOException e)
-            {
-                JOptionPane.showMessageDialog(this, "Could not read entity " + entity.getName() + "\n"
-                        + e.getMessage(), "Collect events", JOptionPane.ERROR_MESSAGE);
-            }
-            // one that was not open before is closed again
-            if (!wasloaded && !entity.isModified())
-            {
-                entity.unload();
-            }
+            done &= saveEntity(entity);
         }
-        EventActions.save(this, this.currentproject);
-        afterEntityChange();
-        this.eventview.refresh();
+        eventsChanged();
+        return done;
     }
 
-    // asks for a new leaf event and adds it with adder, linked to its project
-    // event. With a project open the project's events are offered, and a new
-    // name is added to them. The new node, or null if the user cancels.
-    public ElhNode addLeafEvent(java.util.function.Function<String, ElhNode> adder)
+    // Asks for the name of a new action (a leaf event node) and adds it with
+    // adder. The project's events are offered for it to be part of; it need
+    // not be part of one yet, and no event is made for it. The new node, or
+    // null if the user cancels.
+    public ElhNode addAction(java.util.function.Function<String, ElhNode> adder)
     {
-        if (this.currentproject == null)
+        JTextField namefield = new JTextField(20);
+        JComboBox<Object> eventchoice = new JComboBox<>();
+        eventchoice.addItem(NOTYET);
+        if (this.currentproject != null)
         {
-            String name = askNodeName("event");
-            return name == null ? null : adder.apply(name);
+            this.currentproject.getEvents().forEach(eventchoice::addItem);
         }
-        JComboBox<String> choice = new JComboBox<>(this.currentproject.getEvents().stream()
-                .map(ProjectEvent::getName).toArray(String[]::new));
-        choice.setEditable(true);
-        choice.setSelectedItem("");
-        JPanel form = new JPanel(new BorderLayout(4, 4));
-        form.add(new JLabel("Choose a project event, or type a new one:"), BorderLayout.NORTH);
-        form.add(choice, BorderLayout.CENTER);
-        if (JOptionPane.showConfirmDialog(this, form, "New event", JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION)
-        {
-            return null;
-        }
-        Object chosen = choice.getSelectedItem();
-        if (chosen == null || chosen.toString().isBlank())
+        JPanel form = new JPanel(new GridLayout(2, 2, 4, 4));
+        form.add(new JLabel("Name of the new action:"));
+        form.add(namefield);
+        form.add(new JLabel("Part of event:"));
+        form.add(eventchoice);
+        if (JOptionPane.showConfirmDialog(this, form, "New action", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION || namefield.getText().isBlank())
         {
             return null;
         }
-        ProjectEvent event = this.currentproject.addEvent(chosen.toString().trim());
-        EventActions.save(this, this.currentproject);
-        ElhNode node = adder.apply(event.getName());
-        if (node != null)
+        ElhNode node = adder.apply(namefield.getText().trim());
+        if (node != null && eventchoice.getSelectedItem() instanceof ProjectEvent event)
         {
             node.setEventref(event.getId());
         }
         return node;
     }
+
+    private static final String NOTYET = "(not yet in an event)";
 
     // ---- the right-hand side ----
 
@@ -1106,10 +1112,7 @@ public class MyElh extends JFrame
     // selects what is active in the tree
     private void selectActive()
     {
-        if (this.activeevent != null)
-        {
-            this.currenttreeview.select(this.activeevent);
-        } else if (this.activenode != null)
+        if (this.activenode != null)
         {
             this.currenttreeview.select(this.activenode);
         }
@@ -1118,10 +1121,7 @@ public class MyElh extends JFrame
     public void showEditView()
     {
         this.editpanel.removeAll();
-        if (this.activeevent != null)
-        {
-            this.editpanel.add(new EventDetailsPanel(this, this.currentproject, this.activeevent), "Center");
-        } else if (this.activenode != null)
+        if (this.activenode != null)
         {
             EditView panel = new EditView(this);
             panel.setup(this.activenode);
@@ -1144,14 +1144,15 @@ public class MyElh extends JFrame
     {
         ElhDiagram diagram = this.activeentity == null || !this.activeentity.isLoaded() ? null
                 : new ElhDiagram(this.activeentity.getTop(), stylemaps.getStyleMap("screen"), layoutstyle);
-        this.diagrampanel.setDiagram(diagram, this.activenode);
+        // actions not yet part of an event are flagged
+        Project project = this.currentproject;
+        this.diagrampanel.setDiagram(diagram, this.activenode, n -> project != null && project.isUnlinked(n));
     }
 
     // a box clicked in the diagram: select its node in the tree
     private void selectNode(ElhNode anode)
     {
         this.activenode = anode;
-        this.activeevent = null;
         updateview();
     }
 

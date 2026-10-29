@@ -158,12 +158,10 @@ public final class Project
             } else
             {
                 // inline details are in <myelh>; projects saved before that kept
-                // the action, or earlier a description, in the list itself
+                // the description (for a while called the action) in the list itself
                 Element details = inline == null ? null : MyelhFile.findEventElement(inline, id);
-                String action = details != null ? details.getChildTextTrim("action")
-                        : entry.getChildTextTrim("action") != null ? entry.getChildTextTrim("action")
-                        : entry.getChildTextTrim("description");
-                this.events.add(new ProjectEvent(id, eventname, action));
+                this.events.add(new ProjectEvent(id, eventname,
+                        MyelhFile.eventDescription(details != null ? details : entry)));
             }
             if (id.matches("e\\d+"))
             {
@@ -280,7 +278,7 @@ public final class Project
             if (event.isInline())
             {
                 // an event with nothing more than its id and name needs no details
-                if (!event.getAction().isEmpty())
+                if (!event.getDescription().isEmpty())
                 {
                     inline.addContent(MyelhFile.eventElement(event));
                 }
@@ -436,6 +434,46 @@ public final class Project
         return found;
     }
 
+    // ---- actions: the leaf event nodes of the life histories ----
+
+    // an action that is not part of any of the project's events, including
+    // one still linked to an event since deleted
+    public boolean isUnlinked(ElhNode node)
+    {
+        return node.isLeafEvent() && (node.getEventref() == null || findEvent(node.getEventref()) == null);
+    }
+
+    // every action of every entity, read without opening the entities
+    public List<EntityAction> allActions()
+    {
+        List<EntityAction> found = new ArrayList<>();
+        for (LifeHistory history : lifeHistories())
+        {
+            List<ElhNode> nodes = new ArrayList<>();
+            history.top().collectActions(nodes);
+            nodes.forEach(n -> found.add(new EntityAction(history.entity(), n)));
+        }
+        return found;
+    }
+
+    // the actions the event triggers
+    public List<EntityAction> actionsOf(ProjectEvent event, List<EntityAction> all)
+    {
+        return all.stream().filter(a -> event.getId().equals(a.node().getEventref())).toList();
+    }
+
+    // the actions not yet part of any event
+    public List<EntityAction> unlinkedActions(List<EntityAction> all)
+    {
+        return all.stream().filter(a -> isUnlinked(a.node())).toList();
+    }
+
+    // an event should trigger actions in two or more entities
+    public boolean isLonely(ProjectEvent event, List<EntityAction> all)
+    {
+        return actionsOf(event, all).size() < 2;
+    }
+
     private ElhNode readEntity(ProjectEntity entity) throws IOException
     {
         if (entity.isInline())
@@ -583,7 +621,7 @@ public final class Project
         {
             details = root.getChildren(MyelhFile.EVENT).getFirst();
         }
-        event.setAction(details == null ? "" : details.getChildTextTrim("action"));
+        event.setDescription(details == null ? "" : MyelhFile.eventDescription(details));
         event.setLoaded();
     }
 

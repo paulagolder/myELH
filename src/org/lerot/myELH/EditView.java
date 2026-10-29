@@ -25,7 +25,7 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
     // the project event a leaf event stands for; only there for a leaf event
     // while a project is open
     private jswDropDownBox eventfield;
-    private static final String NOEVENT = "(none)";
+    private static final String NOEVENT = "(not yet in an event)";
     // a leaf event's part in its event: only there for a leaf event
     private jswTextBox conditionfield;
     private jswTextBox resultfield;
@@ -100,7 +100,7 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
             this.eventfield.setList(names.toArray(String[]::new));
             ProjectEvent linked = anode.getEventref() == null ? null : project.findEvent(anode.getEventref());
             this.eventfield.setSelected(linked == null ? NOEVENT : linked.getName());
-            this.namepanel.addCell(new jswLabel("PROJECT EVENT:"), 4, 0);
+            this.namepanel.addCell(new jswLabel("PART OF EVENT:"), 4, 0);
             this.namepanel.addCell((jswPanel) this.eventfield, 4, 1);
         }
         if (anode.isLeafEvent())
@@ -270,7 +270,7 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
             String type = comStr.substring(3).toLowerCase();
             if (type.equals(NodeType.EVENT.xmlName()))
             {
-                if (app.addLeafEvent(name -> activenode.addChild(type, name)) == null) return;
+                if (app.addAction(name -> activenode.addChild(type, name)) == null) return;
             } else
             {
                 String name = app.askNodeName(type);
@@ -334,7 +334,7 @@ public class EditView extends jswVerticalPanel implements ActionListener, MouseL
         mi.addActionListener(this);
         mi.setActionCommand("newrole");
         popup.add(mi);
-        mi = new JMenuItem("Event");
+        mi = new JMenuItem("Action");
         mi.addActionListener(this);
         mi.setActionCommand("newevent");
         popup.add(mi);
