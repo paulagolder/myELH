@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 // named any other way (library25b.xml) count as version 0 of their name.
 public final class ElhVersions
 {
-    private static final Pattern VERSIONED = Pattern.compile("(.+)_v(\\d+)\\.elh", Pattern.CASE_INSENSITIVE);
+    private static final Pattern VERSIONED = Pattern.compile("(.+)_v(\\d+)\\.(elh|event)", Pattern.CASE_INSENSITIVE);
 
     private ElhVersions()
     {
@@ -78,6 +78,41 @@ public final class ElhVersions
     public static int countVersions(File folder, String basename)
     {
         return allVersions(folder, basename).size();
+    }
+
+    // The files of a project entity or event: <basename>_v<N><extension>,
+    // with extension ".elh" or ".event". Only versioned names count here.
+
+    public static File versionFile(File folder, String basename, int version, String extension)
+    {
+        return new File(folder, basename + "_v" + version + extension);
+    }
+
+    // every version of basename with the extension, lowest first
+    public static List<File> versions(File folder, String basename, String extension)
+    {
+        Pattern named = Pattern.compile(Pattern.quote(basename) + "_v(\\d+)" + Pattern.quote(extension),
+                Pattern.CASE_INSENSITIVE);
+        File[] files = folder.listFiles(f -> f.isFile() && named.matcher(f.getName()).matches());
+        if (files == null) return List.of();
+        return java.util.Arrays.stream(files)
+                .sorted(java.util.Comparator.comparingInt(ElhVersions::version))
+                .toList();
+    }
+
+    // the version after the highest one of basename with the extension
+    public static File nextVersion(File folder, String basename, String extension)
+    {
+        List<File> existing = versions(folder, basename, extension);
+        int next = existing.isEmpty() ? 1 : version(existing.getLast()) + 1;
+        return versionFile(folder, basename, next, extension);
+    }
+
+    // a name made safe to use in a file name
+    public static String fileBaseName(String name)
+    {
+        String safe = name.trim().replaceAll("[/\\\\:*?\"<>|]", "_");
+        return safe.isEmpty() ? "unnamed" : safe;
     }
 
     static boolean isElhFile(File file)
