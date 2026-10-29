@@ -24,6 +24,8 @@ public final class ElhNode
     // what must be true of it beforehand, and what the event does to it
     private String condition = "";
     private String result = "";
+    // for an action, what it is, in the user's words
+    private String description = "";
 
     public ElhNode(NodeType type, String aname, ElhNode aparent)
     {
@@ -253,6 +255,16 @@ public final class ElhNode
         this.result = result == null ? "" : result.trim();
     }
 
+    public String getDescription()
+    {
+        return this.description;
+    }
+
+    public void setDescription(String description)
+    {
+        this.description = description == null ? "" : description.strip();
+    }
+
     public String getEventref()
     {
         return this.eventref;
@@ -346,6 +358,10 @@ public final class ElhNode
         if (!this.result.isEmpty())
         {
             element.setAttribute("result", this.result);
+        }
+        if (!this.description.isEmpty())
+        {
+            element.setAttribute("description", this.description);
         }
         for (ElhNode achild : getChildren())
         {
@@ -460,6 +476,7 @@ public final class ElhNode
         newnode.setEventref(this.eventref);
         newnode.setCondition(this.condition);
         newnode.setResult(this.result);
+        newnode.setDescription(this.description);
         for (ElhNode child : this.children)
         {
             ElhNode childcopy = child.copy(newnode);
@@ -496,6 +513,7 @@ public final class ElhNode
         setEventref(ct.getAttributeValue("eventref"));
         setCondition(ct.getAttributeValue("condition"));
         setResult(ct.getAttributeValue("result"));
+        setDescription(ct.getAttributeValue("description"));
         // a stylename attribute in older files is ignored: a node is drawn by its type
         if (ct.getAttribute("childgrouptype") != null)
         {

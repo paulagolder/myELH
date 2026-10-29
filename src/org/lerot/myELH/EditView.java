@@ -13,12 +13,12 @@ import java.util.List;
 
 // The edit panel for the selected node of a life history, whatever its
 // type: its details above, its children in a table, and what can be done
-// below. An action (a leaf action node) also has the event it is part of and
-// its condition and result.
+// below. An action also has a description. Which event an action is part
+// of, and its condition and result there, are dealt with in the Events
+// window.
 public class EditView extends JPanel
 {
     private static final long serialVersionUID = 1L;
-    private static final String NOEVENT = "(not yet in an event)";
     // the child selected when the panel was last made, selected again when
     // it is remade after a change (moving a child up, say)
     private static ElhNode lastselectedchild;
@@ -30,11 +30,9 @@ public class EditView extends JPanel
     private final JComboBox<String> typefield = new JComboBox<>();
     private final JComboBox<ChildGrouping> structurefield = new JComboBox<>();
     // only there for an action
-    private JComboBox<Object> eventfield;
-    private JTextArea conditionfield;
-    private JTextArea resultfield;
+    private JTextArea descriptionfield;
     private final DefaultTableModel childmodel = new DefaultTableModel(
-            new Object[]{"Child", "Type", "Structure", "Event"}, 0)
+            new Object[]{"Child", "Type", "Structure"}, 0)
     {
         private static final long serialVersionUID = 1L;
 
@@ -68,7 +66,7 @@ public class EditView extends JPanel
         top.add(makeHeading(anode, project), BorderLayout.NORTH);
         top.add(makeForm(anode, project), BorderLayout.CENTER);
         add(top, BorderLayout.NORTH);
-        add(makeChildPanel(anode, project), BorderLayout.CENTER);
+        add(makeChildPanel(anode), BorderLayout.CENTER);
         add(makeButtons(anode), BorderLayout.SOUTH);
     }
 
@@ -128,21 +126,11 @@ public class EditView extends JPanel
         this.structurefield.setToolTipText("How this node's children relate: in sequence, one of them, "
                 + "repeated, or as roles in parallel");
         addRow(form, row++, "STRUCTURE:", this.structurefield);
-        if (anode.isLeafAction())
+        if (anode.is(NodeType.ACTION))
         {
-            if (project != null)
-            {
-                this.eventfield = new JComboBox<>();
-                this.eventfield.addItem(NOEVENT);
-                project.getEvents().forEach(this.eventfield::addItem);
-                ProjectEvent linked = anode.getEventref() == null ? null : project.findEvent(anode.getEventref());
-                this.eventfield.setSelectedItem(linked == null ? NOEVENT : linked);
-                addRow(form, row++, "PART OF EVENT:", this.eventfield);
-            }
-            this.conditionfield = textArea(anode.getCondition());
-            addRow(form, row++, "CONDITION:", new JScrollPane(this.conditionfield));
-            this.resultfield = textArea(anode.getResult());
-            addRow(form, row++, "RESULT:", new JScrollPane(this.resultfield));
+            this.descriptionfield = textArea(anode.getDescription());
+            this.descriptionfield.setRows(4);
+            addRow(form, row++, "DESCRIPTION:", new JScrollPane(this.descriptionfield));
         }
         return form;
     }
@@ -181,7 +169,7 @@ public class EditView extends JPanel
     }
 
     // the node's children, and what can be done to the one selected
-    private JPanel makeChildPanel(ElhNode anode, Project project)
+    private JPanel makeChildPanel(ElhNode anode)
     {
         JPanel panel = new JPanel(new BorderLayout(0, 2));
         panel.setOpaque(false);
@@ -192,14 +180,7 @@ public class EditView extends JPanel
         }
         for (ElhNode child : anode.getChildren())
         {
-            String event = "";
-            if (child.isLeafAction() && project != null)
-            {
-                ProjectEvent linked = child.getEventref() == null ? null : project.findEvent(child.getEventref());
-                event = linked == null ? TreeView.FLAG.strip() + " none yet" : linked.getName();
-            }
-            this.childmodel.addRow(new Object[]{child.getName(), child.getType(),
-                    child.getChildgrouptype().label, event});
+            this.childmodel.addRow(new Object[]{child.getName(), child.getType(), child.getChildgrouptype().label});
         }
         this.childtable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         this.childtable.setFillsViewportHeight(true);
@@ -334,14 +315,9 @@ public class EditView extends JPanel
         node.applyEdits(this.namefield.getText().trim(),
                 NodeType.fromXml((String) this.typefield.getSelectedItem()),
                 (ChildGrouping) this.structurefield.getSelectedItem());
-        if (this.eventfield != null)
+        if (this.descriptionfield != null)
         {
-            node.setEventref(this.eventfield.getSelectedItem() instanceof ProjectEvent event ? event.getId() : null);
-        }
-        if (this.conditionfield != null)
-        {
-            node.setCondition(this.conditionfield.getText());
-            node.setResult(this.resultfield.getText());
+            node.setDescription(this.descriptionfield.getText());
         }
         // only actions can be part of an event
         if (!node.is(NodeType.ACTION))

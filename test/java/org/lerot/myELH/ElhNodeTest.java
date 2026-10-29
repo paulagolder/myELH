@@ -245,6 +245,19 @@ class ElhNodeTest
     }
 
     @Test
+    void anActionsDescriptionIsSavedAndCopied() throws IOException
+    {
+        ElhNode top = makeTree();
+        ElhNode a = top.findChildnode("Person").findChildnode("a");
+        a.setDescription("The member signs the form\nand pays the fee");
+        ElhNode loaded = saveAndLoad(top);
+        assertEquals("The member signs the form\nand pays the fee",
+                loaded.findChildnode("Person").findChildnode("a").getDescription());
+        ElhNode copy = a.copy(a.getParent());
+        assertEquals(a.getDescription(), copy.getDescription());
+    }
+
+    @Test
     void aGroupingChosenWithANewTypeIsKept()
     {
         ElhNode b = makeTree().findChildnode("Person").findChildnode("b");

@@ -1008,38 +1008,14 @@ public class MyElh extends JFrame
         return done;
     }
 
-    // Asks for the name of a new action (a leaf action node) and adds it with
-    // adder. The project's events are offered for it to be part of; it need
-    // not be part of one yet, and no event is made for it. The new node, or
-    // null if the user cancels.
+    // Asks for the name of a new action and adds it with adder. Which event
+    // it is part of is settled in the Events window. The new node, or null
+    // if the user cancels.
     public ElhNode addAction(java.util.function.Function<String, ElhNode> adder)
     {
-        JTextField namefield = new JTextField(20);
-        JComboBox<Object> eventchoice = new JComboBox<>();
-        eventchoice.addItem(NOTYET);
-        if (this.currentproject != null)
-        {
-            this.currentproject.getEvents().forEach(eventchoice::addItem);
-        }
-        JPanel form = new JPanel(new GridLayout(2, 2, 4, 4));
-        form.add(new JLabel("Name of the new action:"));
-        form.add(namefield);
-        form.add(new JLabel("Part of event:"));
-        form.add(eventchoice);
-        if (JOptionPane.showConfirmDialog(this, form, "New action", JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION || namefield.getText().isBlank())
-        {
-            return null;
-        }
-        ElhNode node = adder.apply(namefield.getText().trim());
-        if (node != null && eventchoice.getSelectedItem() instanceof ProjectEvent event)
-        {
-            node.setEventref(event.getId());
-        }
-        return node;
+        String name = askNodeName("action");
+        return name == null ? null : adder.apply(name);
     }
-
-    private static final String NOTYET = "(not yet in an event)";
 
     // ---- the right-hand side ----
 
