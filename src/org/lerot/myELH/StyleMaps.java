@@ -49,8 +49,6 @@ public class StyleMaps extends HashMap<String, StyleMap>
         anodestyle.put("rheight", 40.0D);
         anodestyle.put("rectanglestyle", "hard");
         astylemap.put("action", anodestyle);
-        // the style name of actions in files saved before actions were so called
-        astylemap.put("event", anodestyle);
         NodeStyle anodestyle2 = new NodeStyle();
         anodestyle2.put("fill", Boolean.FALSE);
         anodestyle2.put("fillColor", Color.yellow);
@@ -88,8 +86,6 @@ public class StyleMaps extends HashMap<String, StyleMap>
         NodeStyle anodestyle = new NodeStyle();
         anodestyle.put("textattop", Boolean.FALSE);
         astylemap.put("action", anodestyle);
-        // the style name of actions in files saved before actions were so called
-        astylemap.put("event", anodestyle);
         NodeStyle anodestyle2 = new NodeStyle();
         anodestyle2.put("textattop", Boolean.TRUE);
         anodestyle2.put("underlinetitle", Boolean.TRUE);

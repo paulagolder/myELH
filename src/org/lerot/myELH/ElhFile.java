@@ -22,7 +22,7 @@ public final class ElhFile
 
     // Files saved before this wrapped the whole tree in an extra
     // <elh name="new elh"> with no other attributes; real elh nodes are
-    // always saved with childgrouptype and stylename.
+    // always saved with childgrouptype (and, in those files, stylename).
     static boolean isOldWrapper(Element root)
     {
         return root.getName().equals("elh")

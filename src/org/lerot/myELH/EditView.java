@@ -29,7 +29,6 @@ public class EditView extends JPanel
     private final JTextField namefield = new JTextField(20);
     private final JComboBox<String> typefield = new JComboBox<>();
     private final JComboBox<String> groupingfield = new JComboBox<>();
-    private final JTextField stylefield = new JTextField(20);
     // only there for an action
     private JComboBox<Object> eventfield;
     private JTextArea conditionfield;
@@ -115,8 +114,6 @@ public class EditView extends JPanel
         }
         this.groupingfield.setSelectedItem(anode.getChildgrouptype().xmlName());
         addRow(form, row++, "CHILD GROUPING:", this.groupingfield);
-        this.stylefield.setText(anode.getStylename());
-        addRow(form, row++, "STYLE:", this.stylefield);
         if (anode.isLeafAction())
         {
             if (project != null)
@@ -324,8 +321,7 @@ public class EditView extends JPanel
         ElhNode node = this.activenode;
         node.applyEdits(this.namefield.getText().trim(),
                 NodeType.fromXml((String) this.typefield.getSelectedItem()),
-                ChildGrouping.fromXml((String) this.groupingfield.getSelectedItem()),
-                this.stylefield.getText().trim());
+                ChildGrouping.fromXml((String) this.groupingfield.getSelectedItem()));
         if (this.eventfield != null)
         {
             node.setEventref(this.eventfield.getSelectedItem() instanceof ProjectEvent event ? event.getId() : null);

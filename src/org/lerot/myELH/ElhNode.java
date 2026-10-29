@@ -18,7 +18,6 @@ public final class ElhNode
     private List<ElhNode> children;
     private String name;
     private ElhNode parent;
-    private String stylename;
     // the id of the project event a leaf action is part of, or null
     private String eventref;
     // for a leaf action, the object's own part in the event (its CORD Action):
@@ -67,10 +66,10 @@ public final class ElhNode
         return this.type == atype;
     }
 
-    // the edit panel's Save Edits. When the type changes, a grouping or
-    // style left as it was follows the new type: an event made a rolegroup
-    // gets rolegroup grouping and the rolegroup style.
-    public void applyEdits(String aname, NodeType newtype, ChildGrouping grouping, String astylename)
+    // the edit panel's Save Edits. When the type changes, a grouping left
+    // as it was follows the new type: an action made a rolegroup gets
+    // rolegroup grouping. How a node is drawn follows from its type.
+    public void applyEdits(String aname, NodeType newtype, ChildGrouping grouping)
     {
         if (newtype != null && newtype != this.type)
         {
@@ -78,15 +77,10 @@ public final class ElhNode
             {
                 grouping = newtype.defaultgrouping;
             }
-            if (astylename.equals(this.stylename) && this.type.isDefaultStyle(this.stylename))
-            {
-                astylename = newtype.xmlName();
-            }
             this.type = newtype;
         }
         this.name = aname;
         this.childgrouptype = grouping;
-        this.stylename = astylename;
     }
 
     // a node for the user to fill in, named after its type
@@ -105,7 +99,7 @@ public final class ElhNode
 
     public String toLongString()
     {
-        return this.name + ":" + this.getType() + ":" + this.childgrouptype + ":" + this.stylename;
+        return this.name + ":" + this.getType() + ":" + this.childgrouptype;
     }
 
     public String toString()
@@ -341,10 +335,6 @@ public final class ElhNode
         {
             element.setAttribute("childgrouptype", getChildgrouptype().xmlName());
         }
-        if (getStylename() != null)
-        {
-            element.setAttribute("stylename", getStylename());
-        }
         if (this.eventref != null)
         {
             element.setAttribute("eventref", this.eventref);
@@ -467,7 +457,6 @@ public final class ElhNode
         if (is(NodeType.ELH)) return null;
         ElhNode newnode = new ElhNode(this.type, getName(), newparent);
         newnode.setChildgrouptype(getChildgrouptype());
-        newnode.setStylename(getStylename());
         newnode.setEventref(this.eventref);
         newnode.setCondition(this.condition);
         newnode.setResult(this.result);
@@ -477,16 +466,6 @@ public final class ElhNode
             if (childcopy != null) newnode.addChild(childcopy);
         }
         return newnode;
-    }
-
-    String getStylename()
-    {
-        return this.stylename;
-    }
-
-    void setStylename(String astylename)
-    {
-        this.stylename = astylename;
     }
 
     public void mark()
@@ -513,18 +492,11 @@ public final class ElhNode
 
     public void loadXML(Element ct)
     {
-        String nodetype = ct.getName();
         setName(ct.getAttributeValue("name", getName()));
         setEventref(ct.getAttributeValue("eventref"));
         setCondition(ct.getAttributeValue("condition"));
         setResult(ct.getAttributeValue("result"));
-        if (ct.getAttribute("stylename") != null)
-        {
-            setStylename(ct.getAttribute("stylename").getValue());
-        } else
-        {
-            setStylename(nodetype);
-        }
+        // a stylename attribute in older files is ignored: a node is drawn by its type
         if (ct.getAttribute("childgrouptype") != null)
         {
             setChildgrouptype(ChildGrouping.fromXml(ct.getAttribute("childgrouptype").getValue()));

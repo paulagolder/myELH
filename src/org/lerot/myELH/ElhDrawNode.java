@@ -18,7 +18,6 @@ public class ElhDrawNode
     ShapeD bounds = new ShapeD();
     private final ChildGrouping childgrouptype;
     private final ElhDrawNode parent;
-    private final String stylename;
     private final double symbolshift = 10;
 
     ElhDrawNode(ElhDiagram diagram, ElhNode anode, ElhDrawNode parent, int depth)
@@ -29,9 +28,9 @@ public class ElhDrawNode
         this.text = anode.getName();
         this.childgrouptype = anode.getChildgrouptype();
         this.elhtype = anode.getType();
-        this.stylename = anode.getStylename();
         // the top box is styled by its style name, the others by their type
-        nodestylemap = diagram.stylemap.getNodeStyle(parent == null ? stylename : elhtype);
+        // every box is drawn in the style of its type
+        nodestylemap = diagram.stylemap.getNodeStyle(elhtype);
         if (depth < ElhDiagram.MAXDEPTH)
         {
             for (ElhNode acnode : anode.getChildren())
@@ -119,15 +118,6 @@ public class ElhDrawNode
     public int countChildren()
     {
         return this.children.size();
-    }
-
-    public String getStylename()
-    {
-        if (this.stylename != null && !this.stylename.isEmpty())
-        {
-            return this.stylename;
-        }
-        return this.elhtype;
     }
 
     public boolean hasParent()
@@ -430,8 +420,7 @@ public class ElhDrawNode
     private void drawTriangle(Graphics g2d)
     {
         ElhDrawNode adnode = this;
-        String stylename = getStylename();
-        NodeStyle nodestylemap = diagram.stylemap.getNodeStyle(stylename);
+        NodeStyle nodestylemap = diagram.stylemap.getNodeStyle(this.elhtype);
         g2d.setColor(nodestylemap.getColor("lineColor"));
         double lw = nodestylemap.getDouble("lineWidth");
         ((Graphics2D) g2d).setStroke(new BasicStroke((float) lw));

@@ -44,13 +44,6 @@ public enum NodeType
                 .orElse(null);
     }
 
-    // whether a node of this type has the style named after its type; for
-    // actions that includes "event", their name in files saved before
-    boolean isDefaultStyle(String stylename)
-    {
-        return xmlName().equals(stylename) || this == ACTION && "event".equals(stylename);
-    }
-
     static String[] choiceNames()
     {
         return CHOICES.stream().map(NodeType::xmlName).toArray(String[]::new);

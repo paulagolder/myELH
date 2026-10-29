@@ -88,10 +88,8 @@ class ElhNodeTest
     {
         ElhNode top = new ElhNode(NodeType.ELH, "outer", null);
         top.setChildgrouptype(ChildGrouping.SEQUENCE);
-        top.setStylename("elh");
         ElhNode inner = new ElhNode(NodeType.ELH, "new elh", top);
         inner.setChildgrouptype(ChildGrouping.SEQUENCE);
-        inner.setStylename("elh");
         top.addChild(inner);
         ElhNode loaded = saveAndLoad(top);
         assertEquals("outer", loaded.getName());
@@ -211,22 +209,24 @@ class ElhNodeTest
     void savingEditsCanChangeTheType()
     {
         ElhNode b = makeTree().findChildnode("Person").findChildnode("b");
-        b.setStylename("event");
-        b.applyEdits("Membership", NodeType.ROLEGROUP, b.getChildgrouptype(), "event");
+        b.applyEdits("Membership", NodeType.ROLEGROUP, b.getChildgrouptype());
         assertEquals(NodeType.ROLEGROUP, b.getNodeType());
         assertEquals("Membership", b.getName());
-        // grouping and style left as they were follow the new type
+        // a grouping left as it was follows the new type
         assertEquals(ChildGrouping.ROLEGROUP, b.getChildgrouptype());
-        assertEquals("rolegroup", b.getStylename());
     }
 
     @Test
-    void anActionsStyleFollowsANewTypeToo()
+    void noStyleNameIsSavedAndAnOldOneIsIgnored() throws IOException
     {
-        ElhNode b = makeTree().findChildnode("Person").findChildnode("b");
-        b.setStylename("action");
-        b.applyEdits("Membership", NodeType.ROLE, b.getChildgrouptype(), "action");
-        assertEquals("role", b.getStylename());
+        Path file = tempdir.resolve("old.elh");
+        Files.writeString(file, """
+                <elh name="Library" childgrouptype="sequence" stylename="entities">
+                  <entity name="Person" childgrouptype="sequence" stylename="special" />
+                </elh>
+                """);
+        ElhNode top = ElhFile.read(file);
+        assertFalse(top.xmlout().contains("stylename"));
     }
 
     @Test
@@ -245,14 +245,12 @@ class ElhNodeTest
     }
 
     @Test
-    void groupingAndStyleChosenWithANewTypeAreKept()
+    void aGroupingChosenWithANewTypeIsKept()
     {
         ElhNode b = makeTree().findChildnode("Person").findChildnode("b");
-        b.setStylename("event");
-        b.applyEdits("b", NodeType.ROLE, ChildGrouping.OPTION, "special");
+        b.applyEdits("b", NodeType.ROLE, ChildGrouping.OPTION);
         assertEquals(NodeType.ROLE, b.getNodeType());
         assertEquals(ChildGrouping.OPTION, b.getChildgrouptype());
-        assertEquals("special", b.getStylename());
     }
 
     @Test
@@ -363,11 +361,11 @@ class ElhNodeTest
     {
         ElhNode top = makeTree();
         ElhNode arole = new ElhNode(NodeType.ROLE, "r", top);
-        arole.setStylename("special");
+        arole.setChildgrouptype(ChildGrouping.OPTION);
         arole.addChild(new ElhNode(NodeType.ACTION, "e", arole));
         ElhNode copy = arole.copy(top);
         assertEquals(NodeType.ROLE, copy.getNodeType());
-        assertEquals("special", copy.getStylename());
+        assertEquals(ChildGrouping.OPTION, copy.getChildgrouptype());
         assertSame(top, copy.getParent());
         assertSame(copy, copy.getChildren().getFirst().getParent());
     }
