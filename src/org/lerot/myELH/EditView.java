@@ -28,13 +28,13 @@ public class EditView extends JPanel
     private final JLabel subtitle = new JLabel();
     private final JTextField namefield = new JTextField(20);
     private final JComboBox<String> typefield = new JComboBox<>();
-    private final JComboBox<String> groupingfield = new JComboBox<>();
+    private final JComboBox<ChildGrouping> structurefield = new JComboBox<>();
     // only there for an action
     private JComboBox<Object> eventfield;
     private JTextArea conditionfield;
     private JTextArea resultfield;
     private final DefaultTableModel childmodel = new DefaultTableModel(
-            new Object[]{"Child", "Type", "Grouping", "Event"}, 0)
+            new Object[]{"Child", "Type", "Structure", "Event"}, 0)
     {
         private static final long serialVersionUID = 1L;
 
@@ -108,12 +108,26 @@ public class EditView extends JPanel
         }
         this.typefield.setSelectedItem(anode.getType());
         addRow(form, row++, "TYPE:", this.typefield);
-        for (String grouping : groupingChoices(anode.getChildgrouptype()))
+        for (ChildGrouping structure : structureChoices(anode.getChildgrouptype()))
         {
-            this.groupingfield.addItem(grouping);
+            this.structurefield.addItem(structure);
         }
-        this.groupingfield.setSelectedItem(anode.getChildgrouptype().xmlName());
-        addRow(form, row++, "CHILD GROUPING:", this.groupingfield);
+        this.structurefield.setSelectedItem(anode.getChildgrouptype());
+        this.structurefield.setRenderer(new DefaultListCellRenderer()
+        {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                    boolean isSelected, boolean cellHasFocus)
+            {
+                Object shown = value instanceof ChildGrouping structure ? structure.label : value;
+                return super.getListCellRendererComponent(list, shown, index, isSelected, cellHasFocus);
+            }
+        });
+        this.structurefield.setToolTipText("How this node's children relate: in sequence, one of them, "
+                + "repeated, or as roles in parallel");
+        addRow(form, row++, "STRUCTURE:", this.structurefield);
         if (anode.isLeafAction())
         {
             if (project != null)
@@ -155,17 +169,15 @@ public class EditView extends JPanel
         form.add(field, c);
     }
 
-    // the usual choices, plus the node's own grouping if it is not one of them (entitygroup)
-    private static String[] groupingChoices(ChildGrouping current)
+    // the usual choices, plus the node's own structure if it is not one of them (entitygroup)
+    private static List<ChildGrouping> structureChoices(ChildGrouping current)
     {
-        String[] choices = ChildGrouping.choiceNames();
-        if (ChildGrouping.CHOICES.contains(current))
+        List<ChildGrouping> choices = new ArrayList<>(ChildGrouping.CHOICES);
+        if (!choices.contains(current))
         {
-            return choices;
+            choices.add(current);
         }
-        String[] withcurrent = java.util.Arrays.copyOf(choices, choices.length + 1);
-        withcurrent[choices.length] = current.xmlName();
-        return withcurrent;
+        return choices;
     }
 
     // the node's children, and what can be done to the one selected
@@ -187,7 +199,7 @@ public class EditView extends JPanel
                 event = linked == null ? TreeView.FLAG.strip() + " none yet" : linked.getName();
             }
             this.childmodel.addRow(new Object[]{child.getName(), child.getType(),
-                    child.getChildgrouptype().xmlName(), event});
+                    child.getChildgrouptype().label, event});
         }
         this.childtable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         this.childtable.setFillsViewportHeight(true);
@@ -321,7 +333,7 @@ public class EditView extends JPanel
         ElhNode node = this.activenode;
         node.applyEdits(this.namefield.getText().trim(),
                 NodeType.fromXml((String) this.typefield.getSelectedItem()),
-                ChildGrouping.fromXml((String) this.groupingfield.getSelectedItem()));
+                (ChildGrouping) this.structurefield.getSelectedItem());
         if (this.eventfield != null)
         {
             node.setEventref(this.eventfield.getSelectedItem() instanceof ProjectEvent event ? event.getId() : null);

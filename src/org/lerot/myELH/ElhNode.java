@@ -66,9 +66,9 @@ public final class ElhNode
         return this.type == atype;
     }
 
-    // the edit panel's Save Edits. When the type changes, a grouping left
-    // as it was follows the new type: an action made a rolegroup gets
-    // rolegroup grouping. How a node is drawn follows from its type.
+    // the edit panel's Save Edits. When the type changes, a structure left
+    // as it was follows the new type: an action made a rolegroup gets the
+    // parallel roles structure. How a node is drawn follows from its type.
     public void applyEdits(String aname, NodeType newtype, ChildGrouping grouping)
     {
         if (newtype != null && newtype != this.type)
