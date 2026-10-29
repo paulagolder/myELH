@@ -96,11 +96,11 @@ public class MyElh extends JFrame
         statusbar.add(caption(new JLabel("Project")));
         statusbar.add(value(this.projectname));
         statusbar.add(Box.createHorizontalGlue());
-        statusbar.add(caption(new JLabel("Kept in")));
-        statusbar.add(value(this.sourcefile));
-        statusbar.add(Box.createHorizontalGlue());
         statusbar.add(caption(this.activelabel));
         statusbar.add(value(this.activepath));
+        statusbar.add(Box.createHorizontalGlue());
+        statusbar.add(caption(new JLabel("Kept in")));
+        statusbar.add(value(this.sourcefile));
         statusbar.setBackground(Color.decode(jswTheme.NAVAREA));
         add(statusbar);
         this.currenttreeview = new TreeView(this, TreeView.Mode.ENTITIES, new TreeView.Listener()
