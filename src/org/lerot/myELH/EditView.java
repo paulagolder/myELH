@@ -132,7 +132,30 @@ public class EditView extends JPanel
             this.descriptionfield.setRows(4);
             addRow(form, row++, "DESCRIPTION:", new JScrollPane(this.descriptionfield));
         }
+        if (anode.isLeafAction())
+        {
+            addRow(form, row++, "STATE INDICATOR:", new JLabel(describeState(anode)));
+        }
         return form;
+    }
+
+    // the action's state indicator in words, worked out from its life history
+    private static String describeState(ElhNode action)
+    {
+        ElhNode top = action;
+        while (top.getParent() != null)
+        {
+            top = top.getParent();
+        }
+        StateIndicators.ActionState state = StateIndicators.of(top).stateOf(action);
+        if (state == null)
+        {
+            return "";
+        }
+        String prior = state.validprior().stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(", "));
+        String before = state.canstart() ? (prior.isEmpty() ? "- (not yet begun)" : "- (not yet begun), " + prior) : prior;
+        return state.indicator() + ":  valid before " + (before.isEmpty() ? "none" : before)
+                + ";  sets it to " + state.setsto() + (state.canend() ? ";  can end the life" : "");
     }
 
     private static JTextArea textArea(String text)

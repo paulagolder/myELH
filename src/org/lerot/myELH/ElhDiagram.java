@@ -17,12 +17,23 @@ public final class ElhDiagram
     final double vs;
     final double hs;
     final ElhDrawNode top;
+    // the state indicators written under the actions, or null if they are not shown
+    final StateIndicators states;
     private double maxwidth = 0.0;
     private double maxheight = 0.0;
 
     // lays the diagram out, measuring text with the given graphics
     public ElhDiagram(ElhNode root, StyleMap stylemap, LayoutStyle layoutstyle, Graphics2D measure)
     {
+        this(root, stylemap, layoutstyle, measure, false);
+    }
+
+    // as above, writing each action's state indicator values under its box
+    // (valid prior / sets to) if showstates is true
+    public ElhDiagram(ElhNode root, StyleMap stylemap, LayoutStyle layoutstyle, Graphics2D measure,
+            boolean showstates)
+    {
+        this.states = showstates ? StateIndicators.of(root) : null;
         this.stylemap = stylemap;
         this.layoutstyle = layoutstyle;
         NodeStyle documentstyle = stylemap.getNodeStyle("document");
@@ -37,6 +48,11 @@ public final class ElhDiagram
     public ElhDiagram(ElhNode root, StyleMap stylemap, LayoutStyle layoutstyle)
     {
         this(root, stylemap, layoutstyle, measuringGraphics());
+    }
+
+    public ElhDiagram(ElhNode root, StyleMap stylemap, LayoutStyle layoutstyle, boolean showstates)
+    {
+        this(root, stylemap, layoutstyle, measuringGraphics(), showstates);
     }
 
     private static Graphics2D measuringGraphics()

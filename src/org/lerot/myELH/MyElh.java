@@ -66,6 +66,8 @@ public class MyElh extends JFrame
     private final EventView eventview;
     private final DiagramPanel diagrampanel;
     private LayoutStyle layoutstyle = LayoutStyle.DEFAULT;
+    // whether the diagram shows each action's state indicator values
+    private boolean showstates = true;
 
     public MyElh(int w, int h)
     {
@@ -383,6 +385,14 @@ public class MyElh extends JFrame
         addMenuItem(jmView, "Zoom In", KeyEvent.VK_EQUALS, () -> diagrampanel.setZoom(diagrampanel.getZoom() * 1.25));
         addMenuItem(jmView, "Zoom Out", KeyEvent.VK_MINUS, () -> diagrampanel.setZoom(diagrampanel.getZoom() / 1.25));
         addMenuItem(jmView, "Actual Size", KeyEvent.VK_0, () -> diagrampanel.setZoom(1.0));
+        jmView.addSeparator();
+        JCheckBoxMenuItem statesitem = new JCheckBoxMenuItem("Show State Indicators", this.showstates);
+        statesitem.addActionListener(e ->
+        {
+            this.showstates = statesitem.isSelected();
+            refresh();
+        });
+        jmView.add(statesitem);
         jmb.add(jmView);
         JMenu jmExport = new JMenu("Export");
         addMenuItem(jmExport, "Print SVG", this::svgexport);
@@ -1081,7 +1091,7 @@ public class MyElh extends JFrame
     private void showDiagram()
     {
         ElhDiagram diagram = this.activeentity == null || !this.activeentity.isLoaded() ? null
-                : new ElhDiagram(this.activeentity.getTop(), stylemaps.getStyleMap("screen"), layoutstyle);
+                : new ElhDiagram(this.activeentity.getTop(), stylemaps.getStyleMap("screen"), layoutstyle, showstates);
         // actions not yet part of an event are flagged
         Project project = this.currentproject;
         this.diagrampanel.setDiagram(diagram, this.activenode, n -> project != null && project.isUnlinked(n));
@@ -1119,7 +1129,7 @@ public class MyElh extends JFrame
         {
             // exported with the screen styles, as it always has been; the
             // "print" style map is kept but not used
-            SvgExport.write(this.activeentity.getTop(), stylemaps.getStyleMap("screen"), layoutstyle,
+            SvgExport.write(this.activeentity.getTop(), stylemaps.getStyleMap("screen"), layoutstyle, showstates,
                     fc.getSelectedFile().toPath());
         } catch (IOException e)
         {

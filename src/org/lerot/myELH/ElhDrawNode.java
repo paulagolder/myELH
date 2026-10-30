@@ -245,6 +245,10 @@ public class ElhDrawNode
         ElhDrawNode adnode = this;
         adnode.DrawShape((Graphics2D) g2d);
         adnode.drawSymbols(g2d);
+        if (diagram.states != null && diagram.states.stateOf(this.source) != null)
+        {
+            drawState(g2d, diagram.states.stateOf(this.source).label());
+        }
         if (adnode.hasParent())
         {
             drawUpLine(g2d);
@@ -261,6 +265,18 @@ public class ElhDrawNode
                 adrawnode.drawNode(g2d);
             }
         }
+    }
+
+    // the action's state indicator values, valid prior / sets to, under its box
+    private void drawState(Graphics g2d, String label)
+    {
+        Font font = diagram.docfont.deriveFont(diagram.docfont.getSize2D() * 0.8f);
+        g2d.setFont(font);
+        g2d.setColor(Color.DARK_GRAY);
+        FontMetrics fm = g2d.getFontMetrics();
+        int x = (int) (bounds.x + bounds.width / 2 - fm.stringWidth(label) / 2.0);
+        int y = (int) (bounds.y + bounds.height) + fm.getAscent() + 2;
+        g2d.drawString(label, x, y);
     }
 
     private void drawDownLine(Graphics g2d)

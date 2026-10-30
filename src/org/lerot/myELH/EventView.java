@@ -43,10 +43,10 @@ public class EventView extends JPanel
     private final JTextArea descriptionfield = new JTextArea(3, 30);
     private final JLabel keptin = new JLabel();
     private final JLabel lonely = new JLabel();
-    private static final int CONDITIONCOLUMN = 2;
-    private static final int RESULTCOLUMN = 3;
+    private static final int CONDITIONCOLUMN = 3;
+    private static final int RESULTCOLUMN = 4;
     private final DefaultTableModel actionmodel = new DefaultTableModel(
-            new Object[]{"Entity", "Action", "Condition", "Result", "Where"}, 0)
+            new Object[]{"Entity", "Action", "State", "Condition", "Result", "Where"}, 0)
     {
         private static final long serialVersionUID = 1L;
 
@@ -499,7 +499,7 @@ public class EventView extends JPanel
         {
             ElhNode node = action.node();
             this.rowactions.add(action);
-            this.actionmodel.addRow(new Object[]{action.entity().getName(), node.getName(), node.getCondition(),
+            this.actionmodel.addRow(new Object[]{action.entity().getName(), node.getName(), stateOf(node), node.getCondition(),
                     node.getResult(), node.getPath()});
             if (selectedaction != null && node == selectedaction.node())
             {
@@ -516,6 +516,18 @@ public class EventView extends JPanel
 
     // every action's condition, all of which must hold, and every action's
     // result, all of which happen together
+    // the state indicator an action needs and sets, as "Library Member -/1"
+    private static String stateOf(ElhNode action)
+    {
+        ElhNode top = action;
+        while (top.getParent() != null)
+        {
+            top = top.getParent();
+        }
+        StateIndicators.ActionState state = StateIndicators.of(top).stateOf(action);
+        return state == null ? "" : state.indicator() + " " + state.label();
+    }
+
     // what was read of the process, or the first line that could not be
     private void showProcessStatus()
     {

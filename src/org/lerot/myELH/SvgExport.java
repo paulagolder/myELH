@@ -23,9 +23,16 @@ public final class SvgExport
 
     public static void write(ElhNode root, StyleMap stylemap, LayoutStyle layoutstyle, Path file) throws IOException
     {
+        write(root, stylemap, layoutstyle, false, file);
+    }
+
+    // with the actions' state indicator values under their boxes if showstates is true
+    public static void write(ElhNode root, StyleMap stylemap, LayoutStyle layoutstyle, boolean showstates, Path file)
+            throws IOException
+    {
         Document document = GenericDOMImplementation.getDOMImplementation().createDocument(SVGNS, "svg", null);
         SVGGraphics2D svggraphic = new SVGGraphics2D(document);
-        ElhDiagram diagram = new ElhDiagram(root, stylemap, layoutstyle, svggraphic);
+        ElhDiagram diagram = new ElhDiagram(root, stylemap, layoutstyle, svggraphic, showstates);
         diagram.draw(svggraphic);
         svggraphic.setSVGCanvasSize(new Dimension((int) diagram.getWidth(), (int) diagram.getHeight()));
         // an OutputStreamWriter, so that Batik writes encoding="UTF-8" in the header
