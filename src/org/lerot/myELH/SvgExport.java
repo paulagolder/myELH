@@ -26,6 +26,20 @@ public final class SvgExport
         write(root, stylemap, layoutstyle, false, file);
     }
 
+    // an event's process as a flowchart
+    public static void writeFlowchart(String title, EventProcess process, Path file) throws IOException
+    {
+        Document document = GenericDOMImplementation.getDOMImplementation().createDocument(SVGNS, "svg", null);
+        SVGGraphics2D svggraphic = new SVGGraphics2D(document);
+        ProcessFlowchart chart = new ProcessFlowchart(title, process, svggraphic);
+        chart.draw(svggraphic);
+        svggraphic.setSVGCanvasSize(new Dimension((int) Math.ceil(chart.getWidth()), (int) Math.ceil(chart.getHeight())));
+        try (Writer out = new OutputStreamWriter(Files.newOutputStream(file), StandardCharsets.UTF_8))
+        {
+            svggraphic.stream(out, true);
+        }
+    }
+
     // with the actions' state indicator values under their boxes if showstates is true
     public static void write(ElhNode root, StyleMap stylemap, LayoutStyle layoutstyle, boolean showstates, Path file)
             throws IOException

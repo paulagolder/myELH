@@ -352,10 +352,18 @@ public class MyElh extends JFrame
                 if (event != null) moveEvent(event);
             });
             jmb.add(jmEvent);
-            // to be filled once the events screen has a diagram
-            jmb.add(new JMenu("View"));
-            jmb.add(new JMenu("Export"));
-            jmb.add(new JMenu("Options"));
+            JMenu jmView = new JMenu("View");
+            addMenuItem(jmView, "View EDIT", () -> this.eventview.showFlowchart(false));
+            addMenuItem(jmView, "View SVG", () -> this.eventview.showFlowchart(true));
+            jmView.addSeparator();
+            FlowchartPanel chart = this.eventview.getFlowchartPanel();
+            addMenuItem(jmView, "Zoom In", KeyEvent.VK_EQUALS, () -> chart.setZoom(chart.getZoom() * 1.25));
+            addMenuItem(jmView, "Zoom Out", KeyEvent.VK_MINUS, () -> chart.setZoom(chart.getZoom() / 1.25));
+            addMenuItem(jmView, "Actual Size", KeyEvent.VK_0, () -> chart.setZoom(1.0));
+            jmb.add(jmView);
+            JMenu jmExport = new JMenu("Export");
+            addMenuItem(jmExport, "Print SVG", this.eventview::exportFlowchart);
+            jmb.add(jmExport);
         }
         JMenu jmHelp = new JMenu("Help");
         addMenuItem(jmHelp, "About", () -> JOptionPane.showMessageDialog(this,

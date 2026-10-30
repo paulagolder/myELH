@@ -29,6 +29,10 @@ public class EventView extends JPanel
     private static final String NOTHING = "nothing";
     private static final String EVENT = "event";
     private static final String CHOSEN = "chosen";
+    private static final String FLOWCHART = "flowchart";
+    // the shown event's process as a flowchart, shown instead of its details while flowchartmode is on
+    private final FlowchartPanel flowchartpanel = new FlowchartPanel();
+    private boolean flowchartmode;
     private final MyElh app;
     // the events, each with its actions
     private final TreeView eventtree;
@@ -114,6 +118,9 @@ public class EventView extends JPanel
         this.right.add(makeNothingPanel(), NOTHING);
         this.right.add(makeEventPanel(), EVENT);
         this.right.add(makeChosenPanel(), CHOSEN);
+        JScrollPane flowchartscroll = new JScrollPane(this.flowchartpanel);
+        flowchartscroll.setPreferredSize(new Dimension(200, 200));
+        this.right.add(flowchartscroll, FLOWCHART);
         add(this.right, BorderLayout.CENTER);
     }
 
@@ -511,7 +518,7 @@ public class EventView extends JPanel
         this.lonely.setText(count >= 2 ? " " : TreeView.FLAG.strip() + " An event should trigger actions in two or "
                 + "more entities; this one triggers " + count + ".");
         showTransaction(event);
-        this.cards.show(this.right, EVENT);
+        showEventCard();
     }
 
     // every action's condition, all of which must hold, and every action's
@@ -529,6 +536,69 @@ public class EventView extends JPanel
     }
 
     // what was read of the process, or the first line that could not be
+    // the event's details, or its flowchart
+    private void showEventCard()
+    {
+        if (this.flowchartmode && this.shownevent != null)
+        {
+            this.flowchartpanel.setChart(currentFlowchart());
+            this.cards.show(this.right, FLOWCHART);
+        } else
+        {
+            this.cards.show(this.right, EVENT);
+        }
+    }
+
+    // the shown event's process as it now stands in the Process box, saved or not
+    private ProcessFlowchart currentFlowchart()
+    {
+        return new ProcessFlowchart(this.namefield.getText().strip(), EventProcess.read(this.processfield.getText()));
+    }
+
+    // View EDIT and View SVG: the shown event's details or its flowchart
+    public void showFlowchart(boolean on)
+    {
+        this.flowchartmode = on;
+        if (this.shownevent != null)
+        {
+            showEventCard();
+        }
+    }
+
+    public FlowchartPanel getFlowchartPanel()
+    {
+        return this.flowchartpanel;
+    }
+
+    // Export > Print SVG: the shown event's flowchart
+    public void exportFlowchart()
+    {
+        if (this.shownevent == null)
+        {
+            JOptionPane.showMessageDialog(this, "Select an event first", "Print SVG", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        JFileChooser fc = new JFileChooser();
+        fc.setDialogTitle("Save the flowchart of " + this.shownevent.getName());
+        Project project = this.app.getProject();
+        if (project != null) fc.setCurrentDirectory(project.getFolder());
+        fc.setSelectedFile(new java.io.File(ElhVersions.fileBaseName(this.shownevent.getName()) + ".svg"));
+        fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("svg", "svg"));
+        if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION)
+        {
+            return;
+        }
+        try
+        {
+            SvgExport.writeFlowchart(this.namefield.getText().strip(), EventProcess.read(this.processfield.getText()),
+                    fc.getSelectedFile().toPath());
+        } catch (java.io.IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Could not save " + fc.getSelectedFile() + "\n" + e.getMessage(),
+                    "Export failed", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private void showProcessStatus()
     {
         EventProcess process = EventProcess.read(this.processfield.getText());
