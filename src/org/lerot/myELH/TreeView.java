@@ -59,13 +59,13 @@ public class TreeView extends JPanel implements ActionListener
 
     enum Mode
     {
-        PROJECT, ENTITIES, EVENTS
+        PROJECT, ENTITIES, EVENTS, ACTIONS
     }
 
     // the headings of the trees
     enum Heading
     {
-        ENTITIES("Entities"), EVENTS("Events"), UNLINKED("Not in an event yet");
+        ENTITIES("Entities"), EVENTS("Events"), ACTIONS("Actions");
 
         private final String label;
 
@@ -88,6 +88,11 @@ public class TreeView extends JPanel implements ActionListener
 
         // the popup menu items for a tree node showing this object
         default void popup(Object shown, JPopupMenu menu)
+        {
+        }
+
+        // the user double-clicked a tree node showing this object
+        default void opened(Object shown)
         {
         }
     }
@@ -119,8 +124,8 @@ public class TreeView extends JPanel implements ActionListener
     {
         JTree tree = new JTree(root, true);
         tree.setBackground(this.bg);
-        // in the events tree several actions can be chosen at once, to make an event of them
-        tree.getSelectionModel().setSelectionMode(this.mode == Mode.EVENTS
+        // in the actions browser several actions can be chosen at once, to make an event of them
+        tree.getSelectionModel().setSelectionMode(this.mode == Mode.ACTIONS
                 ? TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION : TreeSelectionModel.SINGLE_TREE_SELECTION);
         setCellRenderer(tree);
         tree.addTreeSelectionListener(e ->
@@ -154,6 +159,15 @@ public class TreeView extends JPanel implements ActionListener
             {
                 showPopup(me);
             }
+
+            public void mouseClicked(MouseEvent me)
+            {
+                TreePath path = tree.getPathForLocation(me.getX(), me.getY());
+                if (me.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(me) && path != null)
+                {
+                    listener.opened(((DefaultMutableTreeNode) path.getLastPathComponent()).getUserObject());
+                }
+            }
         });
         return tree;
     }
@@ -165,12 +179,14 @@ public class TreeView extends JPanel implements ActionListener
         // a project just opened starts with its headings expanded
         boolean firsttime = project != this.project;
         this.project = project;
-        this.actions = project == null || this.mode == Mode.ENTITIES ? List.of() : project.allActions();
+        this.actions = project == null || this.mode == Mode.ENTITIES || this.mode == Mode.ACTIONS
+                ? List.of() : project.allActions();
         DefaultMutableTreeNode root = project == null ? new DefaultMutableTreeNode("No project open") : switch (this.mode)
         {
             case PROJECT -> projectTree(project);
             case ENTITIES -> entityTree(project, true);
             case EVENTS -> eventTree(project);
+            case ACTIONS -> actionTree(project);
         };
         this.rebuilding = true;
         try
@@ -183,9 +199,13 @@ public class TreeView extends JPanel implements ActionListener
                 expanded.add(root.getUserObject());
                 expanded.add(Heading.ENTITIES);
                 expanded.add(Heading.EVENTS);
-                expanded.add(Heading.UNLINKED);
+                expanded.add(Heading.ACTIONS);
             }
             expand(root, expanded);
+            if (firsttime && this.mode == Mode.ACTIONS)
+            {
+                expandToUnlinked(root);
+            }
         } finally
         {
             this.rebuilding = false;
@@ -237,13 +257,90 @@ public class TreeView extends JPanel implements ActionListener
             }
             events.add(eventnode);
         }
-        DefaultMutableTreeNode unlinked = new DefaultMutableTreeNode(Heading.UNLINKED);
-        for (EntityAction action : project.unlinkedActions(this.actions))
-        {
-            unlinked.add(new DefaultMutableTreeNode(action, false));
-        }
-        events.add(unlinked);
         return events;
+    }
+
+    // every entity with its life history, read without opening it; each
+    // action is shown as an EntityAction, the nodes grouping them as ElhNodes
+    private DefaultMutableTreeNode actionTree(Project project)
+    {
+        DefaultMutableTreeNode actions = new DefaultMutableTreeNode(Heading.ACTIONS);
+        List<EntityAction> found = new ArrayList<>();
+        for (Project.LifeHistory history : project.lifeHistories())
+        {
+            DefaultMutableTreeNode entitynode = new DefaultMutableTreeNode(history.entity());
+            addActionNodes(entitynode, history.entity(), history.top(), found);
+            actions.add(entitynode);
+        }
+        this.actions = found;
+        return actions;
+    }
+
+    private void addActionNodes(DefaultMutableTreeNode treenode, ProjectEntity entity, ElhNode node,
+            List<EntityAction> found)
+    {
+        for (ElhNode child : node.getChildren())
+        {
+            if (child.isLeafAction())
+            {
+                EntityAction action = new EntityAction(entity, child);
+                found.add(action);
+                treenode.add(new DefaultMutableTreeNode(action, false));
+            } else
+            {
+                DefaultMutableTreeNode childnode = new DefaultMutableTreeNode(child);
+                addActionNodes(childnode, entity, child, found);
+                treenode.add(childnode);
+            }
+        }
+    }
+
+    // opens every branch that leads to an action not yet part of an event
+    private void expandToUnlinked(DefaultMutableTreeNode root)
+    {
+        for (Enumeration<TreeNode> e = root.depthFirstEnumeration(); e.hasMoreElements(); )
+        {
+            DefaultMutableTreeNode node = (DefaultMutableTreeNode) e.nextElement();
+            if (node.getUserObject() instanceof EntityAction action && this.project.isUnlinked(action.node()))
+            {
+                this.thistree.expandPath(new TreePath(((DefaultMutableTreeNode) node.getParent()).getPath()));
+            }
+        }
+    }
+
+    // in the actions browser: the actions not yet part of an event at or below a tree node
+    private int unlinkedBelow(DefaultMutableTreeNode treenode)
+    {
+        int count = 0;
+        for (Enumeration<TreeNode> e = treenode.depthFirstEnumeration(); e.hasMoreElements(); )
+        {
+            if (((DefaultMutableTreeNode) e.nextElement()).getUserObject() instanceof EntityAction action
+                    && this.project.isUnlinked(action.node()))
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // In the actions browser, an action's label says which event it is
+    // part of, or carries a flag; a branch above actions not yet part of an
+    // event carries a flag and their number. Null if the node is not flagged
+    // and its label is its usual one.
+    private Object[] browserLabel(DefaultMutableTreeNode treenode)
+    {
+        Object shown = treenode.getUserObject();
+        if (shown instanceof EntityAction action)
+        {
+            if (this.project.isUnlinked(action.node()))
+            {
+                return new Object[]{action.node().getName() + FLAG, true};
+            }
+            ProjectEvent event = this.project.findEvent(action.node().getEventref());
+            return new Object[]{action.node().getName() + "  \u2192 " + event.getName(), false};
+        }
+        int count = unlinkedBelow(treenode);
+        return count == 0 ? null : new Object[]{shown + FLAG + " " + count, true};
     }
 
     // the objects of the tree nodes now expanded
@@ -306,11 +403,6 @@ public class TreeView extends JPanel implements ActionListener
                 int count = this.project.actionsOf(event, this.actions).size();
                 return event.getName() + FLAG + " (" + count + (count == 1 ? " action)" : " actions)");
             }
-            case Heading heading when heading == Heading.UNLINKED:
-            {
-                int count = this.project.unlinkedActions(this.actions).size();
-                return count == 0 ? null : heading + FLAG + " " + count;
-            }
             default:
                 return null;
         }
@@ -333,6 +425,16 @@ public class TreeView extends JPanel implements ActionListener
                 } else
                 {
                     setBackgroundSelectionColor(LEAFSELECTED);
+                }
+                if (TreeView.this.mode == Mode.ACTIONS && TreeView.this.project != null)
+                {
+                    Object[] label = browserLabel(node);
+                    if (label != null)
+                    {
+                        setText((String) label[0]);
+                        if ((Boolean) label[1]) setForeground(FLAGGED);
+                    }
+                    return this;
                 }
                 String flagged = flaggedLabel(node.getUserObject());
                 if (flagged != null)
@@ -357,12 +459,50 @@ public class TreeView extends JPanel implements ActionListener
             if (shown == target || shown instanceof ProjectEntity entity && entity.getTop() != null
                     && entity.getTop() == target
                     || shown instanceof EntityAction action && target instanceof EntityAction other
-                    && action.node() == other.node())
+                    && sameAction(action, other))
             {
                 return node;
             }
         }
         return null;
+    }
+
+    // the same action, even if one was read afresh from the entity's file:
+    // the same entity, and the same place in its life history
+    private static boolean sameAction(EntityAction a, EntityAction b)
+    {
+        return a.node() == b.node()
+                || a.entity() == b.entity() && a.node().indexPath().equals(b.node().indexPath());
+    }
+
+    // adds the object's tree node, if it has one, to the selection, without acting on it
+    public void addToSelection(Object target)
+    {
+        DefaultMutableTreeNode node = find(target);
+        if (node == null)
+        {
+            return;
+        }
+        this.rebuilding = true;
+        try
+        {
+            this.thistree.addSelectionPath(new TreePath(node.getPath()));
+        } finally
+        {
+            this.rebuilding = false;
+        }
+    }
+
+    public void clearSelection()
+    {
+        this.rebuilding = true;
+        try
+        {
+            this.thistree.clearSelection();
+        } finally
+        {
+            this.rebuilding = false;
+        }
     }
 
     // selects the object's tree node, if it has one, without acting on it

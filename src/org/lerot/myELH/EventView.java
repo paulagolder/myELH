@@ -11,22 +11,30 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-// The Events window: the events tree on the left, and on the right what is
-// selected there. An event happens in the world and triggers an action in
-// each of two or more entities; it has a Description. Its actions are not
-// stored with it but found in the entities' life histories: the leaf action
-// nodes linked to it. Each action has its own Condition and Result (its
-// CORD Action); the event can happen when every Condition holds, and then
-// every Result happens. Actions not yet part of an event are listed at the
-// end of the tree, to be gathered into events.
+// The Events window. On the left, the events, each with its actions, and
+// below them a browser of every entity's actions, in which the actions not
+// yet part of an event, and the branches leading to them, are flagged. On
+// the right, the event selected, or the actions chosen in the browser.
+//
+// An event happens in the world and triggers an action in each of two or
+// more entities; it has a Description. Its actions are not stored with it
+// but found in the entities' life histories: the leaf action nodes linked
+// to it. Each action has its own Condition and Result (its CORD Action); the
+// event can happen when every Condition holds, and then every Result
+// happens. Double-clicking an action in the browser adds it to the event
+// shown.
 public class EventView extends JPanel
 {
     private static final long serialVersionUID = 1L;
     private static final String NOTHING = "nothing";
     private static final String EVENT = "event";
-    private static final String UNLINKED = "unlinked";
+    private static final String CHOSEN = "chosen";
     private final MyElh app;
-    private final TreeView tree;
+    // the events, each with its actions
+    private final TreeView eventtree;
+    // every entity's actions
+    private final TreeView browser;
+    private JButton addselectedbutton;
     private final CardLayout cards = new CardLayout();
     private final JPanel right = new JPanel(this.cards);
     // the event shown
@@ -53,7 +61,7 @@ public class EventView extends JPanel
     private final List<EntityAction> rowactions = new ArrayList<>();
     // the whole transaction: every action's condition and result
     private final JTextArea transactionfield = new JTextArea(6, 30);
-    // the actions not yet in an event that are selected
+    // the actions selected in the browser
     private final List<EntityAction> chosenactions = new ArrayList<>();
     private final JTextArea chosenlist = new JTextArea(6, 30);
     private final JComboBox<ProjectEvent> eventchoice = new JComboBox<>();
@@ -61,11 +69,11 @@ public class EventView extends JPanel
     public EventView(MyElh app)
     {
         this.app = app;
-        this.tree = new TreeView(app, TreeView.Mode.EVENTS, new TreeView.Listener()
+        this.eventtree = new TreeView(app, TreeView.Mode.EVENTS, new TreeView.Listener()
         {
             public void selected(Object shown)
             {
-                treeSelected();
+                eventTreeSelected();
             }
 
             public void popup(Object shown, JPopupMenu menu)
@@ -73,17 +81,37 @@ public class EventView extends JPanel
                 treePopup(shown, menu);
             }
         });
-        setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
-        JScrollPane treescroll = new JScrollPane(this.tree);
-        treescroll.setPreferredSize(new Dimension(240, 200));
+        this.browser = new TreeView(app, TreeView.Mode.ACTIONS, new TreeView.Listener()
+        {
+            public void selected(Object shown)
+            {
+                browserSelected();
+            }
+
+            public void popup(Object shown, JPopupMenu menu)
+            {
+                browserPopup(shown, menu);
+            }
+
+            public void opened(Object shown)
+            {
+                if (shown instanceof EntityAction action) addToShownEvent(List.of(action));
+            }
+        });
+        setLayout(new BorderLayout());
+        JSplitPane left = new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(this.eventtree),
+                new JScrollPane(this.browser));
+        left.setResizeWeight(0.4);
+        left.setContinuousLayout(true);
+        left.setPreferredSize(new Dimension(260, 200));
         // wide enough for the flags, however wide the rest of the window wants to be
-        treescroll.setMinimumSize(new Dimension(240, 100));
-        treescroll.setMaximumSize(new Dimension(320, Integer.MAX_VALUE));
-        add(treescroll);
+        left.setMinimumSize(new Dimension(260, 100));
+        left.setMaximumSize(new Dimension(340, Integer.MAX_VALUE));
+        add(left, BorderLayout.WEST);
         this.right.add(makeNothingPanel(), NOTHING);
         this.right.add(makeEventPanel(), EVENT);
-        this.right.add(makeUnlinkedPanel(), UNLINKED);
-        add(this.right);
+        this.right.add(makeChosenPanel(), CHOSEN);
+        add(this.right, BorderLayout.CENTER);
     }
 
     private JPanel styled(JPanel panel)
@@ -101,9 +129,13 @@ public class EventView extends JPanel
                 An event happens in the world and triggers an action in each of
                 two or more entities: the leaf action nodes of their life histories.
 
-                Select an event to see and edit it. Actions not yet part of an
-                event are listed under "Not in an event yet"; select one or more
-                (Ctrl-click) to make a new event of them or add them to one.""");
+                Select an event above to see and edit it.
+
+                Below, every entity's actions: those not yet part of an event,
+                and the branches leading to them, are flagged. With an event
+                shown, double-click an action to add it to the event. Otherwise
+                select one or more (Ctrl-click) to make a new event of them or
+                add them to one.""");
         help.setEditable(false);
         help.setOpaque(false);
         panel.add(help, BorderLayout.NORTH);
@@ -175,15 +207,19 @@ public class EventView extends JPanel
         addButton(buttons, "Save Edits", this::saveEdits);
         addButton(buttons, "Go to Action", this::goToAction);
         addButton(buttons, "Take Action out of Event", this::unlinkAction);
+        this.addselectedbutton = new JButton("Add Selected Actions");
+        this.addselectedbutton.setToolTipText("Adds the actions selected in the browser below to this event "
+                + "(or double-click one there)");
+        this.addselectedbutton.addActionListener(e -> addToShownEvent(List.copyOf(this.chosenactions)));
+        buttons.add(this.addselectedbutton);
         panel.add(buttons, BorderLayout.SOUTH);
         return panel;
     }
 
-    private JPanel makeUnlinkedPanel()
+    private JPanel makeChosenPanel()
     {
         JPanel panel = styled(new JPanel(new BorderLayout(4, 4)));
-        panel.add(new JLabel("ACTIONS NOT YET IN AN EVENT (Ctrl-click in the tree to choose more):"),
-                BorderLayout.NORTH);
+        panel.add(new JLabel("ACTIONS CHOSEN IN THE BROWSER (Ctrl-click to choose more):"), BorderLayout.NORTH);
         this.chosenlist.setEditable(false);
         panel.add(new JScrollPane(this.chosenlist), BorderLayout.CENTER);
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -220,11 +256,6 @@ public class EventView extends JPanel
                         e -> this.app.moveEvent(event));
                 TreeView.addItem(menu, "Delete Event", e -> deleteEvent());
             }
-            case EntityAction action when project.isUnlinked(action.node()) ->
-            {
-                TreeView.addItem(menu, "New Event from Selected Actions", e -> newEventFromChosen());
-                TreeView.addItem(menu, "Go to Action", e -> goTo(action));
-            }
             case EntityAction action ->
             {
                 TreeView.addItem(menu, "Take Action out of Event", e -> unlink(action));
@@ -239,66 +270,162 @@ public class EventView extends JPanel
         return this.shownevent;
     }
 
-    // rebuilds the tree and shows what is selected in it
+    // the browser's right-click menu
+    private void browserPopup(Object shown, JPopupMenu menu)
+    {
+        Project project = this.app.getProject();
+        if (project == null || !(shown instanceof EntityAction action)) return;
+        if (this.shownevent != null)
+        {
+            ProjectEvent event = this.shownevent;
+            TreeView.addItem(menu, "Add to " + event.getName(), e -> addToShownEvent(List.copyOf(this.chosenactions)));
+        }
+        TreeView.addItem(menu, "New Event from Selected Actions", e -> newEventFromChosen());
+        if (!project.isUnlinked(action.node()))
+        {
+            TreeView.addItem(menu, "Take Action out of Event", e -> unlink(action));
+        }
+        TreeView.addItem(menu, "Go to Action", e -> goTo(action));
+    }
+
+    // rebuilds both trees, keeping what is selected in each, and shows it
     public void refresh()
     {
-        List<Object> selected = this.tree.selectedObjects();
-        this.tree.maketree(this.app.getProject());
-        if (selected.size() == 1)
+        List<Object> events = this.eventtree.selectedObjects();
+        List<Object> actions = this.browser.selectedObjects();
+        this.eventtree.maketree(this.app.getProject());
+        this.browser.maketree(this.app.getProject());
+        if (events.size() == 1)
         {
-            this.tree.select(selected.getFirst());
+            this.eventtree.select(events.getFirst());
         }
-        treeSelected();
+        actions.forEach(this.browser::addToSelection);
+        eventTreeSelected();
+        browserSelected();
     }
 
     // selects the event
     public void selectEvent(ProjectEvent event)
     {
-        this.tree.maketree(this.app.getProject());
-        this.tree.select(event);
-        treeSelected();
+        refresh();
+        this.eventtree.select(event);
+        eventTreeSelected();
     }
 
-    // selects the action, under its event or among those not yet in one
+    // selects the action in the browser and, if it is part of an event, shows the event
     public void selectAction(EntityAction action)
     {
-        this.tree.maketree(this.app.getProject());
-        this.tree.select(action);
-        treeSelected();
-    }
-
-    // shows on the right what is selected in the tree
-    private void treeSelected()
-    {
+        refresh();
         Project project = this.app.getProject();
-        List<Object> selected = this.tree.selectedObjects();
-        this.chosenactions.clear();
-        this.shownevent = null;
-        if (project == null || selected.isEmpty())
+        this.browser.select(action);
+        if (project != null && !project.isUnlinked(action.node()))
         {
-            this.cards.show(this.right, NOTHING);
-        } else if (selected.stream().allMatch(o -> o instanceof EntityAction a && project.isUnlinked(a.node())))
-        {
-            selected.forEach(o -> this.chosenactions.add((EntityAction) o));
-            showChosen(project);
+            this.eventtree.select(action);
+            eventTreeSelected();
         } else
         {
-            Object last = selected.getLast();
-            ProjectEvent event = switch (last)
+            this.eventtree.clearSelection();
+            this.shownevent = null;
+        }
+        browserSelected();
+    }
+
+    // shows on the right the event selected in the events tree, or the
+    // event of the action selected there
+    private void eventTreeSelected()
+    {
+        Project project = this.app.getProject();
+        List<Object> selected = this.eventtree.selectedObjects();
+        this.shownevent = null;
+        ProjectEvent event = project == null || selected.isEmpty() ? null : switch (selected.getLast())
+        {
+            case ProjectEvent e -> e;
+            case EntityAction a when !project.isUnlinked(a.node()) -> project.findEvent(a.node().getEventref());
+            default -> null;
+        };
+        if (event == null || !EventActions.loadEvent(this, project, event))
+        {
+            showChosenOrNothing(project);
+        } else
+        {
+            showEvent(project, event, selected.getLast() instanceof EntityAction a ? a : null);
+        }
+        enableAddSelected();
+        this.app.eventSelected(this.shownevent);
+    }
+
+    // the actions selected in the browser: with an event shown they can be
+    // added to it; with none, a new event can be made of them
+    private void browserSelected()
+    {
+        this.chosenactions.clear();
+        for (Object shown : this.browser.selectedObjects())
+        {
+            if (shown instanceof EntityAction action) this.chosenactions.add(action);
+        }
+        if (this.shownevent == null)
+        {
+            showChosenOrNothing(this.app.getProject());
+        }
+        enableAddSelected();
+    }
+
+    private void showChosenOrNothing(Project project)
+    {
+        if (project == null || this.chosenactions.isEmpty())
+        {
+            this.cards.show(this.right, NOTHING);
+        } else
+        {
+            showChosen(project);
+        }
+    }
+
+    private void enableAddSelected()
+    {
+        boolean any = this.shownevent != null && this.chosenactions.stream()
+                .anyMatch(a -> !this.shownevent.getId().equals(a.node().getEventref()));
+        this.addselectedbutton.setEnabled(any);
+        this.addselectedbutton.setText(this.chosenactions.size() > 1 ? "Add Selected Actions" : "Add Selected Action");
+    }
+
+    // adds the actions to the event shown, asking first about any that are
+    // part of another event
+    private void addToShownEvent(List<EntityAction> actions)
+    {
+        ProjectEvent event = this.shownevent;
+        if (event == null)
+        {
+            JOptionPane.showMessageDialog(this, "Select an event above first, then add actions to it.",
+                    "Add to event", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        List<EntityAction> adding = actions.stream().filter(a -> !event.getId().equals(a.node().getEventref())).toList();
+        if (adding.isEmpty() || !confirmMoves(adding, event)) return;
+        if (this.app.linkActions(adding, event))
+        {
+            selectEvent(event);
+        }
+    }
+
+    // true if none of the actions is part of another event, or the user
+    // agrees to move those that are
+    private boolean confirmMoves(List<EntityAction> actions, ProjectEvent target)
+    {
+        Project project = this.app.getProject();
+        List<String> moving = new ArrayList<>();
+        for (EntityAction action : actions)
+        {
+            ProjectEvent current = project.isUnlinked(action.node()) ? null : project.findEvent(action.node().getEventref());
+            if (current != null && current != target)
             {
-                case ProjectEvent e -> e;
-                case EntityAction a when !project.isUnlinked(a.node()) -> project.findEvent(a.node().getEventref());
-                default -> null;
-            };
-            if (event == null || !EventActions.loadEvent(this, project, event))
-            {
-                this.cards.show(this.right, NOTHING);
-            } else
-            {
-                showEvent(project, event, last instanceof EntityAction a ? a : null);
+                moving.add(action + " (now in " + current.getName() + ")");
             }
         }
-        this.app.eventSelected(this.shownevent);
+        return moving.isEmpty() || JOptionPane.showConfirmDialog(this, "These are already part of another event:\n"
+                        + String.join("\n", moving) + "\nMove them to " + (target == null ? "the new event" : target.getName())
+                        + "?", "Move actions", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE)
+                == JOptionPane.OK_OPTION;
     }
 
     private void showChosen(Project project)
@@ -311,7 +438,7 @@ public class EventView extends JPanel
         this.chosenlist.setText(text.toString().stripTrailing());
         this.eventchoice.removeAllItems();
         project.getEvents().forEach(this.eventchoice::addItem);
-        this.cards.show(this.right, UNLINKED);
+        this.cards.show(this.right, CHOSEN);
     }
 
     private void showEvent(Project project, ProjectEvent event, EntityAction selectedaction)
@@ -492,6 +619,7 @@ public class EventView extends JPanel
         Project project = this.app.getProject();
         if (project == null || this.chosenactions.isEmpty()) return;
         List<EntityAction> chosen = List.copyOf(this.chosenactions);
+        if (!confirmMoves(chosen, null)) return;
         String name = EventActions.askEventName(this, project, "Name of the new event triggering\n"
                 + String.join("\n", chosen.stream().map(EntityAction::toString).toList()) + ":",
                 chosen.getFirst().node().getName(), null);
@@ -508,7 +636,10 @@ public class EventView extends JPanel
     {
         ProjectEvent event = (ProjectEvent) this.eventchoice.getSelectedItem();
         if (event == null || this.chosenactions.isEmpty()) return;
-        if (this.app.linkActions(List.copyOf(this.chosenactions), event))
+        List<EntityAction> adding = this.chosenactions.stream()
+                .filter(a -> !event.getId().equals(a.node().getEventref())).toList();
+        if (adding.isEmpty() || !confirmMoves(adding, event)) return;
+        if (this.app.linkActions(adding, event))
         {
             selectEvent(event);
         }
@@ -529,11 +660,11 @@ public class EventView extends JPanel
 
     public void newEventFromSelected()
     {
-        treeSelected();
+        browserSelected();
         if (this.chosenactions.isEmpty())
         {
-            JOptionPane.showMessageDialog(this, "Select one or more actions under \"" + TreeView.Heading.UNLINKED
-                    + "\" first (Ctrl-click for more than one).", "New Event", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Select one or more actions in the browser below the events "
+                    + "first (Ctrl-click for more than one).", "New Event", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         newEventFromChosen();
