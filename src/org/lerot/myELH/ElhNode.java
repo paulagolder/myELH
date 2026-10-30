@@ -28,6 +28,11 @@ public final class ElhNode
     private String description = "";
     // for an entity or a role, the data held about it
     private List<Attribute> attributes = new ArrayList<>();
+    // for an entity, that it is outside the information system: it has no
+    // instances, attributes or state of its own, and its roles are entities
+    // in their own right (a Person whose Library Member and Employee lives
+    // are held apart)
+    private boolean outside;
 
     // the element holding a node's attributes, among its child nodes
     static final String ATTRIBUTES = "attributes";
@@ -270,6 +275,16 @@ public final class ElhNode
         this.description = description == null ? "" : description.strip();
     }
 
+    public boolean isOutside()
+    {
+        return this.outside;
+    }
+
+    public void setOutside(boolean outside)
+    {
+        this.outside = outside;
+    }
+
     public List<Attribute> getAttributes()
     {
         return List.copyOf(this.attributes);
@@ -358,6 +373,10 @@ public final class ElhNode
     {
         Element element = new Element(getType());
         element.setAttribute("name", getName() == null ? "" : getName());
+        if (this.outside)
+        {
+            element.setAttribute("outside", "true");
+        }
         if (!this.attributes.isEmpty())
         {
             Element list = new Element(ATTRIBUTES);
@@ -495,6 +514,7 @@ public final class ElhNode
         ElhNode newnode = new ElhNode(this.type, getName(), newparent);
         newnode.setChildgrouptype(getChildgrouptype());
         newnode.setAttributes(this.attributes);
+        newnode.setOutside(this.outside);
         newnode.setEventref(this.eventref);
         newnode.setCondition(this.condition);
         newnode.setResult(this.result);
@@ -541,6 +561,7 @@ public final class ElhNode
         setCondition(ct.getAttributeValue("condition"));
         setResult(ct.getAttributeValue("result"));
         setDescription(ct.getAttributeValue("description"));
+        setOutside("true".equals(ct.getAttributeValue("outside")));
         // a stylename attribute in older files is ignored: a node is drawn by its type
         if (ct.getAttribute("childgrouptype") != null)
         {

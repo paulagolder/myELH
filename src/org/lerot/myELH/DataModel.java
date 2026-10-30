@@ -10,7 +10,9 @@ import java.util.Map;
 // be named for it, written Role.attribute ("Member.name", "Library
 // Member.membership number"). A role has its own attributes and those of
 // the entity (and any role) it belongs to; each also has its state
-// indicator, named "state". Used to check the references in what happens
+// indicator, named "state". An entity outside the information system has
+// no attributes or state, and passes none on: its roles are entities in
+// their own right. Used to check the references in what happens
 // inside the information system: activities marked ">" and actions'
 // conditions and results.
 public final class DataModel
@@ -36,6 +38,8 @@ public final class DataModel
 
     // by name in lower case, in the order found
     private final Map<String, Owner> owners = new LinkedHashMap<>();
+    // the names, in lower case, of entities outside the information system
+    private final java.util.Set<String> outside = new java.util.HashSet<>();
 
     private DataModel()
     {
@@ -58,6 +62,15 @@ public final class DataModel
 
     private void collect(ElhNode node, List<Attribute> inherited, boolean top)
     {
+        if (node.isOutside())
+        {
+            this.outside.add(node.getName().toLowerCase(Locale.ROOT));
+            for (ElhNode child : node.getChildren())
+            {
+                collect(child, List.of(), false);
+            }
+            return;
+        }
         List<Attribute> all = inherited;
         if (top || node.is(NodeType.ENTITY) || node.is(NodeType.ROLE))
         {
@@ -109,6 +122,13 @@ public final class DataModel
                 continue;
             }
             Owner owner = ownerEndingAt(lower, dot);
+            String outsidename = outsideEndingAt(lower, dot);
+            if (outsidename != null && (owner == null || outsidename.length() > owner.name().length()))
+            {
+                problems.add(text.substring(dot - outsidename.length(), dot)
+                        + " is outside the information system: it has no attributes");
+                continue;
+            }
             if (owner == null)
             {
                 String word = lastWord(text.substring(0, dot));
@@ -148,6 +168,23 @@ public final class DataModel
                     && (best == null || name.length() > best.name().length()))
             {
                 best = entry.getValue();
+            }
+        }
+        return best;
+    }
+
+    // the longest name of an entity outside the system that the text ends with just before the dot
+    private String outsideEndingAt(String lower, int dot)
+    {
+        String best = null;
+        for (String name : this.outside)
+        {
+            int start = dot - name.length();
+            if (start >= 0 && lower.startsWith(name, start)
+                    && (start == 0 || !Character.isLetterOrDigit(lower.charAt(start - 1)))
+                    && (best == null || name.length() > best.length()))
+            {
+                best = name;
             }
         }
         return best;
@@ -197,7 +234,11 @@ public final class DataModel
             {
                 continue;
             }
-            if (activity.role() != null && find(activity.role()) == null)
+            if (activity.role() != null && this.outside.contains(activity.role().strip().toLowerCase(Locale.ROOT)))
+            {
+                problems.add("line " + activity.line() + ": " + activity.role()
+                        + " is outside the information system: name one of its roles");
+            } else if (activity.role() != null && find(activity.role()) == null)
             {
                 problems.add("line " + activity.line() + ": no entity or role called " + activity.role());
             }

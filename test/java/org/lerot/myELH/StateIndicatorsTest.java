@@ -102,6 +102,20 @@ class StateIndicatorsTest
     }
 
     @Test
+    void anEntityOutsideTheSystemHasNoStateIndicatorButItsRolesDo()
+    {
+        ElhNode person = node(NodeType.ENTITY, "Person", null, ChildGrouping.SEQUENCE);
+        person.setOutside(true);
+        action("Is born", person);
+        ElhNode roles = node(NodeType.ACTION, "lives", person, ChildGrouping.ROLEGROUP);
+        ElhNode member = node(NodeType.ROLE, "Library Member", roles, ChildGrouping.SEQUENCE);
+        action("Joins", member);
+        StateIndicators states = StateIndicators.of(person);
+        assertEquals(List.of("Library Member"), states.indicators());
+        assertNull(states.stateOf(person.findChildnode("Is born")));
+    }
+
+    @Test
     void anEntityWithNoActionsHasNoStateIndicator()
     {
         StateIndicators states = StateIndicators.of(node(NodeType.ENTITY, "Empty", null, ChildGrouping.SEQUENCE));

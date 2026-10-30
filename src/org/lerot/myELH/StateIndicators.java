@@ -24,6 +24,8 @@ import java.util.stream.Collectors;
 // can be skipped. Parallel roles (and entity groups) each have a state
 // indicator of their own, named after the role, as the entity lives them
 // at the same time; the life around them is not changed by their actions.
+// An entity outside the information system has no state indicator of its
+// own; its roles still have theirs.
 public final class StateIndicators
 {
     // what an action needs and does to its state indicator
@@ -56,7 +58,7 @@ public final class StateIndicators
     public static StateIndicators of(ElhNode top)
     {
         StateIndicators result = new StateIndicators();
-        result.analyseLife(top.getName(), top);
+        result.analyseLife(top.getName(), top, !top.isOutside());
         return result;
     }
 
@@ -95,9 +97,16 @@ public final class StateIndicators
 
     private void analyseLife(String name, ElhNode root)
     {
+        analyseLife(name, root, true);
+    }
+
+    // held is false for a life outside the information system: what is in
+    // it is still worked out (its parallel roles), but it has no indicator
+    private void analyseLife(String name, ElhNode root, boolean held)
+    {
         Life life = new Life(name);
         Part whole = analyse(root, life);
-        if (life.actions.isEmpty())
+        if (life.actions.isEmpty() || !held)
         {
             return;
         }

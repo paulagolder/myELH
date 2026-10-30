@@ -89,6 +89,43 @@ class DataModelTest
         assertTrue(model.check("check the id, e.g. a passport. Then go on. Costs 2.50").isEmpty());
     }
 
+    // Person outside the information system: its roles are entities in their own right
+    private static ElhNode outsidePerson()
+    {
+        ElhNode person = person();
+        person.setOutside(true);
+        person.setAttributes(List.of());
+        ElhNode member = person.findChildnode("Library Member");
+        member.setAttributes(List.of(text("name"), text("membership number")));
+        return person;
+    }
+
+    @Test
+    void anEntityOutsideTheSystemPassesNothingOnAndCannotBeNamed()
+    {
+        DataModel model = DataModel.of(List.of(outsidePerson()));
+        assertNull(model.find("Person"), "Person is not held");
+        assertEquals(List.of("name", "membership number", "state"),
+                model.find("Library Member").attributes().stream().map(Attribute::name).toList());
+        assertEquals(List.of("state"), model.find("CounterStaff").attributes().stream().map(Attribute::name).toList(),
+                "CounterStaff has nothing from Person");
+        assertEquals(List.of("Person is outside the information system: it has no attributes"),
+                model.check("record Person.name"));
+        assertTrue(model.check("record Library Member.name").isEmpty());
+        EventProcess process = EventProcess.read("Person:\n    > fill in the form");
+        assertEquals(List.of("line 2: Person is outside the information system: name one of its roles"),
+                model.checkProcess(process));
+    }
+
+    @Test
+    void theOutsideMarkIsSaved() throws IOException
+    {
+        Project project = Project.create(elhfolder.toFile(), "Library", "Paul");
+        project.moveEntityToFile(project.addEntity(outsidePerson()));
+        Project loaded = Project.load(project.getFolder());
+        assertTrue(loaded.loadEntity(loaded.findEntity("Person")).isOutside());
+    }
+
     @Test
     void onlyActivitiesInsideTheSystemAreChecked()
     {

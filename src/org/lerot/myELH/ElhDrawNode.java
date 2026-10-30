@@ -179,6 +179,14 @@ public class ElhDrawNode
     {
         Color acolor = nodestylemap.getColor("borderColor");
         int bw = (int) nodestylemap.getDouble("borderWidth");
+        if (this.source.isOutside())
+        {
+            // an entity outside the information system: a dashed outline
+            g2d.setColor(acolor);
+            g2d.setStroke(new BasicStroke(bw, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10, new float[]{6, 4}, 0));
+            bounds.drawRect(g2d);
+            return;
+        }
         String rectstyle = nodestylemap.getString( "rectanglestyle");
         switch (rectstyle)
         {

@@ -47,6 +47,8 @@ public class EditView extends JPanel
     private JButton upbutton;
     private JButton downbutton;
     private JButton duplicatebutton;
+    // only there for a top-level entity: whether it is outside the information system
+    private JCheckBox outsidefield;
     // only there for an entity or a role: its attributes, one row each
     private DefaultTableModel attributemodel;
     private JTable attributetable;
@@ -73,7 +75,7 @@ public class EditView extends JPanel
         top.setOpaque(false);
         top.add(makeHeading(anode, project), BorderLayout.NORTH);
         top.add(makeForm(anode, project), BorderLayout.CENTER);
-        if (anode.getParent() == null || anode.is(NodeType.ENTITY) || anode.is(NodeType.ROLE))
+        if ((anode.getParent() == null || anode.is(NodeType.ENTITY) || anode.is(NodeType.ROLE)) && !anode.isOutside())
         {
             top.add(makeAttributePanel(anode, project), BorderLayout.SOUTH);
         }
@@ -91,7 +93,8 @@ public class EditView extends JPanel
         JLabel heading = new JLabel("ATTRIBUTES:");
         // a role can also name those of the entity and roles it belongs to
         List<String> inherited = new ArrayList<>();
-        for (ElhNode up = anode.getParent(); up != null; up = up.getParent())
+        // nothing comes from an entity outside the information system
+        for (ElhNode up = anode.getParent(); up != null && !up.isOutside(); up = up.getParent())
         {
             for (Attribute attribute : up.getAttributes())
             {
@@ -205,7 +208,8 @@ public class EditView extends JPanel
         String kind = anode.getType();
         ElhNode parent = anode.getParent();
         String where = parent == null ? "the top of its life history" : "in " + parent.getPath();
-        this.subtitle.setText(kind + ", " + where);
+        this.subtitle.setText(kind + ", " + where
+                + (anode.isOutside() ? ", outside the information system: no instances, attributes or state" : ""));
         this.subtitle.setForeground(Color.GRAY);
         heading.add(this.title);
         heading.add(this.subtitle);
@@ -251,6 +255,13 @@ public class EditView extends JPanel
         this.structurefield.setToolTipText("How this node's children relate: in sequence, one of them, "
                 + "repeated, or as roles in parallel");
         addRow(form, row++, "STRUCTURE:", this.structurefield);
+        if (anode.getParent() == null && anode.is(NodeType.ENTITY))
+        {
+            this.outsidefield = new JCheckBox("outside the information system (no instances: its roles are "
+                    + "entities in their own right)", anode.isOutside());
+            this.outsidefield.setOpaque(false);
+            addRow(form, row++, "HELD:", this.outsidefield);
+        }
         if (anode.is(NodeType.ACTION))
         {
             this.descriptionfield = textArea(anode.getDescription());
@@ -464,6 +475,22 @@ public class EditView extends JPanel
         if (this.attributemodel != null && attributes == null)
         {
             return;
+        }
+        if (this.outsidefield != null && this.outsidefield.isSelected() && !node.isOutside())
+        {
+            List<Attribute> losing = attributes != null ? attributes : node.getAttributes();
+            if (!losing.isEmpty() && JOptionPane.showConfirmDialog(this, node.getName() + " is to be outside the "
+                            + "information system, so its attributes (" + String.join(", ",
+                            losing.stream().map(Attribute::name).toList()) + ") will be removed.",
+                    "Outside the system", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION)
+            {
+                return;
+            }
+            attributes = List.of();
+        }
+        if (this.outsidefield != null)
+        {
+            node.setOutside(this.outsidefield.isSelected());
         }
         if (attributes != null)
         {
