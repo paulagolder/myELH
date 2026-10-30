@@ -47,6 +47,14 @@ public class EditView extends JPanel
     private JButton upbutton;
     private JButton downbutton;
     private JButton duplicatebutton;
+    // only there for an entity or a role: its attributes, one row each
+    private DefaultTableModel attributemodel;
+    private JTable attributetable;
+    private static final int NAMECOL = 0;
+    private static final int TYPECOL = 1;
+    private static final int REFERSCOL = 2;
+    private static final int KEYCOL = 3;
+    private static final int NOTECOL = 4;
 
     public EditView(MyElh app)
     {
@@ -65,9 +73,126 @@ public class EditView extends JPanel
         top.setOpaque(false);
         top.add(makeHeading(anode, project), BorderLayout.NORTH);
         top.add(makeForm(anode, project), BorderLayout.CENTER);
+        if (anode.getParent() == null || anode.is(NodeType.ENTITY) || anode.is(NodeType.ROLE))
+        {
+            top.add(makeAttributePanel(anode, project), BorderLayout.SOUTH);
+        }
         add(top, BorderLayout.NORTH);
         add(makeChildPanel(anode), BorderLayout.CENTER);
         add(makeButtons(anode), BorderLayout.SOUTH);
+    }
+
+    // an entity's or role's attributes, editable in place: name, type, the
+    // entity a reference refers to, whether it is a key, and a note
+    private JPanel makeAttributePanel(ElhNode anode, Project project)
+    {
+        JPanel panel = new JPanel(new BorderLayout(0, 2));
+        panel.setOpaque(false);
+        JLabel heading = new JLabel("ATTRIBUTES:");
+        // a role can also name those of the entity and roles it belongs to
+        List<String> inherited = new ArrayList<>();
+        for (ElhNode up = anode.getParent(); up != null; up = up.getParent())
+        {
+            for (Attribute attribute : up.getAttributes())
+            {
+                inherited.add(attribute.name() + " (" + up.getName() + ")");
+            }
+        }
+        if (!inherited.isEmpty())
+        {
+            heading.setText("ATTRIBUTES:   also has " + String.join(", ", inherited));
+        }
+        panel.add(heading, BorderLayout.NORTH);
+        this.attributemodel = new DefaultTableModel(new Object[]{"Name", "Type", "Refers to", "Key", "Note"}, 0)
+        {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Class<?> getColumnClass(int column)
+            {
+                return column == KEYCOL ? Boolean.class : column == TYPECOL ? Attribute.Type.class : String.class;
+            }
+
+            @Override
+            public boolean isCellEditable(int row, int column)
+            {
+                // only a reference refers to another entity
+                return column != REFERSCOL || getValueAt(row, TYPECOL) == Attribute.Type.REFERENCE;
+            }
+        };
+        for (Attribute attribute : anode.getAttributes())
+        {
+            this.attributemodel.addRow(new Object[]{attribute.name(), attribute.type(),
+                    attribute.refers() == null ? "" : attribute.refers(), attribute.key(), attribute.note()});
+        }
+        this.attributetable = new JTable(this.attributemodel);
+        this.attributetable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        this.attributetable.setFillsViewportHeight(true);
+        this.attributetable.setDefaultEditor(Attribute.Type.class,
+                new DefaultCellEditor(new JComboBox<>(Attribute.Type.values())));
+        JComboBox<String> entities = new JComboBox<>();
+        if (project != null)
+        {
+            project.getEntities().forEach(e -> entities.addItem(e.getName()));
+        }
+        entities.setEditable(true);
+        this.attributetable.getColumnModel().getColumn(REFERSCOL).setCellEditor(new DefaultCellEditor(entities));
+        this.attributetable.getColumnModel().getColumn(KEYCOL).setMaxWidth(50);
+        JScrollPane scroll = new JScrollPane(this.attributetable);
+        scroll.setPreferredSize(new Dimension(300, 100));
+        panel.add(scroll, BorderLayout.CENTER);
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+        buttons.setOpaque(false);
+        addButton(buttons, "Add Attribute", () ->
+        {
+            this.attributemodel.addRow(new Object[]{"", Attribute.Type.TEXT, "", false, ""});
+            int row = this.attributemodel.getRowCount() - 1;
+            this.attributetable.setRowSelectionInterval(row, row);
+            this.attributetable.editCellAt(row, NAMECOL);
+            this.attributetable.getEditorComponent().requestFocusInWindow();
+        });
+        addButton(buttons, "Remove Attribute", () ->
+        {
+            int row = this.attributetable.getSelectedRow();
+            if (row >= 0)
+            {
+                if (this.attributetable.isEditing()) this.attributetable.getCellEditor().cancelCellEditing();
+                this.attributemodel.removeRow(row);
+            }
+        });
+        buttons.add(new JLabel("  (saved with Save Edits)"));
+        panel.add(buttons, BorderLayout.SOUTH);
+        return panel;
+    }
+
+    // the attributes as the table now has them, or null, after saying why,
+    // if two have the same name
+    private List<Attribute> attributesFromTable()
+    {
+        if (this.attributetable.isEditing())
+        {
+            this.attributetable.getCellEditor().stopCellEditing();
+        }
+        List<Attribute> attributes = new ArrayList<>();
+        for (int row = 0; row < this.attributemodel.getRowCount(); row++)
+        {
+            String name = String.valueOf(this.attributemodel.getValueAt(row, NAMECOL)).strip();
+            if (name.isEmpty())
+            {
+                continue;
+            }
+            if (attributes.stream().anyMatch(a -> a.name().equalsIgnoreCase(name)))
+            {
+                JOptionPane.showMessageDialog(this, "There are two attributes called " + name, "Attributes",
+                        JOptionPane.ERROR_MESSAGE);
+                return null;
+            }
+            attributes.add(new Attribute(name, (Attribute.Type) this.attributemodel.getValueAt(row, TYPECOL),
+                    String.valueOf(this.attributemodel.getValueAt(row, REFERSCOL)),
+                    Boolean.TRUE.equals(this.attributemodel.getValueAt(row, KEYCOL)),
+                    String.valueOf(this.attributemodel.getValueAt(row, NOTECOL))));
+        }
+        return attributes;
     }
 
     // the node's name, with what it is and where it is
@@ -335,6 +460,15 @@ public class EditView extends JPanel
     private void saveEdits()
     {
         ElhNode node = this.activenode;
+        List<Attribute> attributes = this.attributemodel == null ? null : attributesFromTable();
+        if (this.attributemodel != null && attributes == null)
+        {
+            return;
+        }
+        if (attributes != null)
+        {
+            node.setAttributes(attributes);
+        }
         node.applyEdits(this.namefield.getText().trim(),
                 NodeType.fromXml((String) this.typefield.getSelectedItem()),
                 (ChildGrouping) this.structurefield.getSelectedItem());

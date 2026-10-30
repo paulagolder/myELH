@@ -26,6 +26,11 @@ public final class ElhNode
     private String result = "";
     // for an action, what it is, in the user's words
     private String description = "";
+    // for an entity or a role, the data held about it
+    private List<Attribute> attributes = new ArrayList<>();
+
+    // the element holding a node's attributes, among its child nodes
+    static final String ATTRIBUTES = "attributes";
 
     public ElhNode(NodeType type, String aname, ElhNode aparent)
     {
@@ -265,6 +270,16 @@ public final class ElhNode
         this.description = description == null ? "" : description.strip();
     }
 
+    public List<Attribute> getAttributes()
+    {
+        return List.copyOf(this.attributes);
+    }
+
+    public void setAttributes(List<Attribute> attributes)
+    {
+        this.attributes = new ArrayList<>(attributes);
+    }
+
     public String getEventref()
     {
         return this.eventref;
@@ -343,6 +358,12 @@ public final class ElhNode
     {
         Element element = new Element(getType());
         element.setAttribute("name", getName() == null ? "" : getName());
+        if (!this.attributes.isEmpty())
+        {
+            Element list = new Element(ATTRIBUTES);
+            this.attributes.forEach(a -> list.addContent(a.toElement()));
+            element.addContent(list);
+        }
         if (getChildgrouptype() != null)
         {
             element.setAttribute("childgrouptype", getChildgrouptype().xmlName());
@@ -473,6 +494,7 @@ public final class ElhNode
         if (is(NodeType.ELH)) return null;
         ElhNode newnode = new ElhNode(this.type, getName(), newparent);
         newnode.setChildgrouptype(getChildgrouptype());
+        newnode.setAttributes(this.attributes);
         newnode.setEventref(this.eventref);
         newnode.setCondition(this.condition);
         newnode.setResult(this.result);
@@ -496,6 +518,11 @@ public final class ElhNode
         {
             Element at = nl.get(i);
             String nodetype = at.getName();
+            if (nodetype.equals(ATTRIBUTES))
+            {
+                this.attributes = new ArrayList<>(at.getChildren("attribute").stream().map(Attribute::fromElement).toList());
+                continue;
+            }
             ElhNode anode = makeNode(nodetype, nodetype + " " + i, this);
             if (anode == null)
             {

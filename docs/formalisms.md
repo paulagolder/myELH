@@ -81,6 +81,8 @@ export to an existing engine rather than write one.
 
 ## Plan
 
+Steps 1 to 3 were done in October 2026.
+
 1. **State indicators, derived from the life histories (SSADM style).**
    Each entity has a state indicator. Each action gets a *valid prior* set
    of values (where the entity must be before it) and a *set to* value
@@ -93,7 +95,12 @@ export to an existing engine rather than write one.
    inside the system in their own style; exported as SVG.
 3. **Attributes.** A list of attributes per entity (its data model);
    conditions, results and activities inside the system can name them, and
-   the app checks that they exist.
+   the app checks that they exist. As built: entities and roles each have
+   attributes (name, type, key, note; a reference names another entity),
+   a role can also name its entity's, and each has its state indicator as
+   `state`. They are named `Role.attribute` (`Library Member.membership
+   number`); unknown roles or attributes in activities marked `>` and in
+   conditions and results are flagged.
 
 Later:
 

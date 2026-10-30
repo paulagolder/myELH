@@ -33,6 +33,9 @@ public class EventView extends JPanel
     // the shown event's process as a flowchart, shown instead of its details while flowchartmode is on
     private final FlowchartPanel flowchartpanel = new FlowchartPanel();
     private boolean flowchartmode;
+    // the project's entities, roles and attributes, for checking what
+    // happens inside the system; made afresh whenever an event is shown
+    private DataModel datamodel;
     private final MyElh app;
     // the events, each with its actions
     private final TreeView eventtree;
@@ -487,6 +490,7 @@ public class EventView extends JPanel
 
     private void showEvent(Project project, ProjectEvent event, EntityAction selectedaction)
     {
+        this.datamodel = DataModel.of(project);
         this.shownevent = event;
         this.namefield.setText(event.getName());
         this.descriptionfield.setText(event.getDescription());
@@ -602,8 +606,20 @@ public class EventView extends JPanel
     private void showProcessStatus()
     {
         EventProcess process = EventProcess.read(this.processfield.getText());
-        this.processstatus.setText(process.summary());
-        this.processstatus.setForeground(process.problems().isEmpty() ? Color.DARK_GRAY : TreeView.FLAGGED);
+        // what cannot be read comes first, then what happens inside the
+        // system that names unknown roles or attributes
+        List<String> checks = !process.problems().isEmpty() || this.datamodel == null ? List.of()
+                : this.datamodel.checkProcess(process);
+        if (!checks.isEmpty())
+        {
+            this.processstatus.setText(TreeView.FLAG.strip() + " " + checks.getFirst()
+                    + (checks.size() > 1 ? "  (and " + (checks.size() - 1) + " more)" : ""));
+        } else
+        {
+            this.processstatus.setText(process.summary());
+        }
+        this.processstatus.setForeground(process.problems().isEmpty() && checks.isEmpty()
+                ? Color.DARK_GRAY : TreeView.FLAGGED);
     }
 
     private void showTransaction(ProjectEvent event)
@@ -626,6 +642,27 @@ public class EventView extends JPanel
                 text.append("   ").append(describe(event, action)).append(": ")
                         .append(orNone(action.node().getResult())).append('\n');
             }
+        }
+        // the references to attributes in each condition and result
+        List<String> checks = new ArrayList<>();
+        if (this.datamodel != null)
+        {
+            for (EntityAction action : this.rowactions)
+            {
+                for (String problem : this.datamodel.check(action.node().getCondition()))
+                {
+                    checks.add(describe(event, action) + ", condition: " + problem);
+                }
+                for (String problem : this.datamodel.check(action.node().getResult()))
+                {
+                    checks.add(describe(event, action) + ", result: " + problem);
+                }
+            }
+        }
+        if (!checks.isEmpty())
+        {
+            text.append("\n\n").append(TreeView.FLAG.strip()).append(" Not known:\n   ")
+                    .append(String.join("\n   ", checks));
         }
         this.transactionfield.setText(text.toString().stripTrailing());
         this.transactionfield.setCaretPosition(0);
