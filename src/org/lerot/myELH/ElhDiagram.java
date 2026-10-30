@@ -62,11 +62,10 @@ public final class ElhDiagram
 
     // places adnode and everything below it, starting at xanchor; returns
     // the width the subtree takes up
-    private DimensionP layout(ElhDrawNode adnode, double xanchor, Graphics2D g2d)
+    private double layout(ElhDrawNode adnode, double xanchor, Graphics2D g2d)
     {
         adnode.measure(g2d);
         double width;
-        double height;
         double topy;
         if (adnode.hasParent())
         {
@@ -78,7 +77,6 @@ public final class ElhDiagram
         if (adnode.bounds.y + adnode.bounds.height + vs > maxheight)
             maxheight = adnode.bounds.y + adnode.bounds.height + vs;
         width = adnode.bounds.width;
-        height = adnode.bounds.height;
         if (adnode.hasChildren())
         {
             if (adnode.getChildren().size() > 1)
@@ -86,9 +84,9 @@ public final class ElhDiagram
                 width = -hs;
                 for (ElhDrawNode adrawnode : adnode.getChildren())
                 {
-                    DimensionP d = layout(adrawnode, xanchor, g2d);
-                    xanchor += d.width + hs;
-                    width += d.width + hs;
+                    double childwidth = layout(adrawnode, xanchor, g2d);
+                    xanchor += childwidth + hs;
+                    width += childwidth + hs;
                 }
                 ElhDrawNode first = adnode.getChildren().getFirst();
                 ElhDrawNode last = adnode.getChildren().getLast();
@@ -96,14 +94,13 @@ public final class ElhDiagram
             } else
             {
                 ElhDrawNode only = adnode.getChildren().getFirst();
-                DimensionP d = layout(only, xanchor, g2d);
+                width = layout(only, xanchor, g2d);
                 adnode.bounds.x = only.bounds.x + only.bounds.width / 2 - adnode.bounds.width / 2;
-                width = d.width;
             }
         }
         if (adnode.bounds.x + adnode.bounds.width + hs > maxwidth)
             maxwidth = adnode.bounds.x + adnode.bounds.width + hs;
-        return new DimensionP(width, height);
+        return width;
     }
 
     public double getWidth()
