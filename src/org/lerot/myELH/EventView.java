@@ -61,6 +61,9 @@ public class EventView extends JPanel
     private final List<EntityAction> rowactions = new ArrayList<>();
     // the whole transaction: every action's condition and result
     private final JTextArea transactionfield = new JTextArea(6, 30);
+    // how the event happens, step by step (see EventProcess), and what was read of it
+    private final JTextArea processfield = new JTextArea(8, 30);
+    private final JLabel processstatus = new JLabel(" ");
     // the actions selected in the browser
     private final List<EntityAction> chosenactions = new ArrayList<>();
     private final JTextArea chosenlist = new JTextArea(6, 30);
@@ -192,15 +195,49 @@ public class EventView extends JPanel
         });
         JScrollPane scroll = new JScrollPane(this.actiontable);
         scroll.setPreferredSize(new Dimension(300, 120));
-        actionpanel.add(scroll, BorderLayout.CENTER);
         this.transactionfield.setEditable(false);
         this.transactionfield.setLineWrap(true);
         this.transactionfield.setWrapStyleWord(true);
-        JPanel transactionpanel = new JPanel(new BorderLayout());
-        transactionpanel.setOpaque(false);
-        transactionpanel.add(new JLabel("TRANSACTION:"), BorderLayout.NORTH);
-        transactionpanel.add(new JScrollPane(this.transactionfield), BorderLayout.CENTER);
-        actionpanel.add(transactionpanel, BorderLayout.SOUTH);
+        // the process in a fixed-width font, so that its indentation lines up
+        this.processfield.setFont(new Font(Font.MONOSPACED, Font.PLAIN, this.processfield.getFont().getSize()));
+        this.processfield.setTabSize(4);
+        this.processfield.setToolTipText("<html>One activity a line, under its role:<br>"
+                + "&nbsp;&nbsp;Member:<br>&nbsp;&nbsp;&nbsp;&nbsp;fill in the application form<br>"
+                + "&gt; marks an activity inside the information system.<br>"
+                + "IF ... / ELSE / END, REPEAT ... / END and STOP give the flow; -- starts a comment.</html>");
+        this.processfield.getDocument().addDocumentListener(new javax.swing.event.DocumentListener()
+        {
+            public void insertUpdate(javax.swing.event.DocumentEvent e)
+            {
+                showProcessStatus();
+            }
+
+            public void removeUpdate(javax.swing.event.DocumentEvent e)
+            {
+                showProcessStatus();
+            }
+
+            public void changedUpdate(javax.swing.event.DocumentEvent e)
+            {
+                showProcessStatus();
+            }
+        });
+        JPanel processpanel = new JPanel(new BorderLayout(0, 2));
+        processpanel.setOpaque(false);
+        processpanel.add(new JScrollPane(this.processfield), BorderLayout.CENTER);
+        processpanel.add(this.processstatus, BorderLayout.SOUTH);
+        JTabbedPane lower = new JTabbedPane();
+        lower.addTab("Process", processpanel);
+        lower.addTab("Conditions & Results", new JScrollPane(this.transactionfield));
+        // a divider between the actions and the process, to be dragged as needed
+        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scroll, lower);
+        split.setResizeWeight(0.3);
+        split.setContinuousLayout(true);
+        split.setBorder(null);
+        split.setOpaque(false);
+        scroll.setPreferredSize(new Dimension(300, 90));
+        lower.setPreferredSize(new Dimension(300, 220));
+        actionpanel.add(split, BorderLayout.CENTER);
         panel.add(actionpanel, BorderLayout.CENTER);
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
         buttons.setOpaque(false);
@@ -446,6 +483,8 @@ public class EventView extends JPanel
         this.shownevent = event;
         this.namefield.setText(event.getName());
         this.descriptionfield.setText(event.getDescription());
+        this.processfield.setText(event.getProcess());
+        this.processfield.setCaretPosition(0);
         if (event.isInline())
         {
             this.keptin.setText(Project.PROJECTFILE);
@@ -477,6 +516,14 @@ public class EventView extends JPanel
 
     // every action's condition, all of which must hold, and every action's
     // result, all of which happen together
+    // what was read of the process, or the first line that could not be
+    private void showProcessStatus()
+    {
+        EventProcess process = EventProcess.read(this.processfield.getText());
+        this.processstatus.setText(process.summary());
+        this.processstatus.setForeground(process.problems().isEmpty() ? Color.DARK_GRAY : TreeView.FLAGGED);
+    }
+
     private void showTransaction(ProjectEvent event)
     {
         StringBuilder text = new StringBuilder();
@@ -530,6 +577,7 @@ public class EventView extends JPanel
         }
         event.setName(name);
         event.setDescription(this.descriptionfield.getText().trim());
+        event.setProcess(this.processfield.getText());
         EventActions.saveEvent(this, project, event);
         saveActions();
         this.app.eventsChanged();

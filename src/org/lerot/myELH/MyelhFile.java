@@ -91,7 +91,7 @@ public final class MyelhFile
     {
         return element.getName().equals(EVENT) && element.getAttribute("id") != null
                 && element.getChildren().stream().allMatch(c -> c.getName().equals("description")
-                || c.getName().equals("action"));
+                || c.getName().equals("process") || c.getName().equals("action"));
     }
 
     // an event's description from its details, in either form
@@ -150,7 +150,15 @@ public final class MyelhFile
         return entityFromElement(element);
     }
 
-    // an event's details: <event id="e2" name="Borrow"><description>...</description></event>
+    // an event's process, as written; empty if it has none
+    static String eventProcess(Element details)
+    {
+        Element process = details.getChild("process");
+        return process == null ? "" : process.getText();
+    }
+
+    // an event's details: <event id="e2" name="Borrow"><description>...</description>
+    // <process>...</process></event>
     public static Element eventElement(ProjectEvent event)
     {
         Element element = new Element(EVENT);
@@ -159,6 +167,13 @@ public final class MyelhFile
         if (!event.getDescription().isEmpty())
         {
             element.addContent(new Element("description").setText(event.getDescription()));
+        }
+        if (!event.getProcess().isEmpty())
+        {
+            // kept as written: its indentation matters
+            element.addContent(new Element("process")
+                    .setAttribute("space", "preserve", org.jdom2.Namespace.XML_NAMESPACE)
+                    .setText(event.getProcess()));
         }
         return element;
     }

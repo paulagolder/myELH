@@ -13,6 +13,8 @@ public final class ProjectEvent
     private String name;
     // what happens in the world when the event occurs
     private String description;
+    // how it happens, step by step, in the notation EventProcess reads
+    private String process = "";
     // the base name of its files, or null if it is kept inline
     private String file;
     // false while its details are still in its file, unread
@@ -57,6 +59,17 @@ public final class ProjectEvent
     void setDescription(String description)
     {
         this.description = description == null ? "" : description;
+    }
+
+    public String getProcess()
+    {
+        return this.process;
+    }
+
+    // kept as written, indentation and all, but for blank lines at either end
+    void setProcess(String process)
+    {
+        this.process = process == null ? "" : process.replaceAll("^(\\s*\\n)+", "").stripTrailing();
     }
 
     public String getFile()

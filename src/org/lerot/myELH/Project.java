@@ -160,8 +160,13 @@ public final class Project
                 // inline details are in <myelh>; projects saved before that kept
                 // the description (for a while called the action) in the list itself
                 Element details = inline == null ? null : MyelhFile.findEventElement(inline, id);
-                this.events.add(new ProjectEvent(id, eventname,
-                        MyelhFile.eventDescription(details != null ? details : entry)));
+                ProjectEvent event = new ProjectEvent(id, eventname,
+                        MyelhFile.eventDescription(details != null ? details : entry));
+                if (details != null)
+                {
+                    event.setProcess(MyelhFile.eventProcess(details));
+                }
+                this.events.add(event);
             }
             if (id.matches("e\\d+"))
             {
@@ -278,7 +283,7 @@ public final class Project
             if (event.isInline())
             {
                 // an event with nothing more than its id and name needs no details
-                if (!event.getDescription().isEmpty())
+                if (!event.getDescription().isEmpty() || !event.getProcess().isEmpty())
                 {
                     inline.addContent(MyelhFile.eventElement(event));
                 }
@@ -622,6 +627,7 @@ public final class Project
             details = root.getChildren(MyelhFile.EVENT).getFirst();
         }
         event.setDescription(details == null ? "" : MyelhFile.eventDescription(details));
+        event.setProcess(details == null ? "" : MyelhFile.eventProcess(details));
         event.setLoaded();
     }
 
