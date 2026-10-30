@@ -378,11 +378,11 @@ public class EditView extends JPanel
         buttons.setOpaque(false);
         JButton save = addButton(buttons, "Save Edits", this::saveEdits);
         save.setFont(save.getFont().deriveFont(Font.BOLD));
-        JButton newchild = addButton(buttons, "New Child ▾", null);
-        newchild.addActionListener(e -> makeNewChildMenu().show(newchild, 0, newchild.getHeight()));
-        JButton insertabove = addButton(buttons, "Insert Above Children", this::insertAbove);
-        // a new action can only be put above the children of an action or entity
-        insertabove.setEnabled(anode.is(NodeType.ACTION) || anode.is(NodeType.ENTITY));
+        JButton newchild = addButton(buttons, "New Child…", this::newChild);
+        newchild.setEnabled(!ChildTypes.allowed(anode).isEmpty());
+        JButton insertabove = addButton(buttons, "Insert Above Children…", this::insertAbove);
+        // only when there are children, and some type of node could hold them
+        insertabove.setEnabled(!ChildTypes.forInsertAbove(anode).isEmpty());
         JButton viewparent = addButton(buttons, "View Parent", () -> this.app.currenttreeview.actions("VIEW PARENT", anode));
         viewparent.setEnabled(anode.getParent() != null);
         return buttons;
@@ -513,42 +513,22 @@ public class EditView extends JPanel
         this.app.refresh();
     }
 
-    private JPopupMenu makeNewChildMenu()
-    {
-        JPopupMenu menu = new JPopupMenu();
-        addNewChildItem(menu, "Entity", NodeType.ENTITY);
-        addNewChildItem(menu, "Role", NodeType.ROLE);
-        addNewChildItem(menu, "Action", NodeType.ACTION);
-        return menu;
-    }
-
-    private void addNewChildItem(JPopupMenu menu, String label, NodeType type)
-    {
-        JMenuItem item = new JMenuItem(label);
-        item.addActionListener(e -> newChild(type));
-        menu.add(item);
-    }
-
-    private void newChild(NodeType type)
+    private void newChild()
     {
         ElhNode node = this.activenode;
-        if (type == NodeType.ACTION)
-        {
-            if (this.app.addAction(name -> node.addChild(type.xmlName(), name)) == null) return;
-        } else
-        {
-            String name = this.app.askNodeName(type.xmlName());
-            if (name == null) return;
-            node.addChild(type.xmlName(), name);
-        }
+        MyElh.NewNode chosen = this.app.askNewNode("New child of " + node.getName(), ChildTypes.allowed(node));
+        if (chosen == null) return;
+        node.addChild(new ElhNode(chosen.type(), chosen.name(), node));
         changed();
     }
 
     private void insertAbove()
     {
-        String name = this.app.askNodeName("action");
-        if (name == null) return;
-        this.activenode.insertabovechildren(name);
+        ElhNode node = this.activenode;
+        MyElh.NewNode chosen = this.app.askNewNode("Insert above the children of " + node.getName(),
+                ChildTypes.forInsertAbove(node));
+        if (chosen == null) return;
+        node.insertabovechildren(chosen.type(), chosen.name());
         changed();
     }
 }

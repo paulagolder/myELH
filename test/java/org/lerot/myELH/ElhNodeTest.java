@@ -295,7 +295,7 @@ class ElhNodeTest
     void addSiblingAddsToTheSameParent()
     {
         ElhNode person = makeTree().findChildnode("Person");
-        person.findChildnode("a").addSibling("Renews");
+        person.findChildnode("a").addSibling(NodeType.ACTION, "Renews");
         assertEquals(4, person.countChildren());
         assertSame(person, person.getChildren().get(3).getParent());
         assertEquals("Renews", person.getChildren().get(3).getName());
@@ -337,7 +337,8 @@ class ElhNodeTest
     void insertAboveChildrenPutsANewEventBetween()
     {
         ElhNode person = makeTree().findChildnode("Person");
-        person.insertabovechildren("Lifetime");
+        person.setChildgrouptype(ChildGrouping.OPTION);
+        person.insertabovechildren(NodeType.ACTION, "Lifetime");
         assertEquals(1, person.countChildren());
         ElhNode newevent = person.getChildren().getFirst();
         assertEquals(NodeType.ACTION, newevent.getNodeType());
@@ -345,6 +346,8 @@ class ElhNodeTest
         assertSame(person, newevent.getParent());
         assertEquals(3, newevent.countChildren());
         assertSame(newevent, newevent.findChildnode("a").getParent());
+        assertEquals(ChildGrouping.OPTION, newevent.getChildgrouptype(), "the structure moves down with the children");
+        assertEquals(ChildGrouping.SEQUENCE, person.getChildgrouptype());
     }
 
     @Test

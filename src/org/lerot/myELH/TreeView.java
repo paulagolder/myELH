@@ -667,13 +667,17 @@ public class TreeView extends JPanel implements ActionListener
             selectednode.moveright();
         } else if (comStr.startsWith("NEWCHILD"))
         {
-            String name = app.askNodeName(ElhNode.getDefaultChildtype());
-            if (name == null) return;
-            selectednode.addChild(ElhNode.getDefaultChildtype(), name);
+            MyElh.NewNode chosen = app.askNewNode("New child of " + selectednode.getName(),
+                    ChildTypes.allowed(selectednode));
+            if (chosen == null) return;
+            selectednode.addChild(new ElhNode(chosen.type(), chosen.name(), selectednode));
         } else if (comStr.startsWith("NEWSIBLING"))
         {
             if (selectednode.getParent() == null) return;
-            if (app.addAction(selectednode::addSibling) == null) return;
+            MyElh.NewNode chosen = app.askNewNode("New sibling of " + selectednode.getName(),
+                    ChildTypes.forSibling(selectednode));
+            if (chosen == null) return;
+            selectednode.addSibling(chosen.type(), chosen.name());
         } else if (comStr.startsWith("DELETE"))
         {
             // an entity's top node is removed with Remove from Project instead

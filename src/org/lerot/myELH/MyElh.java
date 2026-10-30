@@ -1026,13 +1026,56 @@ public class MyElh extends JFrame
         return done;
     }
 
-    // Asks for the name of a new action and adds it with adder. Which event
-    // it is part of is settled in the Events window. The new node, or null
-    // if the user cancels.
-    public ElhNode addAction(java.util.function.Function<String, ElhNode> adder)
+    // the type and name chosen for a new node
+    public record NewNode(NodeType type, String name)
     {
-        String name = askNodeName("action");
-        return name == null ? null : adder.apply(name);
+    }
+
+    // Asks for the type and name of a new node, the type limited to types,
+    // the first chosen to begin with. Which event a new action is part of is
+    // settled in the Events window. Null if the user cancels.
+    public NewNode askNewNode(String title, List<NodeType> types)
+    {
+        if (types.isEmpty()) return null;
+        JComboBox<NodeType> typebox = new JComboBox<>(types.toArray(NodeType[]::new));
+        typebox.setRenderer(new DefaultListCellRenderer()
+        {
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                    boolean selected, boolean focused)
+            {
+                return super.getListCellRendererComponent(list, ((NodeType) value).xmlName(), index, selected,
+                        focused);
+            }
+        });
+        typebox.setEnabled(types.size() > 1);
+        JTextField namefield = new JTextField(24);
+        JPanel form = new JPanel(new GridBagLayout());
+        GridBagConstraints c = new GridBagConstraints();
+        c.anchor = GridBagConstraints.WEST;
+        c.insets = new Insets(2, 2, 2, 6);
+        form.add(new JLabel("Type:"), c);
+        form.add(typebox, c);
+        c.gridy = 1;
+        form.add(new JLabel("Name:"), c);
+        c.fill = GridBagConstraints.HORIZONTAL;
+        form.add(namefield, c);
+        JOptionPane pane = new JOptionPane(form, JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
+        JDialog dialog = pane.createDialog(this, title);
+        dialog.addWindowFocusListener(new java.awt.event.WindowAdapter()
+        {
+            public void windowGainedFocus(java.awt.event.WindowEvent e)
+            {
+                namefield.requestFocusInWindow();
+            }
+        });
+        // Enter in the name field accepts
+        namefield.addActionListener(e -> pane.setValue(JOptionPane.OK_OPTION));
+        dialog.setVisible(true);
+        dialog.dispose();
+        if (!Objects.equals(pane.getValue(), JOptionPane.OK_OPTION)) return null;
+        String name = namefield.getText();
+        if (name == null || name.isBlank()) return null;
+        return new NewNode((NodeType) typebox.getSelectedItem(), name.trim());
     }
 
     // ---- the right-hand side ----

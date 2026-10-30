@@ -46,11 +46,6 @@ public final class ElhNode
         this.children = new ArrayList<>();
     }
 
-    public static String getDefaultChildtype()
-    {
-        return NodeType.ENTITY.xmlName();
-    }
-
     // a new node of the given type, or null if the type is not known
     public static ElhNode makeNode(String typename, String aname, ElhNode parent)
     {
@@ -101,12 +96,17 @@ public final class ElhNode
         return makeNode(typename, "new " + typename, parent);
     }
 
-    // puts a new action node between this node and its children
-    public void insertabovechildren(String aname)
+    // puts a new node between this node and its children, which move down a
+    // level below it; the new node takes over this node's structure, as it
+    // now holds the children, and this node is left with the one child
+    public ElhNode insertabovechildren(NodeType type, String aname)
     {
-        ElhNode newaction = new ElhNode(NodeType.ACTION, aname, this);
-        newaction.moveChildrenFrom(this);
-        addChild(newaction);
+        ElhNode newnode = new ElhNode(type, aname, this);
+        newnode.setChildgrouptype(getChildgrouptype());
+        newnode.moveChildrenFrom(this);
+        setChildgrouptype(ChildGrouping.SEQUENCE);
+        addChild(newnode);
+        return newnode;
     }
 
     public String toLongString()
@@ -228,12 +228,12 @@ public final class ElhNode
         this.children.add(e);
     }
 
-    // the new action, or null if this node is the top and so has no siblings
-    public ElhNode addSibling(String aname)
+    // the new node, or null if this node is the top and so has no siblings
+    public ElhNode addSibling(NodeType type, String aname)
     {
         ElhNode parent = getParent();
         if (parent == null) return null;
-        ElhNode sibling = new ElhNode(NodeType.ACTION, aname, parent);
+        ElhNode sibling = new ElhNode(type, aname, parent);
         parent.addChild(sibling);
         return sibling;
     }
