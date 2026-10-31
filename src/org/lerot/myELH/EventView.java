@@ -193,6 +193,12 @@ public class EventView extends JPanel
         actionpanel.setOpaque(false);
         actionpanel.add(new JLabel("ACTIONS (the entities' parts in this event):"), BorderLayout.NORTH);
         this.actiontable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        // room in Entity for the roles, as "Person / Employee / CounterStaff"
+        int[] widths = {220, 120, 140, 160, 160, 220};
+        for (int col = 0; col < widths.length; col++)
+        {
+            this.actiontable.getColumnModel().getColumn(col).setPreferredWidth(widths[col]);
+        }
         this.actiontable.addMouseListener(new MouseAdapter()
         {
             @Override
@@ -510,7 +516,7 @@ public class EventView extends JPanel
         {
             ElhNode node = action.node();
             this.rowactions.add(action);
-            this.actionmodel.addRow(new Object[]{action.entity().getName(), node.getName(), stateOf(node), node.getCondition(),
+            this.actionmodel.addRow(new Object[]{action.owner(), node.getName(), stateOf(node), node.getCondition(),
                     node.getResult(), node.getPath()});
             if (selectedaction != null && node == selectedaction.node())
             {
@@ -672,7 +678,7 @@ public class EventView extends JPanel
     private static String describe(ProjectEvent event, EntityAction action)
     {
         String wording = action.node().getName();
-        return action.entity().getName() + (wording.equalsIgnoreCase(event.getName()) ? "" : " (" + wording + ")");
+        return action.owner() + (wording.equalsIgnoreCase(event.getName()) ? "" : " (" + wording + ")");
     }
 
     private static String orNone(String text)
