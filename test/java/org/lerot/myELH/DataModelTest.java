@@ -78,7 +78,8 @@ class DataModelTest
     void unknownNamesAreReported()
     {
         DataModel model = DataModel.of(List.of(person()));
-        assertEquals(List.of("Library Member has no attribute \"phone\"", "no entity or role called Member"),
+        assertEquals(List.of("Library Member has no attribute \"phone\"",
+                        "no entity or role called Member: did you mean Library Member?"),
                 model.check("record Library Member.phone and Member.name"));
     }
 
@@ -127,7 +128,7 @@ class DataModelTest
     }
 
     @Test
-    void onlyActivitiesInsideTheSystemAreChecked()
+    void everyActivityAndConditionIsChecked()
     {
         DataModel model = DataModel.of(List.of(person()));
         EventProcess process = EventProcess.read("""
@@ -138,8 +139,50 @@ class DataModelTest
                     > issue Library Member.card number
                 Clerk:
                     > file the form
+                IF Library Member.colour is red
+                    CounterStaff: refuse
+                END
                 """);
-        assertEquals(List.of("line 5: Library Member has no attribute \"card\"",
-                "line 7: no entity or role called Clerk"), model.checkProcess(process));
+        assertEquals(List.of("line 2: no entity or role called Visitor",
+                "line 5: Library Member has no attribute \"card\"",
+                "line 7: no entity or role called Clerk",
+                "line 8: Library Member has no attribute \"colour\""), model.checkProcess(process));
+    }
+
+    @Test
+    void anEntityOutsideTheSystemCanActInTheWorld()
+    {
+        DataModel model = DataModel.of(List.of(outsidePerson()));
+        EventProcess process = EventProcess.read("""
+                person : presents themselves at reception
+                counterstaff : checks persons.id
+                IF person.id is satisfactory
+                    counterstaff: creates Library Member record
+                END
+                """);
+        assertEquals(List.of("line 2: no entity or role called persons: did you mean Person?",
+                "line 3: person is outside the information system: it has no attributes"),
+                model.checkProcess(process));
+    }
+
+    @Test
+    void aNearNameIsSuggested()
+    {
+        DataModel model = DataModel.of(List.of(person()));
+        assertEquals(List.of("line 1: no entity or role called Member: did you mean Library Member?",
+                "line 2: no entity or role called Counterstaf: did you mean CounterStaff?"),
+                model.checkProcess(EventProcess.read("Member: brings a book\nCounterstaf: scans it")));
+    }
+
+    @Test
+    void anUnknownAttributeSaysWhoseItIs()
+    {
+        DataModel model = DataModel.of(List.of(person()));
+        List<DataModel.Problem> problems = model.findProblems(EventProcess.read(
+                "CounterStaff: enters Library Member.phone and Member.name"));
+        assertEquals(2, problems.size());
+        assertEquals("Library Member", problems.getFirst().owner().name());
+        assertEquals("phone", problems.getFirst().attribute());
+        assertNull(problems.get(1).attribute(), "an unknown role has no attribute to add");
     }
 }

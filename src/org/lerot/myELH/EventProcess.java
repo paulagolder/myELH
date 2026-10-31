@@ -25,8 +25,9 @@ import java.util.regex.Pattern;
 //
 // A line "Role:" starts the activities of that role (a member of an entity
 // or a role in its life history); "Role: activity" is a single activity.
-// An activity marked ">" happens inside the information system, and is the
-// kind the app can check; any other happens outside it, in the world.
+// An activity marked ">" happens inside the information system; any other
+// happens outside it, in the world. The roles and Role.attribute references
+// of both are checked (see DataModel.findProblems).
 // IF ... / ELSE / END makes a decision, REPEAT ... / END a loop, STOP ends
 // the process. Keywords may be in any case; indentation is only for the
 // reader; a line starting "--" is a comment.

@@ -32,7 +32,9 @@ to build next.
   ```
 
   `IF ... / ELSE / END`, `REPEAT ... / END` and `STOP` give the flow; `--`
-  starts a comment. Only activities inside the system are to be checked.
+  starts a comment. Every activity's role and every `Role.attribute`
+  reference, including those in IF and REPEAT conditions, is checked; an
+  entity outside the system can act in the world but not inside it.
 
 ## How it maps onto existing formalisms
 
@@ -99,8 +101,10 @@ Steps 1 to 3 were done in October 2026.
    attributes (name, type, key, note; a reference names another entity),
    a role can also name its entity's, and each has its state indicator as
    `state`. They are named `Role.attribute` (`Library Member.membership
-   number`); unknown roles or attributes in activities marked `>` and in
-   conditions and results are flagged.
+   number`); unknown roles or attributes in an event's process and in
+   conditions and results are flagged, with the nearest known name
+   suggested, and attributes a process names that are missing can be added
+   from the Events window ("Add Missing Attributes").
 
 Later:
 

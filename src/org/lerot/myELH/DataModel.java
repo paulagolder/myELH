@@ -12,9 +12,8 @@ import java.util.Map;
 // the entity (and any role) it belongs to; each also has its state
 // indicator, named "state". An entity outside the information system has
 // no attributes or state, and passes none on: its roles are entities in
-// their own right. Used to check the references in what happens
-// inside the information system: activities marked ">" and actions'
-// conditions and results.
+// their own right. Used to check the roles and references in an event's
+// process, and the references in actions' conditions and results.
 public final class DataModel
 {
     // the name every entity and role's state indicator goes by
@@ -36,10 +35,21 @@ public final class DataModel
     {
     }
 
+    // something wrong in a process, on its line; where it is an attribute
+    // the entity or role does not have, the owner and the name given, so
+    // that the attribute can be added
+    public record Problem(int line, String message, Owner owner, String attribute)
+    {
+        public String toString()
+        {
+            return "line " + this.line + ": " + this.message;
+        }
+    }
+
     // by name in lower case, in the order found
     private final Map<String, Owner> owners = new LinkedHashMap<>();
-    // the names, in lower case, of entities outside the information system
-    private final java.util.Set<String> outside = new java.util.HashSet<>();
+    // the names of entities outside the information system, by name in lower case
+    private final Map<String, String> outside = new LinkedHashMap<>();
 
     private DataModel()
     {
@@ -64,7 +74,7 @@ public final class DataModel
     {
         if (node.isOutside())
         {
-            this.outside.add(node.getName().toLowerCase(Locale.ROOT));
+            this.outside.putIfAbsent(node.getName().toLowerCase(Locale.ROOT), node.getName());
             for (ElhNode child : node.getChildren())
             {
                 collect(child, List.of(), false);
@@ -108,12 +118,22 @@ public final class DataModel
     // the references to attributes in the text, and what is wrong with any
     // that do not resolve. A reference is a known entity or role name, a
     // dot, and one of its attribute names; where names contain spaces the
-    // longest known name is taken. A capitalised word before a dot that is
-    // not a known name is reported; anything else (e.g. "e.g.") is not a
-    // reference.
+    // longest known name is taken. A capitalised word, or one of three or
+    // more letters, before a dot that is not a known name is reported;
+    // anything else (e.g. "e.g.") is not a reference.
     public List<String> check(String text, List<Reference> found)
     {
-        List<String> problems = new ArrayList<>();
+        return checkText(text, 0, found).stream().map(Problem::message).toList();
+    }
+
+    public List<String> check(String text)
+    {
+        return check(text, null);
+    }
+
+    private List<Problem> checkText(String text, int line, List<Reference> found)
+    {
+        List<Problem> problems = new ArrayList<>();
         String lower = text.toLowerCase(Locale.ROOT);
         for (int dot = text.indexOf('.'); dot >= 0; dot = text.indexOf('.', dot + 1))
         {
@@ -125,23 +145,24 @@ public final class DataModel
             String outsidename = outsideEndingAt(lower, dot);
             if (outsidename != null && (owner == null || outsidename.length() > owner.name().length()))
             {
-                problems.add(text.substring(dot - outsidename.length(), dot)
-                        + " is outside the information system: it has no attributes");
+                problems.add(new Problem(line, text.substring(dot - outsidename.length(), dot)
+                        + " is outside the information system: it has no attributes", null, null));
                 continue;
             }
             if (owner == null)
             {
                 String word = lastWord(text.substring(0, dot));
-                if (!word.isEmpty() && Character.isUpperCase(word.charAt(0)))
+                if (!word.isEmpty() && (Character.isUpperCase(word.charAt(0)) || word.length() >= 3))
                 {
-                    problems.add("no entity or role called " + word);
+                    problems.add(new Problem(line, unknown(word), null, null));
                 }
                 continue;
             }
             Attribute attribute = attributeStartingAt(owner, lower, dot + 1);
             if (attribute == null)
             {
-                problems.add(owner.name() + " has no attribute \"" + firstWord(text.substring(dot + 1)) + "\"");
+                String name = firstWord(text.substring(dot + 1));
+                problems.add(new Problem(line, owner.name() + " has no attribute \"" + name + "\"", owner, name));
             } else if (found != null)
             {
                 found.add(new Reference(owner, attribute));
@@ -150,9 +171,50 @@ public final class DataModel
         return problems;
     }
 
-    public List<String> check(String text)
+    // "no entity or role called ...", with the nearest known name if there is one
+    private String unknown(String name)
     {
-        return check(text, null);
+        String near = nearest(name);
+        return "no entity or role called " + name + (near == null ? "" : ": did you mean " + near + "?");
+    }
+
+    // the entity or role whose name has the name as one of its words
+    // ("Member" for "Library Member"), or differs from it by a letter or two
+    private String nearest(String name)
+    {
+        String lower = name.strip().toLowerCase(Locale.ROOT);
+        List<String> names = new ArrayList<>(this.owners.values().stream().map(Owner::name).toList());
+        names.addAll(this.outside.values());
+        for (String known : names)
+        {
+            if (List.of(known.toLowerCase(Locale.ROOT).split("\\s+")).contains(lower)) return known;
+        }
+        for (String known : names)
+        {
+            if (lower.length() >= 4 && distance(lower, known.toLowerCase(Locale.ROOT)) <= 2) return known;
+        }
+        return null;
+    }
+
+    // the number of letters to add, remove or change to make one word the other
+    private static int distance(String a, String b)
+    {
+        int[] previous = new int[b.length() + 1];
+        int[] current = new int[b.length() + 1];
+        for (int j = 0; j <= b.length(); j++) previous[j] = j;
+        for (int i = 1; i <= a.length(); i++)
+        {
+            current[0] = i;
+            for (int j = 1; j <= b.length(); j++)
+            {
+                int change = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+                current[j] = Math.min(Math.min(current[j - 1] + 1, previous[j] + 1), previous[j - 1] + change);
+            }
+            int[] swap = previous;
+            previous = current;
+            current = swap;
+        }
+        return previous[b.length()];
     }
 
     // the longest known name that the text ends with just before the dot
@@ -177,7 +239,7 @@ public final class DataModel
     private String outsideEndingAt(String lower, int dot)
     {
         String best = null;
-        for (String name : this.outside)
+        for (String name : this.outside.keySet())
         {
             int start = dot - name.length();
             if (start >= 0 && lower.startsWith(name, start)
@@ -222,31 +284,58 @@ public final class DataModel
         return text.substring(0, i);
     }
 
-    // what is wrong in what happens inside the system in a process: each
-    // activity marked ">" must be by a known entity or role, and name only
-    // attributes there are; each problem says its line
+    // what is wrong in a process, each problem saying its line: every
+    // activity must be by a known entity or role, one inside the system
+    // (marked ">") by one held in it; and every activity and condition may
+    // name only attributes there are
+    public List<Problem> findProblems(EventProcess process)
+    {
+        List<Problem> problems = new ArrayList<>();
+        findProblems(process.steps(), problems);
+        // a name wrong as both the role and in a reference is said once
+        return problems.stream().distinct().toList();
+    }
+
     public List<String> checkProcess(EventProcess process)
     {
-        List<String> problems = new ArrayList<>();
-        for (EventProcess.Activity activity : process.activities())
+        return findProblems(process).stream().map(Problem::toString).toList();
+    }
+
+    private void findProblems(List<EventProcess.Step> steps, List<Problem> problems)
+    {
+        for (EventProcess.Step step : steps)
         {
-            if (!activity.internal())
+            switch (step)
             {
-                continue;
-            }
-            if (activity.role() != null && this.outside.contains(activity.role().strip().toLowerCase(Locale.ROOT)))
-            {
-                problems.add("line " + activity.line() + ": " + activity.role()
-                        + " is outside the information system: name one of its roles");
-            } else if (activity.role() != null && find(activity.role()) == null)
-            {
-                problems.add("line " + activity.line() + ": no entity or role called " + activity.role());
-            }
-            for (String problem : check(activity.text()))
-            {
-                problems.add("line " + activity.line() + ": " + problem);
+                case EventProcess.Activity activity ->
+                {
+                    String role = activity.role() == null ? null : activity.role().strip();
+                    boolean isoutside = role != null && this.outside.containsKey(role.toLowerCase(Locale.ROOT));
+                    if (isoutside && activity.internal())
+                    {
+                        problems.add(new Problem(activity.line(), role
+                                + " is outside the information system: name one of its roles", null, null));
+                    } else if (role != null && !isoutside && find(role) == null)
+                    {
+                        problems.add(new Problem(activity.line(), unknown(role), null, null));
+                    }
+                    problems.addAll(checkText(activity.text(), activity.line(), null));
+                }
+                case EventProcess.Decision decision ->
+                {
+                    problems.addAll(checkText(decision.condition(), decision.line(), null));
+                    findProblems(decision.yes(), problems);
+                    findProblems(decision.no(), problems);
+                }
+                case EventProcess.Loop loop ->
+                {
+                    problems.addAll(checkText(loop.condition(), loop.line(), null));
+                    findProblems(loop.body(), problems);
+                }
+                case EventProcess.Stop stop ->
+                {
+                }
             }
         }
-        return problems;
     }
 }

@@ -71,6 +71,11 @@ public class EventView extends JPanel
     // how the event happens, step by step (see EventProcess), and what was read of it
     private final JTextArea processfield = new JTextArea(8, 30);
     private final JLabel processstatus = new JLabel(" ");
+    // what is wrong in the process, each on its line; clicking one goes to the line
+    private final DefaultListModel<Object> problemmodel = new DefaultListModel<>();
+    private final JList<Object> problemlist = new JList<>(this.problemmodel);
+    private final JScrollPane problemscroll = new JScrollPane(this.problemlist);
+    private final JButton addattributesbutton = new JButton("Add Missing Attributes");
     // the actions selected in the browser
     private final List<EntityAction> chosenactions = new ArrayList<>();
     private final JTextArea chosenlist = new JTextArea(6, 30);
@@ -238,10 +243,30 @@ public class EventView extends JPanel
                 showProcessStatus();
             }
         });
+        this.problemlist.setVisibleRowCount(4);
+        this.problemlist.setForeground(TreeView.FLAGGED);
+        this.problemlist.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        this.problemlist.addListSelectionListener(e ->
+        {
+            if (!e.getValueIsAdjusting()) goToProblem(this.problemlist.getSelectedValue());
+        });
+        this.problemscroll.setVisible(false);
+        this.addattributesbutton.setToolTipText("Adds the attributes the process names but its entities "
+                + "and roles do not have");
+        this.addattributesbutton.addActionListener(e -> addMissingAttributes());
+        this.addattributesbutton.setVisible(false);
+        JPanel statusline = new JPanel(new BorderLayout(4, 0));
+        statusline.setOpaque(false);
+        statusline.add(this.processstatus, BorderLayout.CENTER);
+        statusline.add(this.addattributesbutton, BorderLayout.EAST);
+        JPanel checks = new JPanel(new BorderLayout(0, 2));
+        checks.setOpaque(false);
+        checks.add(statusline, BorderLayout.NORTH);
+        checks.add(this.problemscroll, BorderLayout.CENTER);
         JPanel processpanel = new JPanel(new BorderLayout(0, 2));
         processpanel.setOpaque(false);
         processpanel.add(new JScrollPane(this.processfield), BorderLayout.CENTER);
-        processpanel.add(this.processstatus, BorderLayout.SOUTH);
+        processpanel.add(checks, BorderLayout.SOUTH);
         JTabbedPane lower = new JTabbedPane();
         lower.addTab("Process", processpanel);
         lower.addTab("Conditions & Results", new JScrollPane(this.transactionfield));
@@ -609,23 +634,145 @@ public class EventView extends JPanel
         }
     }
 
+    // what was read of the process and, below it, everything wrong with it:
+    // first what cannot be read, then unknown roles and attributes
     private void showProcessStatus()
     {
         EventProcess process = EventProcess.read(this.processfield.getText());
-        // what cannot be read comes first, then what happens inside the
-        // system that names unknown roles or attributes
-        List<String> checks = !process.problems().isEmpty() || this.datamodel == null ? List.of()
-                : this.datamodel.checkProcess(process);
-        if (!checks.isEmpty())
+        List<Object> problems = new ArrayList<>(process.problems());
+        if (process.problems().isEmpty() && this.datamodel != null)
         {
-            this.processstatus.setText(TreeView.FLAG.strip() + " " + checks.getFirst()
-                    + (checks.size() > 1 ? "  (and " + (checks.size() - 1) + " more)" : ""));
-        } else
+            problems.addAll(this.datamodel.findProblems(process));
+        }
+        this.problemmodel.clear();
+        problems.forEach(this.problemmodel::addElement);
+        this.problemscroll.setVisible(!problems.isEmpty());
+        this.addattributesbutton.setVisible(!missingAttributes().isEmpty());
+        if (problems.isEmpty())
         {
             this.processstatus.setText(process.summary());
+            this.processstatus.setForeground(Color.DARK_GRAY);
+        } else
+        {
+            this.processstatus.setText(TreeView.FLAG.strip() + " " + problems.size()
+                    + (problems.size() == 1 ? " problem" : " problems") + " (click one to go to its line):");
+            this.processstatus.setForeground(TreeView.FLAGGED);
         }
-        this.processstatus.setForeground(process.problems().isEmpty() && checks.isEmpty()
-                ? Color.DARK_GRAY : TreeView.FLAGGED);
+        this.processstatus.getParent().getParent().revalidate();
+    }
+
+    // puts the cursor at the start of the problem's line in the process
+    private void goToProblem(Object problem)
+    {
+        int line = 0;
+        if (problem instanceof DataModel.Problem p)
+        {
+            line = p.line();
+        } else if (problem != null)
+        {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^line (\\d+):").matcher(problem.toString());
+            if (m.find()) line = Integer.parseInt(m.group(1));
+        }
+        if (line < 1) return;
+        try
+        {
+            this.processfield.setCaretPosition(this.processfield.getLineStartOffset(line - 1));
+            this.processfield.requestFocusInWindow();
+        } catch (javax.swing.text.BadLocationException e)
+        {
+            // the line has gone since the list was made
+        }
+    }
+
+    // the attributes the process names that their entities and roles do not
+    // have, each once
+    private List<DataModel.Problem> missingAttributes()
+    {
+        List<DataModel.Problem> missing = new ArrayList<>();
+        for (int i = 0; i < this.problemmodel.size(); i++)
+        {
+            if (this.problemmodel.get(i) instanceof DataModel.Problem p && p.attribute() != null && !p.attribute().isEmpty()
+                    && missing.stream().noneMatch(m -> m.owner() == p.owner() && m.attribute().equalsIgnoreCase(p.attribute())))
+            {
+                missing.add(p);
+            }
+        }
+        return missing;
+    }
+
+    // asks which of the missing attributes to add, and under what names (a
+    // name with spaces is read only to its first word), then adds them as
+    // text attributes to their entities and roles, which are saved
+    private void addMissingAttributes()
+    {
+        Project project = this.app.getProject();
+        List<DataModel.Problem> missing = missingAttributes();
+        if (project == null || missing.isEmpty()) return;
+        DefaultTableModel model = new DefaultTableModel(new Object[]{"Add", "Entity or role", "Attribute"}, 0)
+        {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Class<?> getColumnClass(int column)
+            {
+                return column == 0 ? Boolean.class : String.class;
+            }
+
+            @Override
+            public boolean isCellEditable(int row, int column)
+            {
+                return column != 1;
+            }
+        };
+        missing.forEach(p -> model.addRow(new Object[]{Boolean.TRUE, p.owner().name(), p.attribute()}));
+        JTable table = new JTable(model);
+        table.getColumnModel().getColumn(0).setMaxWidth(50);
+        JScrollPane scroll = new JScrollPane(table);
+        scroll.setPreferredSize(new Dimension(420, Math.min(300, 40 + 22 * missing.size())));
+        JPanel panel = new JPanel(new BorderLayout(0, 6));
+        panel.add(new JLabel("<html>Add these attributes, as text? Correct a name if need be:<br>"
+                + "only its first word was taken (\"phone\" for \"phone number\").</html>"), BorderLayout.NORTH);
+        panel.add(scroll, BorderLayout.CENTER);
+        if (JOptionPane.showConfirmDialog(this, panel, "Add Missing Attributes", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+        if (table.isEditing()) table.getCellEditor().stopCellEditing();
+        java.util.Set<ProjectEntity> changed = new java.util.LinkedHashSet<>();
+        for (int row = 0; row < missing.size(); row++)
+        {
+            String name = String.valueOf(model.getValueAt(row, 2)).strip();
+            if (!Boolean.TRUE.equals(model.getValueAt(row, 0)) || name.isEmpty()) continue;
+            ElhNode ownernode = missing.get(row).owner().node();
+            ProjectEntity entity = entityOf(project, ownernode);
+            ElhNode opened = entity == null ? null : this.app.openAt(entity, ownernode);
+            if (opened == null) continue;
+            List<Attribute> attributes = new ArrayList<>(opened.getAttributes());
+            if (attributes.stream().anyMatch(a -> a.name().equalsIgnoreCase(name))) continue;
+            attributes.add(new Attribute(name, Attribute.Type.TEXT, null, false, null));
+            opened.setAttributes(attributes);
+            changed.add(entity);
+        }
+        for (ProjectEntity entity : changed)
+        {
+            this.app.saveEntity(entity);
+        }
+        this.datamodel = DataModel.of(project);
+        showProcessStatus();
+    }
+
+    // the entity in whose life history the node is, found by name, as the
+    // node may be from a copy read only to be looked at
+    private static ProjectEntity entityOf(Project project, ElhNode node)
+    {
+        ElhNode top = node;
+        while (top.getParent() != null)
+        {
+            top = top.getParent();
+        }
+        ProjectEntity loaded = project.entityOf(top);
+        return loaded != null ? loaded : project.findEntity(top.getName());
     }
 
     private void showTransaction(ProjectEvent event)
