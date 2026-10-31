@@ -185,4 +185,37 @@ class DataModelTest
         assertEquals("phone", problems.getFirst().attribute());
         assertNull(problems.get(1).attribute(), "an unknown role has no attribute to add");
     }
+
+    @Test
+    void attributesCanBeListedInBrackets()
+    {
+        DataModel model = DataModel.of(List.of(person()));
+        List<DataModel.Reference> found = new ArrayList<>();
+        List<String> problems = model.check("enter Library Member(name, membership number , age) "
+                + "and CounterStaff (state)", found);
+        assertTrue(problems.isEmpty(), problems.toString());
+        assertEquals(List.of("name", "membership number", "age", "state"),
+                found.stream().map(r -> r.attribute().name()).toList());
+    }
+
+    @Test
+    void anUnknownAttributeInBracketsIsTakenWhole()
+    {
+        DataModel model = DataModel.of(List.of(person()));
+        List<DataModel.Problem> problems = model.findProblems(EventProcess.read(
+                "CounterStaff: > enters Library Member(name, phone number)"));
+        assertEquals(List.of("line 1: Library Member has no attribute \"phone number\""),
+                problems.stream().map(DataModel.Problem::toString).toList());
+        assertEquals("phone number", problems.getFirst().attribute());
+    }
+
+    @Test
+    void bracketsThatAreNotAListAreLeftAlone()
+    {
+        DataModel model = DataModel.of(List.of(outsidePerson()));
+        assertTrue(model.check("refuse the application (politely)").isEmpty());
+        assertEquals(List.of("no entity or role called Membr: did you mean Library Member?",
+                        "Person is outside the information system: it has no attributes"),
+                model.check("record Membr(name) and Person(name)"));
+    }
 }

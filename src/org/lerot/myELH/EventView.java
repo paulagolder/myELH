@@ -225,6 +225,7 @@ public class EventView extends JPanel
         this.processfield.setToolTipText("<html>One activity a line, under its role:<br>"
                 + "&nbsp;&nbsp;Member:<br>&nbsp;&nbsp;&nbsp;&nbsp;fill in the application form<br>"
                 + "&gt; marks an activity inside the information system.<br>"
+                + "Name attributes as Role.attribute, or several as Role(attribute, attribute).<br>"
                 + "IF ... / ELSE / END, REPEAT ... / END and STOP give the flow; -- starts a comment.</html>");
         this.processfield.getDocument().addDocumentListener(new javax.swing.event.DocumentListener()
         {
@@ -701,7 +702,7 @@ public class EventView extends JPanel
     }
 
     // asks which of the missing attributes to add, and under what names (a
-    // name with spaces is read only to its first word), then adds them as
+    // name with spaces after "Role." is read only to its first word), then adds them as
     // text attributes to their entities and roles, which are saved
     private void addMissingAttributes()
     {
@@ -731,7 +732,8 @@ public class EventView extends JPanel
         scroll.setPreferredSize(new Dimension(420, Math.min(300, 40 + 22 * missing.size())));
         JPanel panel = new JPanel(new BorderLayout(0, 6));
         panel.add(new JLabel("<html>Add these attributes, as text? Correct a name if need be:<br>"
-                + "only its first word was taken (\"phone\" for \"phone number\").</html>"), BorderLayout.NORTH);
+                + "after Role. only the first word is taken (\"phone\" for \"phone number\");<br>"
+                + "Role(phone number, age) gives names whole.</html>"), BorderLayout.NORTH);
         panel.add(scroll, BorderLayout.CENTER);
         if (JOptionPane.showConfirmDialog(this, panel, "Add Missing Attributes", JOptionPane.OK_CANCEL_OPTION,
                 JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION)

@@ -101,7 +101,8 @@ Steps 1 to 3 were done in October 2026.
    attributes (name, type, key, note; a reference names another entity),
    a role can also name its entity's, and each has its state indicator as
    `state`. They are named `Role.attribute` (`Library Member.membership
-   number`); unknown roles or attributes in an event's process and in
+   number`), or several at once as `Role(attribute, attribute)` (`Library
+   Member(full name, address, age)`); unknown roles or attributes in an event's process and in
    conditions and results are flagged, with the nearest known name
    suggested, and attributes a process names that are missing can be added
    from the Events window ("Add Missing Attributes").

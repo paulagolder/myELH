@@ -120,7 +120,10 @@ public final class DataModel
     // dot, and one of its attribute names; where names contain spaces the
     // longest known name is taken. A capitalised word, or one of three or
     // more letters, before a dot that is not a known name is reported;
-    // anything else (e.g. "e.g.") is not a reference.
+    // anything else (e.g. "e.g.") is not a reference. Several attributes of
+    // one entity or role can be named at once, in brackets after it:
+    // "Library Member(full name, address, age)", each name up to the next
+    // comma or the closing bracket.
     public List<String> check(String text, List<Reference> found)
     {
         return checkText(text, 0, found).stream().map(Problem::message).toList();
@@ -168,7 +171,53 @@ public final class DataModel
                 found.add(new Reference(owner, attribute));
             }
         }
+        for (int open = text.indexOf('('); open >= 0; open = text.indexOf('(', open + 1))
+        {
+            checkList(text, lower, open, line, found, problems);
+        }
         return problems;
+    }
+
+    // the attributes listed in brackets from open, if a name is before it
+    private void checkList(String text, String lower, int open, int line, List<Reference> found,
+                           List<Problem> problems)
+    {
+        int end = open;
+        while (end > 0 && text.charAt(end - 1) == ' ') end--;
+        Owner owner = ownerEndingAt(lower, end);
+        String outsidename = outsideEndingAt(lower, end);
+        if (outsidename != null && (owner == null || outsidename.length() > owner.name().length()))
+        {
+            problems.add(new Problem(line, text.substring(end - outsidename.length(), end)
+                    + " is outside the information system: it has no attributes", null, null));
+            return;
+        }
+        if (owner == null)
+        {
+            // only a word right up against the bracket is taken for a name:
+            // "refuse (politely)" is not a reference
+            String word = lastWord(text.substring(0, end));
+            if (end == open && !word.isEmpty() && (Character.isUpperCase(word.charAt(0)) || word.length() >= 3))
+            {
+                problems.add(new Problem(line, unknown(word), null, null));
+            }
+            return;
+        }
+        int close = text.indexOf(')', open);
+        String list = text.substring(open + 1, close < 0 ? text.length() : close);
+        for (String part : list.split(","))
+        {
+            String name = part.strip();
+            if (name.isEmpty()) continue;
+            Attribute attribute = owner.find(name);
+            if (attribute == null)
+            {
+                problems.add(new Problem(line, owner.name() + " has no attribute \"" + name + "\"", owner, name));
+            } else if (found != null)
+            {
+                found.add(new Reference(owner, attribute));
+            }
+        }
     }
 
     // "no entity or role called ...", with the nearest known name if there is one
@@ -179,7 +228,8 @@ public final class DataModel
     }
 
     // the entity or role whose name has the name as one of its words
-    // ("Member" for "Library Member"), or differs from it by a letter or two
+    // ("Member" for "Library Member"), or differs from it by a letter or two,
+    // or has a word a letter away from it
     private String nearest(String name)
     {
         String lower = name.strip().toLowerCase(Locale.ROOT);
@@ -192,6 +242,14 @@ public final class DataModel
         for (String known : names)
         {
             if (lower.length() >= 4 && distance(lower, known.toLowerCase(Locale.ROOT)) <= 2) return known;
+        }
+        // or a letter away from one of its words ("Membr" for "Library Member")
+        for (String known : names)
+        {
+            for (String word : known.toLowerCase(Locale.ROOT).split("\\s+"))
+            {
+                if (lower.length() >= 4 && distance(lower, word) <= 1) return known;
+            }
         }
         return null;
     }
