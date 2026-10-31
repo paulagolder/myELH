@@ -47,6 +47,8 @@ public class StyleMaps extends HashMap<String, StyleMap>
         NodeStyle anodestyle = new NodeStyle();
         anodestyle.put("textattop", Boolean.FALSE);
         anodestyle.put("rheight", 40.0D);
+        anodestyle.put("fill", Boolean.TRUE);
+        anodestyle.put("fillColor",  new Color(255, 200, 0));
         anodestyle.put("rectanglestyle", "hard");
         astylemap.put("action", anodestyle);
         NodeStyle anodestyle2 = new NodeStyle();
@@ -74,6 +76,9 @@ public class StyleMaps extends HashMap<String, StyleMap>
         astylemap.put("default", defstyle);
         return astylemap;
     }
+
+
+
 
     public static StyleMap makePrintStyles()
     {

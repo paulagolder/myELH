@@ -19,7 +19,7 @@ public class NodeStyle extends HashMap<String, Object>
         anodestyle.put("symbolColor", Color.blue);
         anodestyle.put("lineColor", Color.red);
         anodestyle.put("lineWidth", 1.0D);
-        anodestyle.put("fillColor",  Color.decode("#b09f9f"));
+        anodestyle.put("fillColor",  Color.decode("#8FD0C9"));
         anodestyle.put("fill", Boolean.TRUE);
         anodestyle.put("borderWidth", 2.0D);
         anodestyle.put("hspace", 20.0D);

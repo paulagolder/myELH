@@ -1,6 +1,7 @@
 package org.lerot.myELH;
 
 import java.awt.*;
+import java.awt.geom.GeneralPath;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +19,7 @@ public class ElhDrawNode
     ShapeD bounds = new ShapeD();
     private final ChildGrouping childgrouptype;
     private final ElhDrawNode parent;
-    private final double symbolshift = 10;
+    private final double symbolshift = 5;
 
     ElhDrawNode(ElhDiagram diagram, ElhNode anode, ElhDrawNode parent, int depth)
     {
@@ -195,9 +196,6 @@ public class ElhDrawNode
             default ->drawHardborder(g2d, acolor, bw);
         }
 
-
-
-
     }
 
     ShapeD DrawShape(Graphics2D g2d)
@@ -219,7 +217,17 @@ public class ElhDrawNode
         if (nodestylemap.getBoolean("fill"))
         {
             g2d.setColor(nodestylemap.getColor("fillColor"));
-            bounds.fillRect(g2d);
+            String rectstyle = nodestylemap.getString( "rectanglestyle");
+            switch (rectstyle)
+            {
+                case ("hard") -> bounds.fillRect(g2d);
+                case ("soft")  -> bounds.drawSoftRect(g2d);
+               // default ->drawHardborder(g2d, acolor, bw);
+            }
+
+
+
+
         }
         g2d.setColor(nodestylemap.getColor("textColor"));
         drawString(ftext, g2d, diagram.docfont, anchorx, anchory);
@@ -252,7 +260,7 @@ public class ElhDrawNode
     {
         ElhDrawNode adnode = this;
         adnode.DrawShape((Graphics2D) g2d);
-        adnode.drawSymbols(g2d);
+       // adnode.drawSymbols(g2d);
         if (diagram.states != null && diagram.states.stateOf(this.source) != null)
         {
             drawState(g2d, diagram.states.stateOf(this.source).label());
@@ -260,13 +268,14 @@ public class ElhDrawNode
         if (adnode.hasParent())
         {
             drawUpLine(g2d);
+            adnode.drawSymbols(g2d);
         }
-        if (diagram.layoutstyle == LayoutStyle.JACKSON) drawJacksonSymbols(g2d);
+       // if (diagram.layoutstyle == LayoutStyle.JACKSON) drawJacksonSymbols(g2d);
         if (adnode.hasChildren())
         {
             if (diagram.layoutstyle != LayoutStyle.SIMPLE) drawTriangle(g2d);
             if (diagram.layoutstyle == LayoutStyle.JACKSON || diagram.layoutstyle == LayoutStyle.SIMPLE) drawDownLine(g2d);
-            else drawSymbols(g2d);
+            //else drawSymbols(g2d);
             drawHorizontalLine(g2d);
             for (ElhDrawNode adrawnode : adnode.children)
             {
@@ -289,7 +298,6 @@ public class ElhDrawNode
 
     private void drawDownLine(Graphics g2d)
     {
-
         double h = bounds.height;
         double  w= bounds.width;
         double vs =  diagram.vs;
@@ -332,15 +340,13 @@ public class ElhDrawNode
         g2d.drawLine((int) x, (int) (y+dy), (int) x2, (int) (y+dy));
     }
 
-    private void drawJacksonLine(Graphics g2d)
+ /*   private void drawJacksonLine(Graphics g2d)
     {
-
         drawHorizontalLine(g2d);
     }
 
-    private void drawJacksonSymbol(Graphics g2d, String text)
+   private void drawJacksonSymbol(Graphics g2d, String text)
     {
-
         double x = bounds.x + bounds.width/2;
         double y = bounds.y;
         FontMetrics fm = g2d.getFontMetrics();
@@ -349,6 +355,35 @@ public class ElhDrawNode
         double sy = y + fm.getAscent();
         g2d.drawString(text, sx, (int) sy);
     }
+
+    private void drawJacksonStar(Graphics g2d)
+    {
+        double x = bounds.x + bounds.width/2;
+        double y = bounds.y;
+        FontMetrics fm = g2d.getFontMetrics();
+        Rectangle2D r = fm.getStringBounds(text, g2d);
+        int sx = (int) (x - r.getWidth());
+        double sy = y + fm.getAscent();
+        Graphics2D g2 = (Graphics2D) g2d;
+
+        // draw GeneralPath (polyline)
+        int x2Points[] = {0, -10, +10, 0,0,0,0};
+        int y2Points[] = {0, 0, 0, 0,+10,-10,0};
+        GeneralPath polyline =
+                new GeneralPath(GeneralPath.WIND_EVEN_ODD, x2Points.length);
+
+        polyline.moveTo (x2Points[0], y2Points[0]);
+
+        for (int index = 1; index < x2Points.length; index++) {
+            polyline.lineTo(x2Points[index], y2Points[index]);
+        };
+        g2.draw(polyline);
+
+
+    }
+
+
+
 
     private void drawJacksonSymbols(Graphics g2d)
     {
@@ -362,20 +397,21 @@ public class ElhDrawNode
         }
         switch (this.getparent().getChildgrouptype())
         {
-            case REPETITION -> drawJacksonSymbol(g2d, "*");
-            case OPTION -> drawJacksonSymbol(g2d, "O");
+           // case REPETITION -> drawJacksonSymbol(g2d, "*");
+            case REPETITION -> drawSymbolStar(g2d);
+            case OPTION -> drawSymbolCircle(g2d);
             default -> { }
         }
-    }
+    } */
 
     private void drawSymbols(Graphics g2d)
     {
         g2d.setColor(Color.BLACK);
-        switch (this.getChildgrouptype())
+        switch (this.parent.getChildgrouptype())
         {
             case REPETITION -> drawSymbolStar(g2d);
             case OPTION -> drawSymbolCircle(g2d);
-            case ROLEGROUP -> drawParallellLines(g2d);
+            case ROLEGROUP -> this.parent.drawParallellLines(g2d);
             default -> { }
         }
     }
@@ -387,29 +423,35 @@ public class ElhDrawNode
         double y1 = bounds.y+symbolshift;
         double x2 = x1 + r;
         double y2 = y1;
-        double r2 = r * 0.7D;
-        g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
+        double d = java.lang.Math.sqrt(2)/2.0;
+        double r2 = r * d;//
+
+        Graphics2D g2 = (Graphics2D)g2d;
+        float userWidth = (float)(1.0);
+        g2.setStroke(new BasicStroke(userWidth));
+
+        g2.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
         x2 = x1 - r;
         y2 = y1;
-        g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
+        g2.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
         x2 = x1;
         y2 = y1 - r;
-        g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
+        g2.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
         x2 = x1;
         y2 = y1 + r;
-        g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
+        g2.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
         x2 = x1 + r2;
         y2 = y1 + r2;
-        g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
+        g2.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
         x2 = x1 - r2;
         y2 = y1 - r2;
-        g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
+        g2.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
         x2 = x1 - r2;
         y2 = y1 + r2;
-        g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
+        g2.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
         x2 = x1 + r2;
         y2 = y1 - r2;
-        g2d.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
+        g2.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
     }
 
     private void drawString(String[] label, Graphics g2d, Font afont, double x, double y)
@@ -435,7 +477,7 @@ public class ElhDrawNode
     {
         double r=5;
         double x1 = bounds.x+bounds.width-symbolshift;
-        double y1 = bounds.y+symbolshift;
+        double y1 = bounds.y+symbolshift/2;
       //  double sx = x - r / 2.0D + 1.0D;
       //  double sy = y - 2.0D;
         g2d.drawOval((int) x1, (int) y1, (int) r, (int) r);
