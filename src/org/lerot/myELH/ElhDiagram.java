@@ -60,7 +60,7 @@ public final class ElhDiagram
         return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB).createGraphics();
     }
 
-    // places adnode and everything below it, starting at xanchor; returns
+    // virtually places adnode and everything below it, starting at xanchor; returns
     // the width the subtree takes up
     private double layout(ElhDrawNode adnode, double xanchor, Graphics2D g2d)
     {

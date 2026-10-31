@@ -221,12 +221,9 @@ public class ElhDrawNode
             switch (rectstyle)
             {
                 case ("hard") -> bounds.fillRect(g2d);
-                case ("soft")  -> bounds.drawSoftRect(g2d);
+                case ("soft")  -> bounds.fillSoftRect(g2d);
                // default ->drawHardborder(g2d, acolor, bw);
             }
-
-
-
 
         }
         g2d.setColor(nodestylemap.getColor("textColor"));

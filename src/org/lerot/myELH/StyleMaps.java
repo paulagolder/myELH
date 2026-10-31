@@ -93,10 +93,14 @@ public class StyleMaps extends HashMap<String, StyleMap>
         anodestyle2.put("underlinetitle", Boolean.TRUE);
         astylemap.put("entity", anodestyle2);
         NodeStyle rolestyle = new NodeStyle();
+        rolestyle.put("fill", Boolean.TRUE);
+        rolestyle.put("fillColor", Color.pink);
         rolestyle.put("textattop", Boolean.TRUE);
         rolestyle.put("underlinetitle", Boolean.TRUE);
         astylemap.put("role", rolestyle);
         NodeStyle rolegstyle = new NodeStyle();
+        rolegstyle.put("fill", Boolean.TRUE);
+        rolegstyle.put("fillColor", Color.pink);
         rolegstyle.put("textattop", Boolean.TRUE);
         rolegstyle.put("underlinetitle", Boolean.TRUE);
         astylemap.put("rolegroup", rolegstyle);

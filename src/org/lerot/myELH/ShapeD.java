@@ -80,6 +80,17 @@ public class ShapeD
         g2d.fillRect(shapei.x,shapei.y,shapei.width,shapei.height);
     }
 
+    public void fillSoftRect(Graphics2D g2d)
+    {
+        ShapeI shapei = getShapeI();
+        int arcWidth = 20;  // Horizontal diameter of the corner arc
+        int arcHeight = 20; // Vertical diameter of the corner arc
+        g2d.fillRoundRect(shapei.x,shapei.y,shapei.width,shapei.height, arcWidth, arcHeight);
+    }
+
+
+
+
     public void drawRect(Graphics2D g2d)
     {
         ShapeI shapei = getShapeI();
