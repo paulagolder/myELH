@@ -1,0 +1,40 @@
+7.8. LIFE HISTORIES AND ACTIONS
+Any object or role can have a life history. A life history is a set of actions:
+Object. Employee
+{
+action. Recruit {}
+action. Promote {}
+action. Discharge{}
+}
+An action has two parts, a condition which must be true before it can be performed
+and an executable part.
+Object. Action
+{
+attribute. Condition ;
+attribute. Do ;
+}
+When a object is instructed to perform an Action, if the Action is defined for that
+object, the Action described by Do is performed if the Condition specified is true.
+Any object that suffers actions has a SysStatus which is the last action suffered.
+Example
+OBJECT. Action. Promote
+{
+Owned By: Employee;
+Condition: if $today - Start Date > 2 ;
+Do: "Grade: Next(Grade);";
+}
+This states that Promote is an instance of Action which is OwnedBy the class
+Employee. If an instance of Employee is sent the message Promote then the
+Condition will be checked for that instance i.e. is today more than two years
+greater than the Employee’s StartDate. If so the function Next is applied to the
+Employee’s Grade and Grade takes the result. SysStatus will take the value
+Promote.
+-125-Chapter 7
+The CORD Model
+If Brown is an instance of Employee:
+then
+Brown > Promote;
+will cause the object Brown to suffer the Action Promote.
+The necessary language for specifying the Do parts of actions has not been
+developed. For the subsequent Statistical Summary Tables only the concept of
+SysStatus is really necessary.

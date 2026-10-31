@@ -77,9 +77,6 @@ public class StyleMaps extends HashMap<String, StyleMap>
         return astylemap;
     }
 
-
-
-
     public static StyleMap makePrintStyles()
     {
         StyleMap astylemap = new StyleMap();
@@ -111,7 +108,6 @@ public class StyleMaps extends HashMap<String, StyleMap>
         defstyle.put("fill", Boolean.FALSE);
         defstyle.put("fillColor", Color.green);
         astylemap.put("default", defstyle);
-
         return astylemap;
     }
 }
